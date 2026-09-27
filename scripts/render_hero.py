@@ -23,7 +23,7 @@ RNG = random.Random(10823)
 FONT_SIZE = 125
 TOP = 122
 START_X = 223
-AMBIENT_SECONDS = 18
+AMBIENT_SECONDS = 48
 FIELD_LEFT = -210
 FIELD_SPAN = 1290
 
@@ -99,7 +99,7 @@ def backdrop(t):
     halo = np.exp(-(((x-972)/440)**2 + ((y-205)/285)**2) * 1.4)
     left = np.exp(-(((x-235)/620)**2 + ((y-260)/300)**2) * 1.2)
     center = np.exp(-(((x-670)/490)**2 + ((y-239)/130)**2))
-    pulse = .97 + .03 * (math.cos((t-5)*math.tau/AMBIENT_SECONDS) if t >= 5 else math.sin(t*.52))
+    pulse = .97 + .03 * math.cos(t*math.tau/AMBIENT_SECONDS)
     rgb = np.zeros((H, W, 3), dtype=np.uint8)
     for c, value in enumerate((4, 8, 12)):
         rgb[:, :, c] = np.clip(value + halo*(3, 9, 16)[c]*pulse + left*(0, 2, 5)[c]
@@ -107,16 +107,15 @@ def backdrop(t):
     return Image.fromarray(rgb, "RGB").convert("RGBA")
 
 
-def field_position(point, t, ambient):
+def field_position(point, t):
     x, y, z, size, phase = point
-    # The near field advances faster than the far field and gradually opens up.
-    travel = min(t, 5) / 5
+    # One continuous trajectory drives the intro and the ambient loop. Depth
+    # expansion settles smoothly while the slow horizontal flow never resets.
+    travel = smooth(min(t, 5) / 5)
     factor = 1 + z * .45 * travel
-    px = x*factor - z*50*travel
-    py = (y-H/2)*factor + H/2
-    if ambient:
-        px = FIELD_LEFT + ((px-FIELD_LEFT + FIELD_SPAN*(t-5)/AMBIENT_SECONDS) % FIELD_SPAN)
-        py += math.sin((t-5)*math.tau/AMBIENT_SECONDS + phase)*1.5
+    drift = FIELD_SPAN*t/AMBIENT_SECONDS
+    px = FIELD_LEFT + ((x*factor-z*50*travel+drift-FIELD_LEFT) % FIELD_SPAN)
+    py = (y-H/2)*factor + H/2 + math.sin(t*math.tau/AMBIENT_SECONDS + phase)*1.5
     return px, py, size*(.5+z*1.5)
 
 
@@ -139,41 +138,38 @@ def render(t, ambient=False):
 
     network = Image.new("RGBA", (W, H))
     d = ImageDraw.Draw(network, "RGBA")
-    positioned = [field_position(point, t, ambient) for point in FIELD]
+    positioned = [field_position(point, t) for point in FIELD]
     for i, j in LINES:
         x1, y1, _ = positioned[i]
         x2, y2, _ = positioned[j]
         if math.hypot(x1-x2, y1-y2) > 150:
             continue
-        cycle = (t-5)*math.tau/AMBIENT_SECONDS if ambient else t*.7
+        cycle = t*math.tau/AMBIENT_SECONDS
         opacity = round((33 + 54*FIELD[i][2]) * (.88 + .12*math.sin(cycle+i)) *
                         min(field_fade(x1), field_fade(x2)))
         d.line((x1, y1, x2, y2), fill=(111, 160, 207, opacity), width=1)
     for i, (x, y, scale) in enumerate(positioned):
         z = FIELD[i][2]
-        flicker = .8 + .2*math.sin(((t-5)*math.tau/AMBIENT_SECONDS if ambient else t*1.4)+FIELD[i][4])
+        flicker = .8 + .2*math.sin(t*math.tau/AMBIENT_SECONDS+FIELD[i][4])
         r = .65 + scale*.79
         fade = field_fade(x)
         d.ellipse((x-r, y-r, x+r, y+r), fill=(189, 224, 250, int((78+155*z)*flicker*fade)))
-        if i % 10 == 0 and ambient:
+        if i % 10 == 0:
             d.line((x-5-8*z, y, x-2, y), fill=(121, 177, 223, int(68*fade)), width=1)
         if i % 9 == 0:
             d.ellipse((x-r*2.5, y-r*2.5, x+r*2.5, y+r*2.5), outline=(75, 137, 190, int(24*fade)))
     for i, (sx, sy, z, size, rotation, phase) in enumerate(SHARDS):
-        travel = min(t, 5)/5
-        x = sx*(1+z*.58*travel)-z*39*travel
-        y = (sy-H/2)*(1+z*.43*travel)+H/2
-        if ambient:
-            x = FIELD_LEFT + ((x-FIELD_LEFT + FIELD_SPAN*(t-5)/AMBIENT_SECONDS) % FIELD_SPAN)
+        travel = smooth(min(t, 5)/5)
+        drift = FIELD_SPAN*t/AMBIENT_SECONDS
+        x = FIELD_LEFT + ((sx*(1+z*.58*travel)-z*39*travel+drift-FIELD_LEFT) % FIELD_SPAN)
+        y = (sy-H/2)*(1+z*.43*travel)+H/2 + math.sin(t*math.tau/AMBIENT_SECONDS+phase)*1.5
         size *= (.38+z*.95)*(1+.38*travel)
-        angle = rotation + (1-travel)*t*(.22+.22*z)
-        if ambient:
-            angle += math.sin((t-5)*math.tau/AMBIENT_SECONDS+phase)*.035
+        angle = rotation + (1-travel)*t*(.22+.22*z) + math.sin(t*math.tau/AMBIENT_SECONDS+phase)*.035
         corners = []
         for k, radius in enumerate((1, .84, 1.28, .59)):
             a = angle+k*math.tau/4
             corners.append((x+math.cos(a)*size*radius, y+math.sin(a)*size*radius*.83))
-        cycle = (t-5)*math.tau/AMBIENT_SECONDS if ambient else t*.48
+        cycle = t*math.tau/AMBIENT_SECONDS
         alpha = round((58+145*z)*(.82+.18*math.sin(cycle+phase))*field_fade(x))
         d.polygon(corners, fill=(37, 77, 113, alpha//4))
         d.line(corners+[corners[0]], fill=(171, 208, 238, alpha), width=1)
@@ -202,8 +198,7 @@ def render(t, ambient=False):
             dx, dy = px-item["cx"], py-item["cy"]
             poly.append((cx + scale*(dx*cos_a-dy*sin_a), cy + scale*(dx*sin_a+dy*cos_a)))
         opacity = int((.24 + .76*progress) * (145 + (i*53 % 94)))
-        if ambient:
-            opacity = int(opacity*(.975+.025*math.sin((t-5)*math.tau/AMBIENT_SECONDS+i*.7)))
+        opacity = int(opacity*(.975+.025*math.sin(t*math.tau/AMBIENT_SECONDS+i*.7)))
         color = (*item["shade"], opacity)
         fd.polygon(poly, fill=color)
         ed.line(poly+[poly[0]], fill=(156, 204, 240, int(opacity*.42)), width=1)
