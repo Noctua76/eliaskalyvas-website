@@ -78,13 +78,14 @@ def make_facets():
 
 FACETS = make_facets()
 FIELD = [
-    (RNG.uniform(-140, 710), RNG.uniform(5, 490), RNG.uniform(.12, 1), RNG.uniform(.2, 1), RNG.uniform(0, 6.28))
-    for _ in range(154)
+    (RNG.uniform(FIELD_LEFT, FIELD_LEFT+FIELD_SPAN), RNG.uniform(5, 490),
+     RNG.uniform(.12, 1), RNG.uniform(.2, 1), RNG.uniform(0, 6.28))
+    for _ in range(190)
 ]
 SHARDS = [
-    (RNG.uniform(-60, 450), RNG.uniform(62, 455), RNG.uniform(.2, 1),
+    (RNG.uniform(FIELD_LEFT, FIELD_LEFT+FIELD_SPAN), RNG.uniform(62, 455), RNG.uniform(.2, 1),
      RNG.uniform(9, 29), RNG.uniform(-3, 3), RNG.uniform(0, math.tau))
-    for _ in range(27)
+    for _ in range(42)
 ]
 LINES = []
 for i, (x, y, z, _, _) in enumerate(FIELD):
@@ -145,15 +146,17 @@ def render(t, ambient=False):
         if math.hypot(x1-x2, y1-y2) > 150:
             continue
         cycle = (t-5)*math.tau/AMBIENT_SECONDS if ambient else t*.7
-        opacity = round((19 + 31*FIELD[i][2]) * (.88 + .12*math.sin(cycle+i)) *
+        opacity = round((33 + 54*FIELD[i][2]) * (.88 + .12*math.sin(cycle+i)) *
                         min(field_fade(x1), field_fade(x2)))
         d.line((x1, y1, x2, y2), fill=(111, 160, 207, opacity), width=1)
     for i, (x, y, scale) in enumerate(positioned):
         z = FIELD[i][2]
         flicker = .8 + .2*math.sin(((t-5)*math.tau/AMBIENT_SECONDS if ambient else t*1.4)+FIELD[i][4])
-        r = .45 + scale*.68
+        r = .65 + scale*.79
         fade = field_fade(x)
-        d.ellipse((x-r, y-r, x+r, y+r), fill=(189, 224, 250, int((61+142*z)*flicker*fade)))
+        d.ellipse((x-r, y-r, x+r, y+r), fill=(189, 224, 250, int((78+155*z)*flicker*fade)))
+        if i % 10 == 0 and ambient:
+            d.line((x-5-8*z, y, x-2, y), fill=(121, 177, 223, int(68*fade)), width=1)
         if i % 9 == 0:
             d.ellipse((x-r*2.5, y-r*2.5, x+r*2.5, y+r*2.5), outline=(75, 137, 190, int(24*fade)))
     for i, (sx, sy, z, size, rotation, phase) in enumerate(SHARDS):
@@ -171,7 +174,7 @@ def render(t, ambient=False):
             a = angle+k*math.tau/4
             corners.append((x+math.cos(a)*size*radius, y+math.sin(a)*size*radius*.83))
         cycle = (t-5)*math.tau/AMBIENT_SECONDS if ambient else t*.48
-        alpha = round((28+112*z)*(.82+.18*math.sin(cycle+phase))*field_fade(x))
+        alpha = round((58+145*z)*(.82+.18*math.sin(cycle+phase))*field_fade(x))
         d.polygon(corners, fill=(37, 77, 113, alpha//4))
         d.line(corners+[corners[0]], fill=(171, 208, 238, alpha), width=1)
         d.line((corners[0], corners[2]), fill=(178, 216, 246, alpha//2), width=1)
@@ -218,7 +221,7 @@ def render(t, ambient=False):
     # The moving facets settle into exactly the same font, cap height and
     # off-white material as STORM. The solid pass also closes every edge pixel.
     solid_brain = Image.new("RGBA", (W, H), (238, 243, 248, 255))
-    solid_reveal = 1 if ambient else smooth((t-3.45)/1.35)
+    solid_reveal = 1 if ambient else smooth((t-3.25)/.95)
     solid_brain.putalpha(brain_mask.point(lambda value: round(value*solid_reveal)))
     network = Image.alpha_composite(network, solid_brain)
 
