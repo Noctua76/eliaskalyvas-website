@@ -45,10 +45,10 @@ const translations = {
 };
 
 const lines = [
-  { id: 'near', d: 'M 5 846 C 310 783 555 688 795 603 S 1125 563 1177 503', duration: '6.8s', delay: '-2.2s' },
-  { id: 'right', d: 'M 705 1080 C 842 880 1002 717 1174 626 S 1378 532 1307 499', duration: '7.4s', delay: '-4.7s' },
-  { id: 'middle', d: 'M 4 699 C 335 638 656 547 893 500 S 1152 454 1301 462', duration: '5.9s', delay: '-1.1s' },
-  { id: 'portal', d: 'M 775 459 C 900 440 1011 446 1100 466 S 1226 488 1305 461', duration: '5.2s', delay: '-3.4s' },
+  { id: 'near', d: 'M 2 848 C 184 811 333 760 455 729', duration: '6.8s', delay: '-2.2s' },
+  { id: 'right', d: 'M 704 1082 C 829 889 1004 714 1175 626 S 1370 537 1307 501', duration: '7.4s', delay: '-4.7s' },
+  { id: 'middle', d: 'M 788 747 C 973 723 1105 656 1208 549 S 1310 493 1271 464', duration: '5.9s', delay: '-1.1s' },
+  { id: 'portal', d: 'M 802 455 C 927 434 1014 446 1101 465 S 1223 486 1307 458', duration: '5.2s', delay: '-3.4s' },
 ];
 
 function LineChargeOverlay() {
@@ -90,7 +90,7 @@ function InfoCard({ card, index, base, selected, onSelect }) {
     <div className="people-card-shade" aria-hidden="true" />
     <span className="people-card-index">0{index + 1}</span>
     <div className="people-card-copy"><h3>{card.title}</h3><p>{card.description}</p></div>
-    <button className="people-card-action" type="button" onClick={onSelect} aria-label={`${card.title} — ${selected ? 'close' : 'explore'}`} aria-expanded={selected} aria-controls="people-card-detail"><span aria-hidden="true">↗</span></button>
+    <button className="people-card-action" type="button" onClick={onSelect} aria-label={`${card.title} — ${selected ? 'close' : 'explore'}`} aria-expanded={selected} aria-controls="people-card-detail"><span aria-hidden="true">→</span></button>
   </article>;
 }
 
@@ -117,7 +117,7 @@ export default function PeopleSection({ lang, base }) {
           <div className="people-eyebrow"><span className="people-eyebrow-rule" />{copy.eyebrow}</div>
           <h2 id="people-heading">{copy.headline.map((line, index) => <span key={line} className={index > 1 ? 'people-headline-accent' : ''}>{line}</span>)}</h2>
           <p className="people-intro-copy">{copy.paragraph}</p>
-          <a href="#people-cards" className="people-explore"><span className="people-explore-icon" aria-hidden="true">↗</span><span>{copy.explore}</span><i /></a>
+          <a href="#people-cards" className="people-explore"><span className="people-explore-icon" aria-hidden="true">▸</span><span>{copy.explore}</span><i /></a>
         </div>
         <PeopleHeroVisual copy={copy} base={base} />
       </div>
