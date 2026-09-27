@@ -59,12 +59,12 @@ function CinematicScene() {
     ambient.play().then(() => setPhase('ambient')).catch(() => setMotion(false));
   };
   return <div className="hero-scene" aria-hidden="true">
-    <img className="hero-rest-frame" src={`${base}assets/hero/hero-rest.jpg`} alt="" fetchPriority="high" />
+    <img className="hero-rest-frame" src={`${base}assets/hero/hero-rest.jpg?v=2`} alt="" fetchPriority="high" />
     {motion && <>
-      <video ref={introRef} className={`hero-film hero-film-intro ${phase === 'ambient' ? 'finished' : ''}`} src={`${base}assets/hero/hero-intro.mp4`}
-        poster={`${base}assets/hero/hero-first.jpg`} autoPlay muted playsInline preload="auto" onEnded={finishIntro} onError={() => setMotion(false)} />
+      <video ref={introRef} className={`hero-film hero-film-intro ${phase === 'ambient' ? 'finished' : ''}`} src={`${base}assets/hero/hero-intro.mp4?v=2`}
+        poster={`${base}assets/hero/hero-first.jpg?v=2`} autoPlay muted playsInline preload="auto" onEnded={finishIntro} onError={() => setMotion(false)} />
       <video ref={ambientRef} className={`hero-film hero-film-ambient ${phase === 'ambient' ? 'playing' : ''}`}
-        src={`${base}assets/hero/hero-ambient.mp4`} muted playsInline loop preload="auto" onError={() => setMotion(false)} />
+        src={`${base}assets/hero/hero-ambient.mp4?v=2`} muted playsInline loop preload="auto" onError={() => setMotion(false)} />
     </>}
   </div>;
 }
