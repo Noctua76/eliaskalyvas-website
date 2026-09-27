@@ -49,3 +49,14 @@
 .field-facets polygon{fill:#b7d4ed;fill-opacity:.17;stroke:#c7e2f7;stroke-opacity:.53;stroke-width:.65}
 @media(min-width:651px) and (max-width:900px){.brain-polygons .geometry-piece:nth-child(6n),.transition-polygons .transition-piece:nth-child(3n){display:none}}
 @media(max-width:650px){.field-facets polygon:nth-child(2n){display:none}}
+
+/* The rendered title and depth field form a single plate beneath the approved portrait. */
+.hero-scene{position:absolute;z-index:-2;top:0;left:50%;width:100vw;height:100%;transform:translateX(-50%);overflow:hidden;pointer-events:none;background:#05080c}
+.hero-rest-frame,.hero-film{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center}
+.hero-film{opacity:1;transition:opacity .35s ease}
+.hero-film-intro.finished{opacity:0}
+.hero-film-ambient{opacity:0}
+.hero-film-ambient.playing{opacity:1}
+@media(max-width:900px){.hero-scene{background:transparent}.hero-rest-frame{width:125vw;height:auto;max-width:none;left:-12vw;top:56px;object-fit:contain}}
+@media(max-width:650px){.hero-rest-frame{width:150vw;left:-22vw;top:234px}}
+@media(prefers-reduced-motion:reduce){.hero-film{display:none}}

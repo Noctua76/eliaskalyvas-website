@@ -1,8 +1,6 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
-import { brainFragments, transitionFragments } from './brainGeometry';
-import { runHeroMotion } from './heroMotion';
 
 const el = document.documentElement.lang === 'el';
 const base = import.meta.env.BASE_URL;
@@ -38,48 +36,33 @@ const copy = el ? {
   close: 'Close',
 };
 
-const networkNodes = [
-  [-80,39],[-69,64],[-58,24],[-52,92],[-42,52],[-36,15],[-31,78],[-25,109],[-20,37],[-13,64],
-  [-10,12],[-4,96],[2,48],[9,21],[13,78],[21,5],[25,104],[34,52],[45,24],[49,88],
-];
-const networkLinks = [[0,1],[0,2],[1,3],[1,4],[2,5],[2,4],[3,6],[4,6],[4,8],[5,10],[6,7],
-  [6,9],[7,11],[8,9],[8,10],[9,12],[9,14],[10,13],[11,14],[12,13],[12,17],[13,15],[14,16],
-  [14,17],[15,18],[16,19],[17,18],[17,19]];
-const fieldFacets = [
-  '-78,77 -65,72 -59,82 -70,91', '-63,3 -50,8 -53,20 -65,16', '-44,103 -31,96 -23,104 -37,113',
-  '-38,31 -26,26 -19,38 -33,45', '-16,73 -5,69 4,78 -4,87', '0,8 12,5 20,17 5,21',
-  '12,43 25,38 34,49 24,59 15,55', '34,82 47,74 56,81 51,93 39,96',
-];
 const cardImages = ['card-01-people-growth.png', 'card-02-business-growth.png', 'card-03-ai-systems.png',
   'card-04-my-mentor.png', 'card-05-thinking-intelligence.png', 'card-06-platform-architecture.png'];
 
-function GeometricWord() {
-  const svgRef = useRef(null);
-  useLayoutEffect(() => runHeroMotion(svgRef.current), []);
-  return <svg ref={svgRef} className="geometric-word" viewBox="-85 0 935 125" aria-hidden="true" preserveAspectRatio="xMinYMid meet">
-    <defs>
-      <clipPath id="brain-letter-shapes"><text x="0" y="106" className="word-glyph">BRAIN</text></clipPath>
-      <clipPath id="transition-letter-shapes"><text x="381" y="106" className="word-glyph">ST</text></clipPath>
-    </defs>
-    <g className="word-network">
-      {networkLinks.map(([a,b],i) => <line className={i % 3 === 0 ? 'minor-network' : ''} key={i}
-        x1={networkNodes[a][0]} y1={networkNodes[a][1]} x2={networkNodes[b][0]} y2={networkNodes[b][1]} />)}
-      {networkNodes.map(([x,y],i) => <circle className={i % 3 === 0 ? 'minor-network' : ''} key={i} cx={x} cy={y} r={i % 5 === 0 ? 1.55 : .85} />)}
-    </g>
-    <g className="field-facets">{fieldFacets.map((points,i) => <polygon key={i} points={points} />)}</g>
-    <g className="brain-polygons">
-      {brainFragments.map((points,i) => <g key={i} className="geometry-piece"><polygon points={points} clipPath="url(#brain-letter-shapes)" className={`facet facet-${i % 7}`} /></g>)}
-    </g>
-    <g className="word-solid">
-      <text x="381" y="106" className="word-glyph word-transition">ST</text>
-      <text x="536" y="106" className="word-glyph word-orm">ORM</text>
-    </g>
-    <g className="transition-polygons">
-      {transitionFragments.map((points,i) => <g key={i} className="transition-piece"><polygon points={points} clipPath="url(#transition-letter-shapes)" className={i % 3 === 0 ? 'transition-faint' : ''} /></g>)}
-    </g>
-    <path className="transition-wire" d="M373 23 399 45 388 82 418 105M406 13 445 35 427 70 459 102M465 20 486 53 477 95 520 108M520 17 499 47 535 70" />
-    <g className="transition-nodes"><circle cx="399" cy="45" r="1.3"/><circle cx="427" cy="70" r="1.1"/><circle cx="486" cy="53" r="1.5"/><circle cx="520" cy="108" r="1.1"/></g>
-  </svg>;
+function CinematicScene() {
+  const [motion, setMotion] = useState(() => window.matchMedia('(min-width: 901px) and (prefers-reduced-motion: no-preference)').matches);
+  const [phase, setPhase] = useState('intro');
+  const ambientRef = useRef(null);
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 901px) and (prefers-reduced-motion: no-preference)');
+    const update = () => setMotion(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  const finishIntro = () => {
+    const ambient = ambientRef.current;
+    if (!ambient) return;
+    ambient.play().then(() => setPhase('ambient')).catch(() => setMotion(false));
+  };
+  return <div className="hero-scene" aria-hidden="true">
+    <img className="hero-rest-frame" src={`${base}assets/hero/hero-rest.jpg`} alt="" fetchPriority="high" />
+    {motion && <>
+      <video className={`hero-film hero-film-intro ${phase === 'ambient' ? 'finished' : ''}`} src={`${base}assets/hero/hero-intro.mp4`}
+        poster={`${base}assets/hero/hero-first.jpg`} autoPlay muted playsInline preload="auto" onEnded={finishIntro} onError={() => setMotion(false)} />
+      <video ref={ambientRef} className={`hero-film hero-film-ambient ${phase === 'ambient' ? 'playing' : ''}`}
+        src={`${base}assets/hero/hero-ambient.mp4`} muted playsInline loop preload="auto" onError={() => setMotion(false)} />
+    </>}
+  </div>;
 }
 
 function App() {
@@ -108,11 +91,11 @@ function App() {
     </header>
 
     <section className="hero shell" aria-labelledby="hero-title">
-      <div className="hero-grid" aria-hidden="true" />
+      <CinematicScene />
       <div className="portrait-halo" aria-hidden="true"/>
       <img className="portrait" src={`${base}portrait.png`} alt="" fetchPriority="high" />
       <p className="eyebrow">{copy.eyebrow}</p>
-      <h1 id="hero-title" className="hero-title"><span className="visually-hidden">BRAINSTORM</span><GeometricWord /></h1>
+      <h1 id="hero-title" className="visually-hidden">BRAINSTORM</h1>
       <div className="hero-statement"><p className="motto">{copy.motto.map((part, i) => <span className={i === 2 ? 'emphasis' : ''} key={part}>{part}</span>)}</p><p className="subline">{copy.sub}</p></div>
       <button className="story-button" type="button" onClick={() => setStory(true)}><span className="play-icon" aria-hidden="true">▸</span><span>{copy.story}</span><i/></button>
       <aside className="hero-aside" aria-hidden="true"><span>STRATEGY</span><span>LEADERSHIP</span><span>AI SYSTEMS</span><span>DIGITAL PRODUCTS</span><span>REAL IMPACT</span></aside>
