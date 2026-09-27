@@ -53,10 +53,7 @@
 /* The rendered title and depth field form a single plate beneath the approved portrait. */
 .hero-scene{position:absolute;z-index:-2;top:0;left:50%;width:100vw;height:100%;transform:translateX(-50%);overflow:hidden;pointer-events:none;background:#05080c}
 .hero-rest-frame,.hero-film{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center}
-.hero-film{opacity:1;transition:opacity .35s ease}
-.hero-film-intro.finished{opacity:0}
-.hero-film-ambient{opacity:0}
-.hero-film-ambient.playing{opacity:1}
+.hero-film{opacity:1}
 @media(max-width:900px){.hero-scene{background:transparent}.hero-rest-frame{width:125vw;height:auto;max-width:none;left:-12vw;top:56px;object-fit:contain}}
 @media(max-width:650px){.hero-rest-frame{width:150vw;left:-22vw;top:234px}}
 @media(prefers-reduced-motion:reduce){.hero-film{display:none}}

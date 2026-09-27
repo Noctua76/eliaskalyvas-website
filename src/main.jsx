@@ -41,9 +41,7 @@ const cardImages = ['card-01-people-growth.png', 'card-02-business-growth.png', 
 
 function CinematicScene() {
   const [motion, setMotion] = useState(() => window.matchMedia('(min-width: 901px) and (prefers-reduced-motion: no-preference)').matches);
-  const [phase, setPhase] = useState('intro');
-  const introRef = useRef(null);
-  const ambientRef = useRef(null);
+  const filmRef = useRef(null);
   useEffect(() => {
     const query = window.matchMedia('(min-width: 901px) and (prefers-reduced-motion: no-preference)');
     const update = () => setMotion(query.matches);
@@ -51,21 +49,39 @@ function CinematicScene() {
     return () => query.removeEventListener('change', update);
   }, []);
   useEffect(() => {
-    if (motion) introRef.current?.play().catch(() => setMotion(false));
+    if (!motion) return;
+    const film = filmRef.current;
+    let frameId;
+    let cancelled = false;
+    const keepLooping = (_now, frame) => {
+      if (cancelled) return;
+      if (Number.isFinite(film.duration) && frame.mediaTime >= film.duration - .12) {
+        film.currentTime = 5;
+      }
+      frameId = film.requestVideoFrameCallback(keepLooping);
+    };
+    if (film?.requestVideoFrameCallback) frameId = film.requestVideoFrameCallback(keepLooping);
+    film?.play().catch(() => setMotion(false));
+    return () => {
+      cancelled = true;
+      if (frameId !== undefined) film?.cancelVideoFrameCallback(frameId);
+    };
   }, [motion]);
-  const finishIntro = () => {
-    const ambient = ambientRef.current;
-    if (!ambient) return;
-    ambient.play().then(() => setPhase('ambient')).catch(() => setMotion(false));
+  const keepLoopingFallback = () => {
+    const film = filmRef.current;
+    if (film && !film.requestVideoFrameCallback && Number.isFinite(film.duration) && film.currentTime >= film.duration - .2) film.currentTime = 5;
   };
-  return <div className="hero-scene" aria-hidden="true" data-hero-revision="6">
-    <img className="hero-rest-frame" src={`${base}assets/hero/hero-rest.jpg?v=6`} alt="" fetchPriority="high" />
-    {motion && <>
-      <video ref={introRef} className={`hero-film hero-film-intro ${phase === 'ambient' ? 'finished' : ''}`} src={`${base}assets/hero/hero-intro.mp4?v=6`}
-        poster={`${base}assets/hero/hero-first.jpg?v=6`} autoPlay muted playsInline preload="auto" onEnded={finishIntro} onError={() => setMotion(false)} />
-      <video ref={ambientRef} className={`hero-film hero-film-ambient ${phase === 'ambient' ? 'playing' : ''}`}
-        src={`${base}assets/hero/hero-ambient.mp4?v=6`} muted playsInline loop preload="auto" onError={() => setMotion(false)} />
-    </>}
+  const resumeLoop = () => {
+    const film = filmRef.current;
+    if (!film) return;
+    film.currentTime = 5;
+    film.play().catch(() => setMotion(false));
+  };
+  return <div className="hero-scene" aria-hidden="true" data-hero-revision="7">
+    <img className="hero-rest-frame" src={`${base}assets/hero/hero-rest.jpg?v=7`} alt="" fetchPriority="high" />
+    {motion && <video ref={filmRef} className="hero-film" src={`${base}assets/hero/hero-sequence.mp4?v=7`}
+      poster={`${base}assets/hero/hero-first.jpg?v=7`} autoPlay muted playsInline preload="auto"
+      onTimeUpdate={keepLoopingFallback} onEnded={resumeLoop} onError={() => setMotion(false)} />}
   </div>;
 }
 

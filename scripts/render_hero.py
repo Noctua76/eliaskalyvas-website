@@ -248,6 +248,19 @@ def video(filename, duration, offset=0, ambient=False):
             raise RuntimeError(f"ffmpeg failed to write {filename}")
 
 
+def combine_videos():
+    # Re-encode the two plates as one continuous stream. This removes the
+    # browser-level play/fade handoff precisely when BRAIN finishes forming.
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+           "-i", str(OUT / "hero-intro.mp4"), "-i", str(OUT / "hero-ambient.mp4"),
+           "-filter_complex", "[0:v:0][1:v:0]concat=n=2:v=1:a=0[v]", "-map", "[v]",
+           "-an", "-r", str(FPS), "-c:v", "libx264", "-preset", "medium",
+           "-crf", "20", "-pix_fmt", "yuv420p", "-g", str(FPS * 2),
+           "-force_key_frames", "5", "-movflags", "+faststart",
+           str(OUT / "hero-sequence.mp4")]
+    subprocess.run(cmd, check=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview", action="store_true", help="Render keyframes only")
@@ -261,6 +274,7 @@ def main():
     else:
         video("hero-intro.mp4", 5)
         video("hero-ambient.mp4", AMBIENT_SECONDS, offset=5, ambient=True)
+        combine_videos()
 
 
 if __name__ == "__main__":
