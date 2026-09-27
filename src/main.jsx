@@ -42,6 +42,7 @@ const cardImages = ['card-01-people-growth.png', 'card-02-business-growth.png', 
 function CinematicScene() {
   const [motion, setMotion] = useState(() => window.matchMedia('(min-width: 901px) and (prefers-reduced-motion: no-preference)').matches);
   const [phase, setPhase] = useState('intro');
+  const introRef = useRef(null);
   const ambientRef = useRef(null);
   useEffect(() => {
     const query = window.matchMedia('(min-width: 901px) and (prefers-reduced-motion: no-preference)');
@@ -49,6 +50,9 @@ function CinematicScene() {
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
+  useEffect(() => {
+    if (motion) introRef.current?.play().catch(() => setMotion(false));
+  }, [motion]);
   const finishIntro = () => {
     const ambient = ambientRef.current;
     if (!ambient) return;
@@ -57,7 +61,7 @@ function CinematicScene() {
   return <div className="hero-scene" aria-hidden="true">
     <img className="hero-rest-frame" src={`${base}assets/hero/hero-rest.jpg`} alt="" fetchPriority="high" />
     {motion && <>
-      <video className={`hero-film hero-film-intro ${phase === 'ambient' ? 'finished' : ''}`} src={`${base}assets/hero/hero-intro.mp4`}
+      <video ref={introRef} className={`hero-film hero-film-intro ${phase === 'ambient' ? 'finished' : ''}`} src={`${base}assets/hero/hero-intro.mp4`}
         poster={`${base}assets/hero/hero-first.jpg`} autoPlay muted playsInline preload="auto" onEnded={finishIntro} onError={() => setMotion(false)} />
       <video ref={ambientRef} className={`hero-film hero-film-ambient ${phase === 'ambient' ? 'playing' : ''}`}
         src={`${base}assets/hero/hero-ambient.mp4`} muted playsInline loop preload="auto" onError={() => setMotion(false)} />

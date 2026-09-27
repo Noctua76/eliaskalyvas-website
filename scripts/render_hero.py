@@ -74,6 +74,11 @@ FIELD = [
     (RNG.uniform(-140, 710), RNG.uniform(5, 490), RNG.uniform(.12, 1), RNG.uniform(.2, 1), RNG.uniform(0, 6.28))
     for _ in range(154)
 ]
+SHARDS = [
+    (RNG.uniform(-60, 450), RNG.uniform(62, 455), RNG.uniform(.2, 1),
+     RNG.uniform(9, 29), RNG.uniform(-3, 3), RNG.uniform(0, math.tau))
+    for _ in range(27)
+]
 LINES = []
 for i, (x, y, z, _, _) in enumerate(FIELD):
     candidates = sorted(((math.hypot(x-x2, y-y2), j) for j, (x2, y2, *_)
@@ -132,6 +137,25 @@ def render(t, ambient=False):
         d.ellipse((x-r, y-r, x+r, y+r), fill=(189, 224, 250, int((61+142*z)*flicker)))
         if i % 9 == 0:
             d.ellipse((x-r*2.5, y-r*2.5, x+r*2.5, y+r*2.5), outline=(75, 137, 190, 24))
+    for i, (sx, sy, z, size, rotation, phase) in enumerate(SHARDS):
+        travel = min(t, 5)/5
+        x = sx*(1+z*.58*travel)-z*39*travel
+        y = (sy-H/2)*(1+z*.43*travel)+H/2
+        size *= (.38+z*.95)*(1+.38*travel)
+        angle = rotation + (1-travel)*t*(.22+.22*z)
+        if ambient:
+            angle += math.sin((t-5)*math.tau/4+phase)*.035
+        corners = []
+        for k, radius in enumerate((1, .84, 1.28, .59)):
+            a = angle+k*math.tau/4
+            corners.append((x+math.cos(a)*size*radius, y+math.sin(a)*size*radius*.83))
+        alpha = round((28+112*z)*(.82+.18*math.sin(t*.48+phase)))
+        d.polygon(corners, fill=(37, 77, 113, alpha//4))
+        d.line(corners+[corners[0]], fill=(171, 208, 238, alpha), width=1)
+        d.line((corners[0], corners[2]), fill=(178, 216, 246, alpha//2), width=1)
+        d.line((corners[1], corners[3]), fill=(133, 180, 217, alpha//3), width=1)
+        if i % 3 == 0:
+            d.polygon((corners[0], corners[1], corners[2]), fill=(163, 205, 238, alpha//4))
 
     face = Image.new("RGBA", (W, H))
     fd = ImageDraw.Draw(face, "RGBA")
@@ -203,10 +227,11 @@ def main():
     args = parser.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     render(0).save(OUT / "hero-first.jpg", quality=88, subsampling=0)
-    render(2.5).save(OUT / "hero-mid.jpg", quality=88, subsampling=0)
     render(5, True).save(OUT / "hero-rest.jpg", quality=90, subsampling=0)
     print(f"Rendered {len(FACETS)} mapped facets and {len(FIELD)} depth nodes")
-    if not args.preview:
+    if args.preview:
+        render(2.5).save(OUT / "hero-mid.jpg", quality=88, subsampling=0)
+    else:
         video("hero-intro.mp4", 5)
         video("hero-ambient.mp4", 4, offset=5, ambient=True)
 
