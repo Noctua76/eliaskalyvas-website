@@ -30,10 +30,10 @@
 .people-cards-area{position:relative;z-index:4;scroll-margin-top:28px}
 .people-cards-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
 .people-card{height:300px;min-width:0;position:relative;overflow:hidden;border:1px solid #7690a02e;background:#050c14;box-shadow:0 15px 32px #02060a60;transition:transform .35s ease,border-color .35s ease,box-shadow .35s ease}
-.people-card>img{position:absolute;top:5px;left:0;width:100%;height:205px;object-fit:contain;object-position:center center;filter:brightness(.82) saturate(.77);transition:transform .55s ease,filter .55s ease}
+.people-card>img{position:absolute;top:5px;left:0;width:100%;height:205px;object-fit:contain;object-position:center center;mix-blend-mode:screen;filter:brightness(.82) saturate(.77);transition:transform .55s ease,filter .55s ease}
 .people-card-shade{position:absolute;inset:0;background:linear-gradient(180deg,#03080c4d 0%,transparent 36%,#03080c46 59%,#03080cf0 100%)}
 .people-card-index{position:absolute;top:20px;left:22px;font-size:10px;letter-spacing:.19em;color:#e4edf5}
-.people-card-copy{position:absolute;left:22px;bottom:22px;width:calc(100% - 90px);max-width:175px;color:#f0f4f7;text-shadow:0 1px 10px #000}
+.people-card-copy{position:absolute;left:22px;bottom:22px;width:calc(100% - 90px);max-width:145px;color:#f0f4f7;text-shadow:0 1px 10px #000}
 .people-card-copy h3{margin:0 0 8px;font-size:clamp(17px,1.42vw,22px);font-weight:500;letter-spacing:-.025em;line-height:1.12}.people-card-copy p{margin:0;color:#c0cbd5;font-size:12px;line-height:1.42}
 .people-card-action{position:absolute;right:18px;bottom:20px;width:39px;height:39px;border:1px solid #b8cbdb9e;border-radius:50%;display:grid;place-items:center;color:#edf5fc;background:#0b1b2880;cursor:pointer;transition:background .3s,border-color .3s,transform .3s;font-size:20px;line-height:1}
 .people-card:hover,.people-card.is-selected{transform:translateY(-5px);border-color:#91b9d786;box-shadow:0 18px 38px #02060aaa,0 0 25px #7ebbee1c}

@@ -48,7 +48,6 @@ const lines = [
   { id: 'near', d: 'M 2 848 C 184 811 333 760 455 729', duration: '6.8s', delay: '-2.2s' },
   { id: 'right', d: 'M 704 1082 C 829 889 1004 714 1175 626 S 1370 537 1307 501', duration: '7.4s', delay: '-4.7s' },
   { id: 'middle', d: 'M 788 747 C 973 723 1105 656 1208 549 S 1310 493 1271 464', duration: '5.9s', delay: '-1.1s' },
-  { id: 'portal', d: 'M 802 455 C 927 434 1014 446 1101 465 S 1223 486 1307 458', duration: '5.2s', delay: '-3.4s' },
 ];
 
 function LineChargeOverlay() {
