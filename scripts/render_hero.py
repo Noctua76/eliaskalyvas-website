@@ -23,7 +23,7 @@ RNG = random.Random(10823)
 FONT_SIZE = 125
 TOP = 122
 START_X = 223
-AMBIENT_SECONDS = 8
+AMBIENT_SECONDS = 18
 FIELD_LEFT = -210
 FIELD_SPAN = 1290
 
@@ -218,15 +218,15 @@ def render(t, ambient=False):
     network = Image.alpha_composite(network, face)
     network = Image.alpha_composite(network, edges)
 
-    # The moving facets settle into exactly the same font, cap height and
-    # off-white material as STORM. The solid pass also closes every edge pixel.
-    solid_brain = Image.new("RGBA", (W, H), (238, 243, 248, 255))
+    # The facets settle into the same font and cap height as STORM, with a
+    # warmer, quieter material so the two halves retain a clear tonal rhythm.
+    solid_brain = Image.new("RGBA", (W, H), (210, 213, 208, 255))
     solid_reveal = 1 if ambient else smooth((t-3.25)/.95)
     solid_brain.putalpha(brain_mask.point(lambda value: round(value*solid_reveal)))
     network = Image.alpha_composite(network, solid_brain)
 
     # STORM is established typography. A restrained light pass joins it to BRAIN.
-    storm = Image.new("RGBA", (W, H), (238, 243, 248, 255))
+    storm = Image.new("RGBA", (W, H), (246, 248, 249, 255))
     sm = storm_mask.copy()
     reveal = 1 if ambient else .68 + .32*smooth((t-.6)/3)
     sm = sm.point(lambda v: round(v*reveal))
