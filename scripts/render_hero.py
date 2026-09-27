@@ -23,6 +23,9 @@ RNG = random.Random(10823)
 FONT_SIZE = 125
 TOP = 122
 START_X = 223
+AMBIENT_SECONDS = 8
+FIELD_LEFT = -210
+FIELD_SPAN = 1290
 
 
 def clamp(v, lo=0, hi=1):
@@ -48,7 +51,7 @@ ImageDraw.Draw(storm_mask).text((storm_x, TOP), "STORM", font=font, fill=255)
 
 def make_facets():
     points = []
-    for yy in range(TOP + 10, TOP + 142, 8):
+    for yy in range(TOP - 4, TOP + 142, 8):
         for xx in range(START_X - 5, storm_x + 14, 8):
             points.append((xx + RNG.uniform(-3.2, 3.2), yy + RNG.uniform(-3.2, 3.2)))
     mesh = Delaunay(np.asarray(points))
@@ -57,7 +60,11 @@ def make_facets():
         poly = [points[int(i)] for i in ids]
         centroid = (sum(p[0] for p in poly)/3, sum(p[1] for p in poly)/3)
         cx, cy = map(round, centroid)
-        if not (0 <= cx < W and 0 <= cy < H) or not brain_pixels[cy, cx]:
+        # Keep facets that touch a glyph edge, including the cap line. Testing
+        # only the centroid left the upper edge of BRAIN visibly incomplete.
+        samples = [centroid, *poly]
+        if not any(0 <= round(px) < W and 0 <= round(py) < H and
+                   brain_pixels[round(py), round(px)] for px, py in samples):
             continue
         facets.append({
             "poly": poly, "cx": centroid[0], "cy": centroid[1],
@@ -91,7 +98,7 @@ def backdrop(t):
     halo = np.exp(-(((x-972)/440)**2 + ((y-205)/285)**2) * 1.4)
     left = np.exp(-(((x-235)/620)**2 + ((y-260)/300)**2) * 1.2)
     center = np.exp(-(((x-670)/490)**2 + ((y-239)/130)**2))
-    pulse = .97 + .03 * (math.cos((t-5)*math.tau/4) if t >= 5 else math.sin(t*.52))
+    pulse = .97 + .03 * (math.cos((t-5)*math.tau/AMBIENT_SECONDS) if t >= 5 else math.sin(t*.52))
     rgb = np.zeros((H, W, 3), dtype=np.uint8)
     for c, value in enumerate((4, 8, 12)):
         rgb[:, :, c] = np.clip(value + halo*(3, 9, 16)[c]*pulse + left*(0, 2, 5)[c]
@@ -104,8 +111,16 @@ def field_position(point, t, ambient):
     # The near field advances faster than the far field and gradually opens up.
     travel = min(t, 5) / 5
     factor = 1 + z * .45 * travel
-    drift = math.sin((t-5)*math.tau/4 + phase)*1.4 if ambient else 0
-    return x*factor - z*50*travel + drift, (y-H/2)*factor + H/2, size*(.5+z*1.5)
+    px = x*factor - z*50*travel
+    py = (y-H/2)*factor + H/2
+    if ambient:
+        px = FIELD_LEFT + ((px-FIELD_LEFT + FIELD_SPAN*(t-5)/AMBIENT_SECONDS) % FIELD_SPAN)
+        py += math.sin((t-5)*math.tau/AMBIENT_SECONDS + phase)*1.5
+    return px, py, size*(.5+z*1.5)
+
+
+def field_fade(x):
+    return smooth((x-FIELD_LEFT)/105) * (1-smooth((x-540)/405))
 
 
 def render(t, ambient=False):
@@ -127,29 +142,36 @@ def render(t, ambient=False):
     for i, j in LINES:
         x1, y1, _ = positioned[i]
         x2, y2, _ = positioned[j]
-        cycle = (t-5)*math.tau/4 if ambient else t*.7
-        opacity = round((19 + 31*FIELD[i][2]) * (.88 + .12*math.sin(cycle+i)))
+        if math.hypot(x1-x2, y1-y2) > 150:
+            continue
+        cycle = (t-5)*math.tau/AMBIENT_SECONDS if ambient else t*.7
+        opacity = round((19 + 31*FIELD[i][2]) * (.88 + .12*math.sin(cycle+i)) *
+                        min(field_fade(x1), field_fade(x2)))
         d.line((x1, y1, x2, y2), fill=(111, 160, 207, opacity), width=1)
     for i, (x, y, scale) in enumerate(positioned):
         z = FIELD[i][2]
-        flicker = .8 + .2*math.sin(((t-5)*math.tau/4 if ambient else t*1.4)+FIELD[i][4])
+        flicker = .8 + .2*math.sin(((t-5)*math.tau/AMBIENT_SECONDS if ambient else t*1.4)+FIELD[i][4])
         r = .45 + scale*.68
-        d.ellipse((x-r, y-r, x+r, y+r), fill=(189, 224, 250, int((61+142*z)*flicker)))
+        fade = field_fade(x)
+        d.ellipse((x-r, y-r, x+r, y+r), fill=(189, 224, 250, int((61+142*z)*flicker*fade)))
         if i % 9 == 0:
-            d.ellipse((x-r*2.5, y-r*2.5, x+r*2.5, y+r*2.5), outline=(75, 137, 190, 24))
+            d.ellipse((x-r*2.5, y-r*2.5, x+r*2.5, y+r*2.5), outline=(75, 137, 190, int(24*fade)))
     for i, (sx, sy, z, size, rotation, phase) in enumerate(SHARDS):
         travel = min(t, 5)/5
         x = sx*(1+z*.58*travel)-z*39*travel
         y = (sy-H/2)*(1+z*.43*travel)+H/2
+        if ambient:
+            x = FIELD_LEFT + ((x-FIELD_LEFT + FIELD_SPAN*(t-5)/AMBIENT_SECONDS) % FIELD_SPAN)
         size *= (.38+z*.95)*(1+.38*travel)
         angle = rotation + (1-travel)*t*(.22+.22*z)
         if ambient:
-            angle += math.sin((t-5)*math.tau/4+phase)*.035
+            angle += math.sin((t-5)*math.tau/AMBIENT_SECONDS+phase)*.035
         corners = []
         for k, radius in enumerate((1, .84, 1.28, .59)):
             a = angle+k*math.tau/4
             corners.append((x+math.cos(a)*size*radius, y+math.sin(a)*size*radius*.83))
-        alpha = round((28+112*z)*(.82+.18*math.sin(t*.48+phase)))
+        cycle = (t-5)*math.tau/AMBIENT_SECONDS if ambient else t*.48
+        alpha = round((28+112*z)*(.82+.18*math.sin(cycle+phase))*field_fade(x))
         d.polygon(corners, fill=(37, 77, 113, alpha//4))
         d.line(corners+[corners[0]], fill=(171, 208, 238, alpha), width=1)
         d.line((corners[0], corners[2]), fill=(178, 216, 246, alpha//2), width=1)
@@ -178,7 +200,7 @@ def render(t, ambient=False):
             poly.append((cx + scale*(dx*cos_a-dy*sin_a), cy + scale*(dx*sin_a+dy*cos_a)))
         opacity = int((.24 + .76*progress) * (145 + (i*53 % 94)))
         if ambient:
-            opacity = int(opacity*(.975+.025*math.sin((t-5)*math.tau/4+i*.7)))
+            opacity = int(opacity*(.975+.025*math.sin((t-5)*math.tau/AMBIENT_SECONDS+i*.7)))
         color = (*item["shade"], opacity)
         fd.polygon(poly, fill=color)
         ed.line(poly+[poly[0]], fill=(156, 204, 240, int(opacity*.42)), width=1)
@@ -192,6 +214,13 @@ def render(t, ambient=False):
         edges.putalpha(ImageChops.multiply(edges.getchannel("A"), mask))
     network = Image.alpha_composite(network, face)
     network = Image.alpha_composite(network, edges)
+
+    # The moving facets settle into exactly the same font, cap height and
+    # off-white material as STORM. The solid pass also closes every edge pixel.
+    solid_brain = Image.new("RGBA", (W, H), (238, 243, 248, 255))
+    solid_reveal = 1 if ambient else smooth((t-3.45)/1.35)
+    solid_brain.putalpha(brain_mask.point(lambda value: round(value*solid_reveal)))
+    network = Image.alpha_composite(network, solid_brain)
 
     # STORM is established typography. A restrained light pass joins it to BRAIN.
     storm = Image.new("RGBA", (W, H), (238, 243, 248, 255))
@@ -233,7 +262,7 @@ def main():
         render(2.5).save(OUT / "hero-mid.jpg", quality=88, subsampling=0)
     else:
         video("hero-intro.mp4", 5)
-        video("hero-ambient.mp4", 4, offset=5, ambient=True)
+        video("hero-ambient.mp4", AMBIENT_SECONDS, offset=5, ambient=True)
 
 
 if __name__ == "__main__":
