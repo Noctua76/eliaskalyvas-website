@@ -39,4 +39,4 @@
 .transition-polygons polygon{fill:#e5f1fc;fill-opacity:.68;stroke:#1c3143;stroke-width:1.8;stroke-linejoin:round}
 .transition-polygons .transition-faint{fill:#a9c9e6;fill-opacity:.38}
 @media(max-width:900px){.hero-title{left:1%;width:96%}}
-@media(max-width:650px){.hero-title{left:-1%;width:102%}}
+@media(max-width:650px){.hero-title{left:-1%;width:102%}.brain-polygons .facet:nth-child(4n),.transition-polygons polygon:nth-child(2n){display:none}}
