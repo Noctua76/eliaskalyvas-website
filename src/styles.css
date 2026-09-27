@@ -39,4 +39,13 @@
 .transition-polygons polygon{fill:#e5f1fc;fill-opacity:.68;stroke:#1c3143;stroke-width:1.8;stroke-linejoin:round}
 .transition-polygons .transition-faint{fill:#a9c9e6;fill-opacity:.38}
 @media(max-width:900px){.hero-title{left:1%;width:96%}}
-@media(max-width:650px){.hero-title{left:-1%;width:102%}.brain-polygons .facet:nth-child(4n),.transition-polygons polygon:nth-child(2n){display:none}}
+@media(max-width:650px){.hero-title{left:-1%;width:102%}.brain-polygons .geometry-piece:nth-child(4n),.transition-polygons .transition-piece:nth-child(2n){display:none}}
+
+/* The approved panel dimensions remain the same across both rows. */
+.area-card:nth-child(3n){border-right:0}
+.area-card:nth-child(n+4){border-top:1px solid #26313a}
+@media(max-width:900px) and (min-width:651px){.area-list{grid-template-columns:repeat(2,minmax(0,1fr))}.area-card:nth-child(3n){border-right:1px solid #26313a}.area-card:nth-child(2n){border-right:0}.area-card:nth-child(n+3){border-top:1px solid #26313a}}
+@media(max-width:650px){.area-list{grid-template-columns:1fr}.area-card{border-right:0;border-top:0!important;border-bottom:1px solid #26313a}.area-card:last-child{border-bottom:0}}
+.field-facets polygon{fill:#b7d4ed;fill-opacity:.17;stroke:#c7e2f7;stroke-opacity:.53;stroke-width:.65}
+@media(min-width:651px) and (max-width:900px){.brain-polygons .geometry-piece:nth-child(6n),.transition-polygons .transition-piece:nth-child(3n){display:none}}
+@media(max-width:650px){.field-facets polygon:nth-child(2n){display:none}}
