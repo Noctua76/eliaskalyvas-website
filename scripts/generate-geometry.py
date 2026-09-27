@@ -34,8 +34,23 @@ for row in range(len(rows)-1):
                 triangles.append(' '.join(f'{x:g},{y:g}' for x,y in vertices))
 
 output = here.parent / 'src' / 'brainGeometry.js'
+transition_mask = Image.new('L', (560, 130))
+ImageDraw.Draw(transition_mask).text((381, 11), 'ST', font=font, fill=255)
+transition = []
+for row, y in enumerate(range(8, 114, 20)):
+    for x in range(378, 540, 20):
+        shift = 9 if row % 2 else 0
+        a, b, c, d = ((x+shift, y), (x+20+shift, y),
+                      (x+shift-3, y+20), (x+17+shift, y+20))
+        for vertices in ((a,b,c),(b,d,c)):
+            cx = sum(p[0] for p in vertices)//3
+            cy = sum(p[1] for p in vertices)//3
+            if cx < transition_mask.width and transition_mask.getpixel((cx,cy)) > 70:
+                transition.append(' '.join(f'{px},{py}' for px,py in vertices))
 output.write_text('// Fixed resting coordinates: fragments occupy the BRAIN glyphs.\n'
                   'export const brainFragments = [\n' +
                   ''.join(f'  {fragment!r},\n' for fragment in triangles) +
+                  '];\nexport const transitionFragments = [\n' +
+                  ''.join(f'  {fragment!r},\n' for fragment in transition) +
                   '];\n', encoding='utf-8')
-print(f'{len(triangles)} letter fragments → {output}')
+print(f'{len(triangles)} BRAIN and {len(transition)} ST fragments → {output}')

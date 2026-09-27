@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
-import { brainFragments } from './brainGeometry';
+import { brainFragments, transitionFragments } from './brainGeometry';
 
 const el = document.documentElement.lang === 'el';
 const base = import.meta.env.BASE_URL;
@@ -43,6 +43,7 @@ function GeometricWord() {
   return <svg className="geometric-word" viewBox="-85 0 935 125" aria-hidden="true" preserveAspectRatio="xMinYMid meet">
     <defs>
       <clipPath id="brain-letter-shapes"><text x="0" y="106" className="word-glyph">BRAIN</text></clipPath>
+      <clipPath id="transition-letter-shapes"><text x="381" y="106" className="word-glyph">ST</text></clipPath>
     </defs>
     <g className="word-network">
       {networkLinks.map(([a,b],i) => <line className={i % 3 === 0 ? 'minor-network' : ''} key={i}
@@ -55,6 +56,9 @@ function GeometricWord() {
     <g className="word-solid">
       <text x="381" y="106" className="word-glyph word-transition">ST</text>
       <text x="536" y="106" className="word-glyph word-orm">ORM</text>
+    </g>
+    <g className="transition-polygons" clipPath="url(#transition-letter-shapes)">
+      {transitionFragments.map((points,i) => <polygon key={i} points={points} className={i % 3 === 0 ? 'transition-faint' : ''} />)}
     </g>
     <path className="transition-wire" d="M373 23 399 45 388 82 418 105M406 13 445 35 427 70 459 102M465 20 486 53 477 95 520 108M520 17 499 47 535 70" />
     <g className="transition-nodes"><circle cx="399" cy="45" r="1.3"/><circle cx="427" cy="70" r="1.1"/><circle cx="486" cy="53" r="1.5"/><circle cx="520" cy="108" r="1.1"/></g>
