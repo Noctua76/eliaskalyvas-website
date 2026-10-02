@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import PeopleSection from './PeopleSection.jsx';
+import BusinessSection from './BusinessSection.jsx';
 
 const el = document.documentElement.lang === 'el';
 const base = import.meta.env.BASE_URL;
@@ -131,6 +132,7 @@ function App() {
       {selected !== null && <div className="area-detail" role="status"><span>0{selected+1} / {copy.areas[selected].title}</span><p>{copy.areas[selected].detail}</p><button onClick={() => setSelected(null)} aria-label={copy.close}>×</button></div>}
     </section>
     <PeopleSection lang={el ? 'el' : 'en'} base={base} />
+    <BusinessSection lang={el ? 'el' : 'en'} base={base} />
     <p className="preview-footnote shell">ELIAS KALYVAS <span>—</span> IDEAS INTO REALITY</p>
     {story && <div className="story-backdrop" onClick={() => setStory(false)}><div className="story-dialog" role="dialog" aria-modal="true" aria-label={copy.story} onClick={e => e.stopPropagation()}><button className="dialog-close" onClick={() => setStory(false)} aria-label={copy.close}>×</button><span>ELIAS KALYVAS / THINKING</span><h2>{el ? 'Μετατρέπω την εμπειρία σε συστήματα.' : 'I turn experience into systems.'}</h2><p>{copy.storyText}</p></div></div>}
   </main>;
