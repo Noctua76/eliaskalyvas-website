@@ -51,10 +51,25 @@ function MainVisual({ base }) {
       {cluster.lines.map(line => <span key={line}>{line}</span>)}
       {cluster.key === 'purpose' && <i />}
     </div>)}
-    <div className="ai-face ai-face-intelligence"><strong>AI</strong><span>IDEAS<br />TO ACTION</span></div>
-    <div className="ai-face ai-face-automation"><strong>AUTOMATION</strong><span>LESS MANUAL.<br />MORE IMPACT.</span></div>
-    <div className="ai-face ai-face-systems"><strong>SYSTEMS</strong><span>BUILT AROUND<br />YOUR BUSINESS</span></div>
-    <div className="ai-face ai-face-people"><strong>PEOPLE</strong><span>TECHNOLOGY<br />THAT EMPOWERS</span></div>
+    {/* Image coordinates keep each label anchored to its face at every crop/scale. */}
+    <svg className="ai-cube-text" viewBox="0 0 1672 941" focusable="false">
+      <g className="ai-face ai-face-intelligence" transform="matrix(1 -.22 0 1 908 282)">
+        <text className="ai-face-title" y="-18">AI</text>
+        <text className="ai-face-caption"><tspan x="0" y="14">IDEAS</tspan><tspan x="0" y="40">TO ACTION</tspan></text>
+      </g>
+      <g className="ai-face ai-face-automation" transform="matrix(1 .43 .01 1 582 506)">
+        <text className="ai-face-title" y="-18">AUTOMATION</text>
+        <text className="ai-face-caption"><tspan x="0" y="14">LESS MANUAL.</tspan><tspan x="0" y="40">MORE IMPACT.</tspan></text>
+      </g>
+      <g className="ai-face ai-face-systems" transform="matrix(1 -.38 -.015 1 1086 522)">
+        <text className="ai-face-title" y="-18">SYSTEMS</text>
+        <text className="ai-face-caption"><tspan x="0" y="14">BUILT AROUND</tspan><tspan x="0" y="40">YOUR BUSINESS</tspan></text>
+      </g>
+      <g className="ai-face ai-face-people" transform="matrix(1 -.25 .04 1 858 696)">
+        <text className="ai-face-title" y="-18">PEOPLE</text>
+        <text className="ai-face-caption"><tspan x="0" y="14">TECHNOLOGY</tspan><tspan x="0" y="40">THAT EMPOWERS</tspan></text>
+      </g>
+    </svg>
   </div>;
 }
 
