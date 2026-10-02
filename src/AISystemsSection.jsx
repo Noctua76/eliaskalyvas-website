@@ -63,6 +63,11 @@ export default function AISystemsSection({ lang, base }) {
   const copy = translations[lang] || translations.en;
   useEffect(() => {
     const section = sectionRef.current;
+    // These anchors are created by React after the browser's initial hash lookup.
+    if (window.location.hash === '#ai-systems' || window.location.hash === '#ai-services') {
+      const target = window.location.hash === '#ai-services' ? section.querySelector('#ai-services') : section;
+      target.scrollIntoView({ behavior: 'instant', block: 'start' });
+    }
     if (!('IntersectionObserver' in window)) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     if (!reduced.matches) section.classList.add('is-motion-ready');
