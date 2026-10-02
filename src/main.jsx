@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './styles.css';
 import PeopleSection from './PeopleSection.jsx';
 import BusinessSection from './BusinessSection.jsx';
+import SectionSidebar from './SectionSidebar.jsx';
 
 const el = document.documentElement.lang === 'el';
 const base = import.meta.env.BASE_URL;
@@ -112,6 +113,8 @@ function App() {
       <button className="menu-button" type="button" onClick={() => setMenu(!menu)} aria-label={menu ? copy.close : 'Menu'} aria-expanded={menu}><span/><span/></button>
     </header>
 
+    <div className="hero-section" id="hero">
+    <SectionSidebar activeIndex={1} />
     <section className="hero shell" aria-labelledby="hero-title">
       <CinematicScene />
       <div className="portrait-halo" aria-hidden="true"/>
@@ -131,6 +134,7 @@ function App() {
       </button>)}</div>
       {selected !== null && <div className="area-detail" role="status"><span>0{selected+1} / {copy.areas[selected].title}</span><p>{copy.areas[selected].detail}</p><button onClick={() => setSelected(null)} aria-label={copy.close}>×</button></div>}
     </section>
+    </div>
     <PeopleSection lang={el ? 'el' : 'en'} base={base} />
     <BusinessSection lang={el ? 'el' : 'en'} base={base} />
     <p className="preview-footnote shell">ELIAS KALYVAS <span>—</span> IDEAS INTO REALITY</p>

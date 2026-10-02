@@ -1,0 +1,29 @@
+/* One viewport gutter for every section; the hero frame starts below the header. */
+.hero-section{position:relative}
+.section-sidebar{position:absolute;inset:0;z-index:5;pointer-events:none}
+.section-index-rail{position:absolute;left:40px;top:135px;width:56px;pointer-events:auto}
+.section-index-rail::before{content:'';position:absolute;left:56px;top:-135px;bottom:-32px;width:1px;background:#8ba4bb26;pointer-events:none}
+.section-index-rail ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:22px}
+.section-index-rail li{position:relative;font-size:11px;line-height:16px;letter-spacing:.16em;font-weight:400;color:#8192a37d;font-variant-numeric:tabular-nums}
+.section-index-rail a,.section-index-rail li>span{display:inline-block;padding:0 3px;color:inherit}
+.section-index-rail .is-active{color:#edf6ff}
+.section-index-rail a:hover{color:#bfd8eb}
+.section-index-rail a:focus-visible{outline-offset:4px}
+.section-index-dot{position:absolute;left:53px;top:5px;width:6px;height:6px;border-radius:50%;background:#d6edff;box-shadow:0 0 9px #a9d4f34d;pointer-events:none}
+.side-taxonomy{position:absolute;left:28px;bottom:80px;display:flex;flex-direction:column;font-size:10px;letter-spacing:.16em;line-height:1.65;font-weight:400;color:#9aaebf80}
+.side-taxonomy span{display:block}
+.side-taxonomy .is-current{color:#b8c9d6b3}
+.side-taxonomy i{display:block;width:34px;height:1px;background:#8ba4bb59;margin-top:17px}
+@media(min-width:1280px){
+  /* Reserve the same left content boundary already used by Business. */
+  .hero-section>.areas{width:min(calc(100% - 224px),1330px);transform:translateX(32px)}
+  .people-inner{width:min(calc(100% - 224px),1430px);transform:translateX(32px)}
+}
+@media(min-width:1101px) and (max-width:1279px){
+  .section-index-rail{left:16px;width:32px;top:135px}
+  .section-index-rail::before{left:32px}
+  .section-index-dot{left:29px}
+  .side-taxonomy{display:none}
+  .hero-section>.areas,.people-inner{width:calc(100% - 112px);margin-left:80px;margin-right:32px}
+}
+@media(max-width:1100px){.section-sidebar{display:none}}

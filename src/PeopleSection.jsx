@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './people.css';
+import SectionSidebar from './SectionSidebar.jsx';
 
 const images = {
   journey: 'assets/people/people-journey.png',
@@ -110,6 +111,7 @@ function PeopleCardsGrid({ copy, base }) {
 export default function PeopleSection({ lang, base }) {
   const copy = translations[lang] || translations.en;
   return <section className="people-section" id="people" aria-labelledby="people-heading">
+    <SectionSidebar activeIndex={2} />
     <div className="people-inner">
       <div className="people-main">
         <div className="people-content">

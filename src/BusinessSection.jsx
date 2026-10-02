@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './business.css';
+import SectionSidebar from './SectionSidebar.jsx';
 
 const assets = {
   summit: 'summit-route.webp', consulting: 'consulting-compass.webp',
@@ -94,7 +95,7 @@ export default function BusinessSection({ lang, base }) {
     return () => observer.disconnect();
   }, []);
   return <section ref={sectionRef} className="business-section" id="business" aria-labelledby="business-heading">
-    <aside className="business-rail" aria-hidden="true"><span>01</span><span>02</span><strong>03 <i /></strong><span>04</span><span>06</span><span>07</span><small>IDEAS<br />PEOPLE<br />BUSINESS<br />TECHNOLOGY</small></aside>
+    <SectionSidebar activeIndex={3} />
     <div className="business-inner">
       <div className="business-main">
         <div className="business-content">
