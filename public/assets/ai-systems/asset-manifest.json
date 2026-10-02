@@ -1,0 +1,72 @@
+[
+  {
+    "source_upload": "image-gen-1(3).png",
+    "requested_asset": "κρυστάλλινοσ_κυβερνο_κόμβοσ_δεδομένων.png",
+    "optimized_asset": "crystalline-hub.webp",
+    "source_size": [
+      1672,
+      941
+    ],
+    "optimized_size": [
+      1672,
+      941
+    ],
+    "source_sha256": "58d1e1401c8cbd459b3c2a2db5cd51c5ce484985871313dea7489ae463f79834"
+  },
+  {
+    "source_upload": "image-gen-2(3).png",
+    "requested_asset": "κρυστάλλινοσ_υπερσύγχρονοσ_φορητόσ_υπολογιστήσ.png",
+    "optimized_asset": "crystalline-laptop.webp",
+    "source_size": [
+      1448,
+      1086
+    ],
+    "optimized_size": [
+      1000,
+      750
+    ],
+    "source_sha256": "39e599cf54767e151e60d02f2d780dc2b127adec21d73f6079bc60f8189e6e16"
+  },
+  {
+    "source_upload": "image-gen-3(3).png",
+    "requested_asset": "φουτουριστικά_smartphones_με_νέον_analytics.png",
+    "optimized_asset": "smartphone-platforms.webp",
+    "source_size": [
+      1448,
+      1086
+    ],
+    "optimized_size": [
+      1000,
+      750
+    ],
+    "source_sha256": "4af05479bcb6235497dea6f711510fb7a03f360e7ee24f87ea7afa6c83c8a017"
+  },
+  {
+    "source_upload": "image-gen-4(3).png",
+    "requested_asset": "αιθέριοσ_ψηφιακόσ_υδρόγειοσ_ιστόσ.png",
+    "optimized_asset": "ai-globe.webp",
+    "source_size": [
+      1448,
+      1086
+    ],
+    "optimized_size": [
+      1000,
+      750
+    ],
+    "source_sha256": "084546104e3b003b3c399d1f7296d589720d8ebd3d2d69697f9fcdeb7b9ad426"
+  },
+  {
+    "source_upload": "image-gen-5(3).png",
+    "requested_asset": "αιωρούμενη_γυάλινη_ψηφιακή_στοίβα.png",
+    "optimized_asset": "automation-stack.webp",
+    "source_size": [
+      1448,
+      1086
+    ],
+    "optimized_size": [
+      1000,
+      750
+    ],
+    "source_sha256": "6829e668f8fd02029bf9eb8781755f6af8e7d838e0319dc6749a313ad49db1bf"
+  }
+]

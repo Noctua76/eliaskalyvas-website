@@ -4,6 +4,7 @@ import './styles.css';
 import PeopleSection from './PeopleSection.jsx';
 import BusinessSection from './BusinessSection.jsx';
 import SectionSidebar from './SectionSidebar.jsx';
+import AISystemsSection from './AISystemsSection.jsx';
 
 const el = document.documentElement.lang === 'el';
 const base = import.meta.env.BASE_URL;
@@ -137,6 +138,7 @@ function App() {
     </div>
     <PeopleSection lang={el ? 'el' : 'en'} base={base} />
     <BusinessSection lang={el ? 'el' : 'en'} base={base} />
+    <AISystemsSection lang={el ? 'el' : 'en'} base={base} />
     <p className="preview-footnote shell">ELIAS KALYVAS <span>—</span> IDEAS INTO REALITY</p>
     {story && <div className="story-backdrop" onClick={() => setStory(false)}><div className="story-dialog" role="dialog" aria-modal="true" aria-label={copy.story} onClick={e => e.stopPropagation()}><button className="dialog-close" onClick={() => setStory(false)} aria-label={copy.close}>×</button><span>ELIAS KALYVAS / THINKING</span><h2>{el ? 'Μετατρέπω την εμπειρία σε συστήματα.' : 'I turn experience into systems.'}</h2><p>{copy.storyText}</p></div></div>}
   </main>;
