@@ -42,6 +42,7 @@ const contactHref = subject => `mailto:info@eliaskalyvas.gr?subject=${encodeURIC
 function MainVisual({ base }) {
   return <div className="ai-visual" aria-hidden="true">
     <img className="ai-hub-image" src={`${base}assets/ai-systems/crystalline-hub.webp`} alt="" width="1672" height="941" loading="lazy" decoding="async" />
+    <img className="ai-people-cube-repair" src={`${base}assets/ai-systems/people-cube-repair.webp`} alt="" width="1672" height="941" loading="lazy" decoding="async" />
     <svg className="ai-node-glow" viewBox="0 0 1672 941">
       <circle cx="654" cy="307" r="4" />
       <circle cx="796" cy="418" r="4" />
@@ -65,7 +66,7 @@ function MainVisual({ base }) {
         <text className="ai-face-title" y="-18">SYSTEMS</text>
         <text className="ai-face-caption"><tspan x="0" y="14">BUILT AROUND</tspan><tspan x="0" y="40">YOUR BUSINESS</tspan></text>
       </g>
-      <g className="ai-face ai-face-people" transform="matrix(1 -.25 .04 1 858 696)">
+      <g className="ai-face ai-face-people" transform="matrix(1 -.25 .04 1 863 696)">
         <text className="ai-face-title" y="-18">PEOPLE</text>
         <text className="ai-face-caption"><tspan x="0" y="14">TECHNOLOGY</tspan><tspan x="0" y="40">THAT EMPOWERS</tspan></text>
       </g>

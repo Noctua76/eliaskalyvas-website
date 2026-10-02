@@ -11,7 +11,18 @@
       1672,
       941
     ],
-    "source_sha256": "58d1e1401c8cbd459b3c2a2db5cd51c5ce484985871313dea7489ae463f79834"
+    "source_sha256": "58d1e1401c8cbd459b3c2a2db5cd51c5ce484985871313dea7489ae463f79834",
+    "localized_geometry_repair": {
+      "asset": "people-cube-repair.webp",
+      "source_size": [
+        1672,
+        941
+      ],
+      "source_sha256": "3bbb0b1754ddaa920f8c9b9d0418ddedc1778db8a64ebec197f1a7194e79cf4b",
+      "scope": "Bottom/front PEOPLE cube only; clipped overlay preserves original pixels outside cube area.",
+      "method": "Built-in image editing; WebP encoding only after generation.",
+      "prompt": "Use case: precise-object-edit. Edit target: supplied 1672×941 cinematic glass-cube hero artwork. Make ONLY a localized geometry repair to the smallest bottom/front glass cube (the cube reserved for PEOPLE on the website, currently without any baked text). Preserve the other three cubes EXACTLY, their coordinates, framing, camera, background circuit grid, reflections, dark navy palette, blue-white illumination, glow strength, negative space and entire wide 16:9 composition. No redesign, no text or typography anywhere (labels are separate website SVG overlays). Repair ONLY the bottom/front cube: straighten its right vertical edge; make its lower front and lower side edges clean straight lines parallel to their corresponding upper edges; connect the lower vertices consistently to vertical sides; make the base a convincing stable parallelogram with coherent perspective. Retain this cube's current top face, placement, approximate size, glass material and reflections. In the original image coordinate space its visible top left-near vertex is approximately (756,623), right-near top vertex (950,576), leftmost top vertex (643,574). Aim for corresponding bottom vertices (756,803), (950,756), (643,754), with vertical side edges and straight lower edges. Remove the warped/bulged/compressed edge around its lower right and lower front corner; retain a restrained luminous edge bloom matching the existing aesthetic. Keep the corrected front face centered where the existing PEOPLE SVG text sits near (858,696). Output the COMPLETE image at the same 1672×941 canvas/aspect and registration as the input, changing as little as possible outside the smallest cube. It must fit the existing website image coordinates without any crop, zoom, resizing of objects or repositioning."
+    }
   },
   {
     "source_upload": "image-gen-2(3).png",
