@@ -1,0 +1,117 @@
+[
+  {
+    "source_upload": "Εικόνα ChatGPT 3 Οκτ 2026, 08_42_05 π.μ-1.png",
+    "requested_asset": "η_γη_από_το_διάστημα.png",
+    "source_sha256": "cc53d5f1dc015831f73cb5f7c8195e5aa9907c17cc09a6ec2752c3ad7497fe7a",
+    "source_size": [
+      1672,
+      941
+    ],
+    "crop": null,
+    "optimized_asset": "earth.webp",
+    "optimized_size": [
+      1672,
+      941
+    ]
+  },
+  {
+    "source_upload": "Εικόνα ChatGPT 3 Οκτ 2026, 08_42_07 π.μ-2.png",
+    "requested_asset": "κυβερνοασφάλεια_κέντρο_επιχειρήσεων.png",
+    "source_sha256": "22691ffb63f533e36a5256e53b068cc8b211264c090bcba4dd415728faae1a1e",
+    "source_size": [
+      1672,
+      941
+    ],
+    "crop": [
+      0,
+      0,
+      1370,
+      941
+    ],
+    "optimized_asset": "aegis-platform.webp",
+    "optimized_size": [
+      1300,
+      893
+    ]
+  },
+  {
+    "source_upload": "Εικόνα ChatGPT 3 Οκτ 2026, 08_42_07 π.μ-2.png",
+    "requested_asset": "aegis_guard.png",
+    "source_sha256": "22691ffb63f533e36a5256e53b068cc8b211264c090bcba4dd415728faae1a1e",
+    "source_size": [
+      1672,
+      941
+    ],
+    "crop": [
+      1350,
+      145,
+      1672,
+      850
+    ],
+    "optimized_asset": "aegis-guard.webp",
+    "optimized_size": [
+      322,
+      705
+    ]
+  },
+  {
+    "source_upload": "Εικόνα ChatGPT 3 Οκτ 2026, 08_42_21 π.μ-1.png",
+    "requested_asset": "τρία_έξυπνα_κινητά_αυτοβελτίωσησ.png",
+    "source_sha256": "4eb6e836e40813f14cf4d2b7e8f87ee520b00400153f635663da2abd441f2aed",
+    "source_size": [
+      1448,
+      1086
+    ],
+    "crop": null,
+    "optimized_asset": "mentor-phones.webp",
+    "optimized_size": [
+      1300,
+      975
+    ]
+  },
+  {
+    "source_upload": "Εικόνα ChatGPT 3 Οκτ 2026, 08_42_22 π.μ-2.png",
+    "requested_asset": "μοναχικόσ_οδοιπόροσ_στην_ανατολή.png",
+    "source_sha256": "fc45db1705c45234f82ce4ecec567589cb776482f59c588330b25231012a3603",
+    "source_size": [
+      1448,
+      1086
+    ],
+    "crop": null,
+    "optimized_asset": "mentor-journey.webp",
+    "optimized_size": [
+      1300,
+      975
+    ]
+  },
+  {
+    "source_upload": "Εικόνα ChatGPT 3 Οκτ 2026, 08_42_09 π.μ-4.png",
+    "requested_asset": "κυβερνοτεχνολογική_κουκουβάγια_ai.png",
+    "source_sha256": "3b90f786b3d48d158551977d03778ba017ad869445f4f94240cc508dd0bf9c03",
+    "source_size": [
+      1672,
+      941
+    ],
+    "crop": null,
+    "optimized_asset": "noctua-platform.webp",
+    "optimized_size": [
+      1300,
+      732
+    ]
+  },
+  {
+    "source_upload": "Εικόνα ChatGPT 3 Οκτ 2026, 08_42_24 π.μ-3.png",
+    "requested_asset": "σεληνιακή_σκιά_στον_αστρικό_ορίζοντα.png",
+    "source_sha256": "259eca901f952608ee9d7685edfa825dc05796110b9daa2cfea0bb0d12114060",
+    "source_size": [
+      1448,
+      1086
+    ],
+    "crop": null,
+    "optimized_asset": "noctua-moon.webp",
+    "optimized_size": [
+      1300,
+      975
+    ]
+  }
+]
