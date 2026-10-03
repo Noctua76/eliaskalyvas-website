@@ -1,0 +1,183 @@
+[
+  {
+    "source": "Εικόνα ChatGPT 3 Οκτ 2026, 09_28_00 π.μ-1.png",
+    "requested_asset": "νέον_εικονίδιο_ομάδασ_σε_μπλε_φωσ.png",
+    "sha256": "fd41495b58aceba530d7a1514d2487f9acfb4cd43251b7a3efe38fc852410004",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "crop": [
+      184,
+      335,
+      1069,
+      990
+    ],
+    "optimized": "people-first.webp",
+    "optimized_size": [
+      256,
+      256
+    ],
+    "alpha_preserved": true
+  },
+  {
+    "source": "Εικόνα ChatGPT 3 Οκτ 2026, 09_28_01 π.μ-2.png",
+    "requested_asset": "νέον_στόχοσ_με_βέλοσ.png",
+    "sha256": "aa93d64b2957bc11ddfbc8bdb1ce4eaaedb2fee84fc57b74cd3604726f5846fb",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "crop": [
+      293,
+      315,
+      990,
+      984
+    ],
+    "optimized": "systemic-thinking.webp",
+    "optimized_size": [
+      256,
+      256
+    ],
+    "alpha_preserved": true
+  },
+  {
+    "source": "Εικόνα ChatGPT 3 Οκτ 2026, 09_28_02 π.μ-3.png",
+    "requested_asset": "νέον_γράφημα_ανοδικήσ_ανάλυσησ.png",
+    "sha256": "72d1b3fab8551b02afff0f473eae998b9760b7664aae38b0780993878a64d576",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "crop": [
+      238,
+      305,
+      1016,
+      985
+    ],
+    "optimized": "measurable-impact.webp",
+    "optimized_size": [
+      256,
+      256
+    ],
+    "alpha_preserved": true
+  },
+  {
+    "source": "Εικόνα ChatGPT 3 Οκτ 2026, 09_28_05 π.μ-4.png",
+    "requested_asset": "νέον_εικονίδιο_φωτεινήσ_λάμπασ.png",
+    "sha256": "657e0f69e31386d46ea3be42856949c47291b831ec0cb1e75cab8c24e7bdd8f8",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "crop": [
+      256,
+      248,
+      997,
+      1045
+    ],
+    "optimized": "continuous-growth.webp",
+    "optimized_size": [
+      256,
+      256
+    ],
+    "alpha_preserved": true
+  },
+  {
+    "source": "Εικόνα ChatGPT 3 Οκτ 2026, 09_28_06 π.μ-5.png",
+    "requested_asset": "ακτινωτό_νέον_αστρικό_σύμβολο.png",
+    "sha256": "716af41e4536a8a96d6022a18ebed433df2b24cc42b6e2f4418232d1adc346f4",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "crop": [
+      176,
+      188,
+      1077,
+      1090
+    ],
+    "optimized": "trainingspark.webp",
+    "optimized_size": [
+      256,
+      256
+    ],
+    "alpha_preserved": true
+  },
+  {
+    "source": "Εικόνα ChatGPT 3 Οκτ 2026, 09_28_08 π.μ-6.png",
+    "requested_asset": "νέον_μονόγραμμα_μ_σε_διαφάνεια.png",
+    "sha256": "3b084e4656c572584d581cacd235fdf6d483ed19950a4572875477e0fd9bd432",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "crop": [
+      182,
+      262,
+      1073,
+      1040
+    ],
+    "optimized": "my-mentor.webp",
+    "optimized_size": [
+      256,
+      256
+    ],
+    "alpha_preserved": true
+  },
+  {
+    "source": "Εικόνα ChatGPT 3 Οκτ 2026, 09_28_10 π.μ-7.png",
+    "requested_asset": "νέον_ασπίδα_με_δίκτυο_συνδέσεων.png",
+    "sha256": "acebdd566a810ed563e39f94e24e64f4e8efc68b8d9abf39131171d66b7cdb47",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "crop": [
+      222,
+      178,
+      1031,
+      1107
+    ],
+    "optimized": "aegis-link.webp",
+    "optimized_size": [
+      256,
+      256
+    ],
+    "alpha_preserved": true
+  },
+  {
+    "source": "Εικόνα ChatGPT 3 Οκτ 2026, 09_28_11 π.μ-8.png",
+    "requested_asset": "νέον_μινιμαλιστική_κουκουβάγια.png",
+    "sha256": "351d3d1a20dfbeb769ff826866e1fa539ecbcc20dbb14d190cc0760ca1e24531",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "crop": [
+      206,
+      276,
+      1051,
+      999
+    ],
+    "optimized": "noctua-core.webp",
+    "optimized_size": [
+      256,
+      256
+    ],
+    "alpha_preserved": true
+  },
+  {
+    "source": "Φωτεινό Μονοπάτι προς την Κορυφή.png",
+    "sha256": "c8ad6fa39436cac47a98fc10c65c7ce109f0870beba06950db4989c36ad91f37",
+    "source_size": [
+      1672,
+      941
+    ],
+    "optimized": "mountain-journey.webp",
+    "optimized_size": [
+      1672,
+      941
+    ]
+  }
+]

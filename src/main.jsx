@@ -6,6 +6,7 @@ import BusinessSection from './BusinessSection.jsx';
 import SectionSidebar from './SectionSidebar.jsx';
 import AISystemsSection from './AISystemsSection.jsx';
 import SelectedWorkSection from './SelectedWorkSection.jsx';
+import AboutSection from './AboutSection.jsx';
 
 const el = document.documentElement.lang === 'el';
 const base = import.meta.env.BASE_URL;
@@ -108,7 +109,7 @@ function App() {
       <nav className={menu ? 'main-nav open' : 'main-nav'} aria-label={el ? 'Κύρια πλοήγηση' : 'Main navigation'}>
         <a className="active" href="#top" onClick={() => setMenu(false)}>{copy.home}</a>
         <a href="#areas" onClick={() => setMenu(false)}>{copy.services}</a>
-        <a href="#selected-work" onClick={() => setMenu(false)}>{copy.work}</a><span>{copy.thinking}</span><span>{copy.about}</span><span>{copy.contact}</span>
+        <a href="#selected-work" onClick={() => setMenu(false)}>{copy.work}</a><span>{copy.thinking}</span><a href="#thinking" onClick={() => setMenu(false)}>{copy.about}</a><span>{copy.contact}</span>
       </nav>
       <div className="header-actions"><div className="languages" aria-label="Language"><a className={!el ? 'current' : ''} href={`${base}en/`} lang="en">EN</a><span>|</span><a className={el ? 'current' : ''} href={`${base}gr/`} lang="el">GR</a></div>
         <a className="build-button" href="#areas">{copy.build}<span aria-hidden="true">⟶</span></a></div>
@@ -141,6 +142,7 @@ function App() {
     <BusinessSection lang={el ? 'el' : 'en'} base={base} />
     <AISystemsSection lang={el ? 'el' : 'en'} base={base} />
     <SelectedWorkSection lang={el ? 'el' : 'en'} base={base} />
+    <AboutSection lang={el ? 'el' : 'en'} base={base} />
     <p className="preview-footnote shell">ELIAS KALYVAS <span>—</span> IDEAS INTO REALITY</p>
     {story && <div className="story-backdrop" onClick={() => setStory(false)}><div className="story-dialog" role="dialog" aria-modal="true" aria-label={copy.story} onClick={e => e.stopPropagation()}><button className="dialog-close" onClick={() => setStory(false)} aria-label={copy.close}>×</button><span>ELIAS KALYVAS / THINKING</span><h2>{el ? 'Μετατρέπω την εμπειρία σε συστήματα.' : 'I turn experience into systems.'}</h2><p>{copy.storyText}</p></div></div>}
   </main>;
