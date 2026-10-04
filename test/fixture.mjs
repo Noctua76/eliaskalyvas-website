@@ -1,0 +1,13 @@
+import {PGlite} from '@electric-sql/pglite';
+import {readFile} from 'node:fs/promises';
+export async function fixture(){
+ const pg=new PGlite();await pg.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create function auth.jwt() returns jsonb language sql as $$ select '{}'::jsonb $$;create function auth.uid() returns uuid language sql as $$ select null::uuid $$;`);await pg.exec(await readFile(new URL('../supabase/migrations/202610040001_website_operations.sql',import.meta.url),'utf8'));
+ class Query {
+  constructor(table){this.table=table;this.filters=[];this.columns='*';this.mode='select';this.singleMode=false;this.orderColumn=null;this.max=null;}
+  select(cols='*'){this.columns=cols;return this;}eq(key,value){this.filters.push([key,value]);return this;}single(){this.singleMode=true;return this;}maybeSingle(){this.singleMode=true;return this;}order(col,{ascending=true}={}){this.orderColumn=col;this.ascending=ascending;return this;}limit(max){this.max=max;return this;}update(patch){this.mode='update';this.patch=patch;return this;}
+  async then(resolve,reject){try{const values=[],parts=[];let sql;if(this.mode==='update'){for(const [key,v]of Object.entries(this.patch)){values.push(v);parts.push(`${key}=$${values.length}`);}sql=`update ${this.table} set ${parts.join(',')}`;}else sql=`select ${this.columns} from ${this.table}`;const filters=[];for(const [key,v]of this.filters){values.push(v);filters.push(`${key}=$${values.length}`);}if(filters.length)sql+=' where '+filters.join(' and ');if(this.mode==='select'&&this.orderColumn)sql+=` order by ${this.orderColumn} ${this.ascending?'asc':'desc'}`;if(this.mode==='select'&&this.max)sql+=` limit ${this.max}`;if(this.mode==='update')sql+=' returning *';const rows=(await pg.query(sql,values)).rows;resolve({data:this.singleMode?rows[0]||null:rows,error:null});}catch(error){resolve({data:null,error});}}
+ }
+ const users=new Map();
+ const db={from:table=>new Query(table),auth:{getUser:async token=>({data:users.has(token)?{user:users.get(token)}:null,error:users.has(token)?null:new Error('Invalid')})},rpc:async(name,args={})=>{try{const entries=Object.entries(args);const values=entries.map(([,v])=>typeof v==='object'&&v!==null?JSON.stringify(v):v);const params=entries.map(([k],i)=>`${k}=>$${i+1}`).join(',');const record=['website_slots','website_claim_jobs'].includes(name);const rows=(await pg.query(record?`select * from ${name}(${params})`:`select ${name}(${params}) value`,values)).rows;return {data:record?rows:rows[0]?.value,error:null};}catch(error){return {data:null,error};}}};
+ return {pg,db,users};
+}

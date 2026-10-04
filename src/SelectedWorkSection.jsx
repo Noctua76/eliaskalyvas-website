@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import SectionSidebar from './SectionSidebar.jsx';
 import './selected-work.css';
+import { operationsConfig } from './operations/config.js';
 
 const projects = [
   {
@@ -98,7 +99,7 @@ export default function SelectedWorkSection({ lang, base }) {
             <div className="work-project-summary">
               <div className="work-project-description">
                 <p>{(greek ? project.greekDescription : project.description).map((line, i, lines) => <span key={line}>{line}{i < lines.length - 1 ? ' ' : ''}</span>)}</p>
-                <div className="work-project-link"><a href={project.href} target="_blank" rel="noopener noreferrer" aria-label={`${greek ? 'Δες το έργο' : 'View project'} ${project.title} (${greek ? 'νέα καρτέλα' : 'new tab'})`}>{greek ? 'Δες το έργο' : 'View Project'}<span aria-hidden="true">⟶</span></a><i aria-hidden="true"/></div>
+                <div className="work-project-link"><a href={project.href} target="_blank" rel="noopener noreferrer" aria-label={`${project.key === 'mentor' ? (greek ? 'My Mentor στο Google Play' : 'My Mentor on Google Play') : (greek ? 'Δες το έργο' : 'View project') + ' ' + project.title} (${greek ? 'νέα καρτέλα' : 'new tab'})`}>{project.key === 'mentor' ? (greek ? 'Στο Google Play' : 'Get it on Google Play') : (greek ? 'Δες το έργο' : 'View Project')}<span aria-hidden="true">⟶</span></a>{project.key === 'mentor' && operationsConfig.mentorWebsite && <a href={operationsConfig.mentorWebsite} target="_blank" rel="noopener noreferrer">{greek ? 'Δες το website' : 'Visit Website'} <span aria-hidden="true">⟶</span></a>}<i aria-hidden="true"/></div>
               </div>
               <div className="work-project-micro" aria-hidden="true">{project.micro.map(line => <span key={line}>{line}</span>)}</div>
             </div>

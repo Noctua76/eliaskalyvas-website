@@ -85,3 +85,9 @@ html[lang=el] .contact-intents>p{font-size:13px}html[lang=el] .contact-intent-ti
 @media(prefers-reduced-motion:reduce){.contact-section.is-motion-ready .contact-reveal:not(.is-visible){opacity:1;transform:none}.contact-reveal,.contact-intent,.contact-intent>img,.contact-form input,.contact-form textarea,.contact-form-actions>button,.contact-form-actions>button>span,.contact-meeting-link>span,.contact-socials>a,.contact-socials>button{transition:none}}
 /* Match the reference's tighter showcase area while keeping the shared gutter. */
 @media(min-width:1280px){.contact-main,.contact-information{margin-right:64px}.contact-image-labels{right:-96px}.contact-intro h2{font-size:clamp(64px,5.6vw,99px)}html[lang=el] .contact-intro h2{font-size:clamp(60px,5.15vw,92px)}.contact-main{row-gap:32px}.contact-landscape{height:800px}.contact-landscape img{width:110%;object-position:70% 100%}.contact-intent{min-height:175px;padding-inline:15px}.contact-intent-title{max-width:none;width:100%;font-size:13px;margin-bottom:12px}.contact-intent-text{width:100%;font-size:10.5px}.contact-intent>img{width:52px;height:52px;margin:-8px 0 5px -9px}.contact-info-block>img{width:52px;height:52px;margin:-8px 0 0 -8px}.contact-form{padding-top:20px;padding-bottom:18px}.contact-form label{margin-top:6px;margin-bottom:4px;line-height:1.3}.contact-form input:not([type=hidden]){padding-block:6px}.contact-form textarea{height:52px;min-height:52px}.contact-information{padding-top:27px;padding-bottom:30px}.contact-form{margin-top:-66px}.contact-intent-title>span{display:block}}
+
+.contact-honeypot {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+.contact-selected-intent {font-size:11px;color:#aebac7;margin:12px 0;}
+.contact-intents #contact-intent-error {color:#f2bd95;font-size:12px;}
+.contact-form .ops-verification {margin:12px 0;min-width:0;}
+.contact-form .ops-error {font-size:12px;color:#f2bd95;}

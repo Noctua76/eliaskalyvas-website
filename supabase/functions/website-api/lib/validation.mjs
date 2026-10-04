@@ -1,0 +1,12 @@
+export const interests = ['Website','AI solution','Business system','Consulting','Idea'];
+export class ApiError extends Error { constructor(code,status=400){ super(code);this.status=status; } }
+export function text(value,max){ if(typeof value!=='string'||!value.trim()||value.trim().length>max)throw new ApiError('INVALID_FIELDS');return value.trim(); }
+export function email(value){const v=text(value,254);if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)||/[\r\n]/.test(v))throw new ApiError('INVALID_EMAIL');return v;}
+export function uuid(value){if(typeof value!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))throw new ApiError('INVALID_KEY');return value;}
+export function zone(value){try{new Intl.DateTimeFormat('en',{timeZone:value}).format();}catch{throw new ApiError('INVALID_TIMEZONE');}return text(value,80);}
+export function messagePayload(body){const p={name:text(body.name,120),email:email(body.email),message:text(body.message,6000),interest:body.interest,language:body.language,key:uuid(body.key)};if(!interests.includes(p.interest)||!['en','el'].includes(p.language))throw new ApiError('INVALID_FIELDS');return p;}
+export function instant(value){if(typeof value!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?(?:Z|[+-]\d\d:\d\d)$/.test(value)||!Number.isFinite(Date.parse(value)))throw new ApiError('INVALID_FIELDS');return new Date(value).toISOString();}
+export function bookingPayload(body){const p={name:text(body.name,120),email:email(body.email),topic:text(body.topic,2000),timezone:zone(body.timezone),language:body.language,key:uuid(body.key),starts_at:instant(body.starts_at)};if(!['en','el'].includes(p.language)||!/^\d{4}-\d\d-\d\dT/.test(p.starts_at)||!Number.isFinite(Date.parse(p.starts_at)))throw new ApiError('INVALID_FIELDS');return p;}
+export async function hash(value){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
+export async function manageToken(id,secret){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return [...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode('booking:'+id)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
+export function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}

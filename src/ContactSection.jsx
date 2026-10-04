@@ -3,6 +3,8 @@ import SectionSidebar from './SectionSidebar.jsx';
 import BrandLockup from './BrandLockup.jsx';
 import { contactConfig, contactEmailHref, sendContactMessage } from './contact-config.js';
 import './contact.css';
+import { bookingPath } from './operations/config.js';
+import Turnstile from './operations/Turnstile.jsx';
 
 const intents = [
   { value: 'Website', titleLines: ['I need a', 'website'], image: 'website.webp', en: ['I need a website', 'A modern, high-performance site.'], el: ['Χρειάζομαι ένα website', 'Μια σύγχρονη ιστοσελίδα υψηλών επιδόσεων.'] },
@@ -19,15 +21,15 @@ const copy = {
     formTitle: 'Let’s start the conversation.', formText: 'Send a message and I’ll get back to you soon.',
     name: 'Name', email: 'Email', message: 'Message', namePlaceholder: 'Your name', messagePlaceholder: 'Tell me about your idea, challenge or goal...',
     send: 'Send Message', sending: 'Sending…', trust: ['No spam.', 'Just meaningful conversations.'],
-    required: 'Please fill in this field.', success: 'Thank you. Your message has been sent. I’ll be in touch soon.',
+    required: 'Please fill in this field.', success: 'Thank you. Your message has been received. I’ll be in touch soon.',
     failure: 'Your message couldn’t be sent. Please try again or continue by email.',
     emailFallback: 'Continue by email to send your message. Your details and selected interest are ready in the email draft.', continueEmail: 'Continue by email',
     location: 'Location', city: 'Athens, Greece', remote: 'Available for remote projects worldwide',
     meeting: 'Prefer a meeting?', meetingText: 'Let’s find a time that works for you.', book: 'Book a call',
     quote: ['Every meaningful project', 'starts with a conversation.'],
-    nav: ['Home', 'Work', 'Services', 'Thinking', 'About', 'Contact'], footerNav: 'Footer navigation',
+    nav: ['Home', 'Work', 'Services', 'About', 'Contact'], footerNav: 'Footer navigation',
     rights: 'All rights reserved.', privacy: 'Privacy Policy', terms: 'Terms', close: 'Close',
-    pendingPolicy: 'The full Privacy Policy will be published before the final website launches. For privacy questions, please contact info@eliaskalyvas.gr.',
+    pendingPolicy: 'The full Privacy Policy will be published before the final website launches. The policy will cover message and booking storage, notifications and retention. For privacy questions, please contact info@eliaskalyvas.gr.',
     pendingTerms: 'The Terms will be published before the final website launches. For questions about a collaboration, please contact info@eliaskalyvas.gr.',
     pendingSocial: 'The official profile will be linked here soon. You can connect with Elias on LinkedIn or by email.',
   },
@@ -38,25 +40,27 @@ const copy = {
     formTitle: 'Ας ξεκινήσουμε τη συζήτηση.', formText: 'Στείλε ένα μήνυμα και θα επικοινωνήσω μαζί σου σύντομα.',
     name: 'Όνομα', email: 'Email', message: 'Μήνυμα', namePlaceholder: 'Το όνομά σου', messagePlaceholder: 'Πες μου για την ιδέα, την πρόκληση ή τον στόχο σου...',
     send: 'Στείλε μήνυμα', sending: 'Αποστολή…', trust: ['Χωρίς spam.', 'Μόνο ουσιαστικές συζητήσεις.'],
-    required: 'Συμπλήρωσε αυτό το πεδίο.', success: 'Ευχαριστώ. Το μήνυμά σου στάλθηκε. Θα επικοινωνήσω μαζί σου σύντομα.',
+    required: 'Συμπλήρωσε αυτό το πεδίο.', success: 'Ευχαριστώ. Το μήνυμά σου καταχωρίστηκε. Θα επικοινωνήσω μαζί σου σύντομα.',
     failure: 'Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά ή συνέχισε μέσω email.',
     emailFallback: 'Συνέχισε μέσω email για να στείλεις το μήνυμά σου. Τα στοιχεία σου και το ενδιαφέρον που επέλεξες είναι έτοιμα στο προσχέδιο.', continueEmail: 'Συνέχεια μέσω email',
     location: 'Τοποθεσία', city: 'Αθήνα, Ελλάδα', remote: 'Διαθέσιμος για εξ αποστάσεως έργα σε όλο τον κόσμο',
     meeting: 'Προτιμάς μια συνάντηση;', meetingText: 'Ας βρούμε μια ώρα που σε εξυπηρετεί.', book: 'Κλείσε μια κλήση',
     quote: ['Κάθε ουσιαστικό έργο', 'ξεκινά με μια συζήτηση.'],
-    nav: ['Αρχική', 'Έργα', 'Τομείς', 'Σκέψη', 'Σχετικά', 'Επικοινωνία'], footerNav: 'Πλοήγηση υποσέλιδου',
+    nav: ['Αρχική', 'Έργα', 'Τομείς', 'Σχετικά', 'Επικοινωνία'], footerNav: 'Πλοήγηση υποσέλιδου',
     rights: 'Με επιφύλαξη παντός δικαιώματος.', privacy: 'Πολιτική απορρήτου', terms: 'Όροι χρήσης', close: 'Κλείσιμο',
-    pendingPolicy: 'Η πλήρης πολιτική απορρήτου θα δημοσιευτεί πριν από την τελική έναρξη λειτουργίας του website. Για ερωτήσεις σχετικά με το απόρρητο, επικοινώνησε στο info@eliaskalyvas.gr.',
+    pendingPolicy: 'Η πλήρης πολιτική απορρήτου θα δημοσιευτεί πριν από την τελική έναρξη λειτουργίας του website. Θα καλύπτει την αποθήκευση μηνυμάτων και κρατήσεων, τις ειδοποιήσεις και τον χρόνο διατήρησης. Για ερωτήσεις σχετικά με το απόρρητο, επικοινώνησε στο info@eliaskalyvas.gr.',
     pendingTerms: 'Οι όροι χρήσης θα δημοσιευτούν πριν από την τελική έναρξη λειτουργίας του website. Για ερωτήσεις σχετικά με μια συνεργασία, επικοινώνησε στο info@eliaskalyvas.gr.',
     pendingSocial: 'Το επίσημο προφίλ θα συνδεθεί εδώ σύντομα. Μπορείς να επικοινωνήσεις με τον Ηλία στο LinkedIn ή μέσω email.',
   },
 };
 
-function ContactForm({ lang, interest }) {
+function ContactForm({ lang, interest, onMissingIntent }) {
   const t = copy[lang];
   const [status, setStatus] = useState('idle');
   const [draft, setDraft] = useState(null);
-  const busy = useRef(false);
+  const busy = useRef(false); const key = useRef(crypto.randomUUID());
+  const [captcha, setCaptcha] = useState(''); const [resetCaptcha, setResetCaptcha] = useState(0);
+  useEffect(() => { key.current = crypto.randomUUID(); }, [interest]);
   const submit = async event => {
     event.preventDefault();
     if (busy.current) return;
@@ -65,8 +69,10 @@ function ContactForm({ lang, interest }) {
       field.setCustomValidity(field.value.trim() ? '' : t.required);
     }
     if (!form.reportValidity()) return;
+    if (!interest) { onMissingIntent(); return; }
+    if (contactConfig.endpoint && !captcha) { setStatus('verification'); return; }
     const data = new FormData(form);
-    const payload = { name: data.get('name').trim(), email: data.get('email').trim(), message: data.get('message').trim(), interest, language: lang };
+    const payload = { name: data.get('name').trim(), email: data.get('email').trim(), message: data.get('message').trim(), interest, language: lang, key: key.current, turnstileToken: captcha, company: data.get('company') };
     setDraft(payload);
     if (!contactConfig.endpoint) { setStatus('email'); return; }
     busy.current = true;
@@ -74,27 +80,31 @@ function ContactForm({ lang, interest }) {
     try {
       const result = await sendContactMessage(payload);
       setStatus(result.status);
-      if (result.status === 'success') form.reset();
+      if (result.status === 'success') { form.reset(); key.current = crypto.randomUUID(); }
     } catch { setStatus('error'); }
-    finally { busy.current = false; }
+    finally { busy.current = false; setResetCaptcha(n => n + 1); }
   };
   const edit = event => {
     event.target.setCustomValidity?.('');
-    if (status !== 'loading') setStatus('idle');
+    if (status !== 'loading') { setStatus('idle'); key.current = crypto.randomUUID(); }
   };
   return <form className="contact-form contact-reveal" onSubmit={submit} onInput={edit} aria-labelledby="contact-form-title" aria-busy={status === 'loading'}>
     <h3 id="contact-form-title">{t.formTitle}</h3><p className="contact-form-intro">{t.formText}</p>
     <fieldset disabled={status === 'loading'}>
       <input type="hidden" name="interest" value={interest} />
+      <div className="contact-honeypot" aria-hidden="true"><label htmlFor="contact-company">Company</label><input id="contact-company" name="company" tabIndex={-1} autoComplete="off" /></div>
       <label htmlFor="contact-name">{t.name} <span aria-hidden="true">*</span></label>
       <input id="contact-name" name="name" autoComplete="name" placeholder={t.namePlaceholder} required maxLength={120} />
       <label htmlFor="contact-email">{t.email} <span aria-hidden="true">*</span></label>
       <input id="contact-email" name="email" type="email" autoComplete="email" placeholder="your@email.com" required maxLength={254} />
       <label htmlFor="contact-message">{t.message} <span aria-hidden="true">*</span></label>
       <textarea id="contact-message" name="message" placeholder={t.messagePlaceholder} required maxLength={6000} rows={3} />
+      <p className="contact-selected-intent">{lang === 'el' ? 'Ενδιαφέρον' : 'Interest'}: {interest || (lang === 'el' ? 'Επίλεξε μία κάρτα *' : 'Select a card *')}</p>
+      {contactConfig.endpoint && <Turnstile lang={lang} action="contact" onToken={setCaptcha} reset={resetCaptcha} />}
       <div className="contact-form-actions"><button type="submit" disabled={status === 'loading'}>{status === 'loading' ? t.sending : t.send}<span aria-hidden="true">⟶</span></button><p>{t.trust.map(line => <span key={line}>{line}</span>)}</p></div>
     </fieldset>
     <div className="contact-form-status" role="status" aria-live="polite" aria-atomic="true">
+      {status === 'verification' && <p>{lang === 'el' ? 'Ολοκλήρωσε την επαλήθευση πριν την αποστολή.' : 'Complete verification before sending.'}</p>}
       {status === 'success' && <p>{t.success}</p>}
       {status === 'error' && <p>{t.failure} <a href={contactEmailHref({ ...draft, interest })}>{t.continueEmail} ⟶</a></p>}
       {status === 'email' && <p>{t.emailFallback} <a href={contactEmailHref({ ...draft, interest })}>{t.continueEmail} ⟶</a></p>}
@@ -128,7 +138,7 @@ function FooterNotice({ notice, close, lang }) {
 
 function SiteFooter({ lang, base }) {
   const t = copy[lang]; const [notice, setNotice] = useState(null);
-  const targets = ['#top', '#selected-work', '#areas', '#thinking', '#thinking', '#contact'];
+  const targets = ['#top', '#selected-work', '#areas', '#about', '#contact'];
   const socials = [['LinkedIn', contactConfig.linkedInUrl], ['YouTube', contactConfig.youtubeUrl], ['Instagram', contactConfig.instagramUrl]];
   return <footer className="contact-site-footer" role="contentinfo">
     <div className="contact-footer-main">
@@ -147,6 +157,8 @@ function SiteFooter({ lang, base }) {
 
 export default function ContactSection({ lang, base }) {
   const t = copy[lang]; const ref = useRef(null); const [interest, setInterest] = useState('');
+  const [intentError, setIntentError] = useState(false);
+  const missingIntent = () => { setIntentError(true); ref.current.querySelector('.contact-intent').focus(); };
   const image = file => `${base}assets/contact/${file}`;
   useEffect(() => {
     const section = ref.current;
@@ -169,17 +181,18 @@ export default function ContactSection({ lang, base }) {
         </div>
         <div className="contact-image-labels" aria-hidden="true"><p className="contact-tomorrow">{['A', 'BRIGHTER', 'TOMORROW', 'BUILDS', 'TODAY.'].map(line => <span key={line}>{line}</span>)}</p><p className="contact-right-taxonomy">{['IDEAS', 'PEOPLE', 'BUSINESS', 'TECHNOLOGY', 'REAL IMPACT'].map(line => <span key={line}>{line}</span>)}<i /></p></div>
         <div className="contact-intents contact-reveal"><h3 id="contact-needs">{t.needs}</h3><p>{t.needsText}</p>
-          <div className="contact-intent-grid" role="group" aria-labelledby="contact-needs">{intents.map(intent => <button type="button" className={`contact-intent${interest === intent.value ? ' is-selected' : ''}`} key={intent.value} aria-pressed={interest === intent.value} onClick={() => setInterest(intent.value)}>
+          <div className="contact-intent-grid" role="group" aria-labelledby="contact-needs" aria-describedby={intentError ? "contact-intent-error" : undefined}>{intents.map(intent => <button type="button" className={`contact-intent${interest === intent.value ? ' is-selected' : ''}`} key={intent.value} aria-pressed={interest === intent.value} onClick={() => { setInterest(intent.value); setIntentError(false); }}>
             <img src={image(intent.image)} alt="" loading="lazy" width="160" height="160" />
             <span className="contact-intent-title">{lang === 'en' ? intent.titleLines.map(line => <span key={line}>{line} </span>) : intent[lang][0]}</span><span className="contact-intent-text">{intent[lang][1]}</span>
           </button>)}</div>
+          {intentError && <p id="contact-intent-error" role="alert">{lang === 'el' ? 'Επίλεξε τι χρειάζεσαι πριν συνεχίσεις.' : 'Please select what you need before continuing.'}</p>}
         </div>
-        <ContactForm lang={lang} interest={interest} />
+        <ContactForm lang={lang} interest={interest} onMissingIntent={missingIntent} />
       </div>
       <div className="contact-information contact-reveal">
-        <div className="contact-info-block"><img src={image('email.webp')} alt="" loading="lazy" width="160" height="160" /><div><h3>{t.email}</h3><a href="mailto:info@eliaskalyvas.gr">info@eliaskalyvas.gr</a></div></div>
+        <div className="contact-info-block"><img src={image('email.webp')} alt="" loading="lazy" width="160" height="160" /><div><h3>{t.email}</h3><a href={contactEmailHref()}>info@eliaskalyvas.gr</a></div></div>
         <div className="contact-info-block"><img src={image('location.webp')} alt="" loading="lazy" width="160" height="160" /><div><h3>{t.location}</h3><p>{t.city}</p><small>{t.remote}</small></div></div>
-        <div className="contact-info-block"><img src={image('icon-calendar.webp')} alt="" loading="lazy" width="160" height="160" /><div><h3>{t.meeting}</h3><p>{t.meetingText}</p><a className="contact-meeting-link" href={contactConfig.meetingUrl} target="_blank" rel="noopener noreferrer">{t.book}<span aria-hidden="true">⟶</span></a></div></div>
+        <div className="contact-info-block"><img src={image('icon-calendar.webp')} alt="" loading="lazy" width="160" height="160" /><div><h3>{t.meeting}</h3><p>{t.meetingText}</p><a className="contact-meeting-link" href={bookingPath(base, lang)}>{t.book}<span aria-hidden="true">⟶</span></a></div></div>
         <blockquote className="contact-quote"><span className="contact-quote-mark" aria-hidden="true">“</span><p>{t.quote.map((line, index) => <span key={line}>{line}{index === 1 ? '”' : ' '}</span>)}</p><cite><i aria-hidden="true" />ELIAS KALYVAS</cite></blockquote>
       </div>
       <SiteFooter lang={lang} base={base} />

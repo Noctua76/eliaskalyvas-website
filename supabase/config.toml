@@ -1,0 +1,3 @@
+# Public and private routes authenticate inside the handler, with fail-closed checks.
+[functions.website-api]
+verify_jwt = false

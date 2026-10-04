@@ -115,7 +115,7 @@ function App() {
       <nav className={menu ? 'main-nav open' : 'main-nav'} aria-label={el ? 'Κύρια πλοήγηση' : 'Main navigation'}>
         <a className={!contactActive ? 'active' : ''} href="#top" onClick={() => setMenu(false)}>{copy.home}</a>
         <a href="#areas" onClick={() => setMenu(false)}>{copy.services}</a>
-        <a href="#selected-work" onClick={() => setMenu(false)}>{copy.work}</a><span>{copy.thinking}</span><a href="#thinking" onClick={() => setMenu(false)}>{copy.about}</a><a className={contactActive ? 'active' : ''} aria-current={contactActive ? 'location' : undefined} href="#contact" onClick={() => setMenu(false)}>{copy.contact}</a>
+        <a href="#selected-work" onClick={() => setMenu(false)}>{copy.work}</a><a href="#about" onClick={() => setMenu(false)}>{copy.about}</a><a className={contactActive ? 'active' : ''} aria-current={contactActive ? 'location' : undefined} href="#contact" onClick={() => setMenu(false)}>{copy.contact}</a>
       </nav>
       <div className="header-actions"><div className="languages" aria-label="Language"><a className={!el ? 'current' : ''} href={`${base}en/`} lang="en">EN</a><span>|</span><a className={el ? 'current' : ''} href={`${base}gr/`} lang="el">GR</a></div>
         <a className="build-button" href="#contact">{copy.build}<span aria-hidden="true">⟶</span></a></div>
