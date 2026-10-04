@@ -6,6 +6,7 @@ import {messagePayload,bookingPayload,hash,manageToken} from '../supabase/functi
 const db=new PGlite();
 await db.exec(`create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key); create function auth.jwt() returns jsonb language sql as $$ select coalesce(current_setting('request.jwt.claims',true),'{}')::jsonb $$; create function auth.uid() returns uuid language sql as $$ select (auth.jwt()->>'sub')::uuid $$; grant usage on schema public,auth to anon,authenticated,service_role;grant execute on function auth.jwt(),auth.uid() to authenticated;`);
 await db.exec(await readFile(new URL('../supabase/migrations/202610040001_website_operations.sql',import.meta.url),'utf8'));
+await db.exec(await readFile(new URL('../supabase/migrations/20261004195605_protect_owner_lookup.sql',import.meta.url),'utf8'));
 const rpc=async(name,p)=> (await db.query(`select ${name}($1::jsonb) result`,[JSON.stringify(p)])).rows[0].result;
 const query=async(sql,params=[])=> (await db.query(sql,params)).rows;
 const today=(await query(`select (now() at time zone 'Europe/Athens')::date::text d`))[0].d;

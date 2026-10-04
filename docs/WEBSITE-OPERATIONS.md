@@ -1,6 +1,8 @@
 # Website messages and meetings — rollout / configuration
 
-Status: source implementation and local verification. No hosted Supabase project, real owner account, email sender, Turnstile configuration or calendar authorization has been selected in this pass. No real mail/events were created. Public contact remains an explicit email draft; booking remains closed. Signals is outside this change.
+Status (2026-10-04): the separate `eliaskalyvas-website` Supabase project (`drebxpsircxmnthnrliw`, Frankfurt / eu-central-1) exists in Noctua76's Org at a confirmed creation cost of $0/month. Website schema and Vault migrations are applied; `website-api` Edge Function version 1 is deployed and ACTIVE at `https://drebxpsircxmnthnrliw.supabase.co/functions/v1/website-api`. Public website integration variables remain blank until configuration and real checks are complete. Owner policy lookup is isolated in the unexposed `website_private` schema. Aegis Link was not modified. No owner account, email sender, Turnstile configuration or Google authorization is configured yet. Public contact remains an explicit email draft; booking remains closed. No real mail/events were created. Signals is outside this change.
+
+Initial saved availability: every day 19:00–20:00 in Europe/Athens; duration 30 minutes, buffer 15 minutes, notice 24 hours, horizon 30 days. These defaults are editable in Admin once owner access is configured. With the current buffer only the 19:00 start fits each evening window. Calendar mode is Google, meeting method Google Meet, **booking enabled=false**. Google account selected by owner: `iliaskalivas76@gmail.com`; this does not establish an Admin identity. Notifications remain To `info@eliaskalyvas.gr`, CC `iliaskalivas@hotmail.com`. Google calendar integration alone does not send these website notifications: the separate email provider still needs configuration. Automatic Google Meet conference creation is not implemented yet and must be completed and tested before enablement.
 
 ## Architecture and configuration registry
 
@@ -8,7 +10,7 @@ The existing React/Vite site stays on its current GitHub Pages preview. A **sepa
 
 | Setting | Location | Current state |
 | --- | --- | --- |
-| Website Supabase URL / publishable key | Frontend `.env.example`, GitHub Actions Variables | Awaiting project selection |
+| Website Supabase URL / publishable key | Frontend `.env.example`, GitHub Actions Variables | Project created; frontend keys intentionally unset |
 | API URL | `VITE_OPERATIONS_API_URL` | Copy the actual deployed `website-api` URL, never guess a project ref |
 | Turnstile site key | `VITE_TURNSTILE_SITE_KEY` | Awaiting real widget |
 | Turnstile secret / exact hostnames | Edge Function secrets | Awaiting configuration |
@@ -19,15 +21,15 @@ The existing React/Vite site stays on its current GitHub Pages preview. A **sepa
 | Owner notification routing | Server code | To `info@eliaskalyvas.gr`, CC `iliaskalivas@hotmail.com` |
 | Reply-To | Server validation | Visitor email; client cannot change recipients or sender |
 | Owner identity | Supabase Auth + `website_owners` | Owner must choose login identity; not inferred from notification recipients |
-| Calendar | OAuth + server secrets / Vault | Google or Outlook must be confirmed by owner |
-| Meeting availability | Admin / `meeting_settings` | Disabled; timezone Europe/Athens, no fabricated working hours/location |
+| Calendar | OAuth + server secrets / Vault | Google selected; OAuth consent pending |
+| Meeting availability | Admin / `meeting_settings` | Disabled; Europe/Athens, daily 19:00–20:00, Google Meet pending integration |
 | My Mentor website | `VITE_MY_MENTOR_WEBSITE_URL` | Proposed `https://mymentorapp.space/` returned 403 in earlier check; keep blank until verified |
 | Existing social/legal links | `src/contact-config.js` | LinkedIn retained; unconfigured YouTube/Instagram/legal links remain notices |
 
 ## Deployment sequence
 
 1. Select an unused, separate website Supabase project. Confirm organization, region and plan before provisioning. Do not purchase/upgrade a plan, move the domain, or change DNS as part of this pass.
-2. Apply `supabase/migrations/202610040001_website_operations.sql`, then `202610040002_calendar_vault.sql`. The second migration uses hosted Supabase Vault. Inspect database advisors after applying.
+2. Apply `supabase/migrations/202610040001_website_operations.sql`, then `202610040002_calendar_vault.sql`, then `20261004195605_protect_owner_lookup.sql`. The second migration uses hosted Supabase Vault. Inspect database advisors after applying.
 3. In Auth settings disable public signup and anonymous sign-ins. Create/invite the **owner-selected** account securely. Insert its actual Auth user UUID into `public.website_owners` using a privileged administrative connection. Do not add every authenticated user or infer the identity from recipients.
 4. Register a real Turnstile widget for the preview host and, later, the approved final host. Server validates success, exact hostname and action (`contact`, `booking`, `manage`). Never enable production with test keys.
 5. Create a separate Resend API key and verified sender for this website. Required domain verification/DNS work is a separate owner-authorized step. Keep key and sender exclusively in Function secrets. An unverified sender will fail and leave accepted messages visible in Admin; acceptance does not prove inbox delivery.
@@ -52,7 +54,7 @@ Calendar sync executes before attendee/owner booking emails. Pending/failed sync
 
 ## Personal calendar authorization
 
-Confirm **Google or Outlook** first. Hotmail as a notification address does not choose Outlook automatically.
+The owner selected **Google Calendar and Google Meet**, using `iliaskalivas76@gmail.com`. Hotmail is a notification CC address.
 
 - Google: register an owner-controlled OAuth client, enable Google Calendar API, register a real HTTPS callback on an owner-controlled authorization service, request offline access with Calendar read/write scope, obtain the owner's refresh token through consent, and select the actual calendar ID. Configure `GOOGLE_*` secrets. A consumer app left in OAuth testing mode may have expiring refresh tokens; confirm consent configuration before launch.
 - Outlook: register an owner-controlled Microsoft Entra application supporting the owner's actual account type, register the real HTTPS callback, request delegated `Calendars.ReadWrite` + `offline_access` through consent and select the actual calendar ID. Configure `OUTLOOK_*` secrets and tenant (`consumers` is only for a confirmed personal Microsoft account). Rotating refresh tokens are saved in Supabase Vault using server-only RPCs.
@@ -94,3 +96,11 @@ Database tests run embedded PostgreSQL (PGlite), not a mocked SQL store. Paralle
 The reviewed changes do not recreate assets or alter the approved section layouts. Thinking is temporarily removed from both navigation menus, About targets `#about`, and legacy `#thinking` stays present. My Mentor Google Play label is explicit; the website CTA is configured but withheld pending destination verification. Signals has not been created.
 
 References: https://supabase.com/pricing ; https://resend.com/pricing ; https://www.cloudflare.com/products/turnstile/ ; https://resend.com/changelog/idempotency-keys ; https://supabase.com/docs/guides/database/vault ; https://developers.cloudflare.com/turnstile/get-started/server-side-validation/ ; https://developers.google.com/workspace/calendar/api/v3/reference/events ; https://learn.microsoft.com/en-us/graph/api/resources/event
+
+## Provisioning verification (2026-10-04)
+
+All 20 local tests pass after the owner-helper hardening migration, including authenticated nonowner rejection and owner AAL2 requirements. Hosted verification confirms all 11 website tables have RLS, no anonymous access to the private helper schema/function, policy dependencies refer to `website_private.website_owner()`, and zero contact/booking records. The security advisor has no warning/error findings; its four informational “RLS enabled no policy” notices are deliberate deny-all server-only tables (tokens, calendar credentials, owner allowlist, rate limits), with browser privileges revoked. See https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy .
+
+MCP assigns hosted migration versions when applying SQL. Source-to-host ledger: `202610040001_website_operations.sql` → `20261004195030`; `202610040002_calendar_vault.sql` → `20261004195032`; `20261004195605_protect_owner_lookup.sql` → `20261004195655`. Do not blindly run CLI db push against this project: reconcile migration history first to avoid reapplying existing tables. No organization plan change, Aegis migration, cron schedule, live visitor email or personal calendar event was performed.
+
+Live HTTP checks: unauthenticated `/admin/data` and `/worker` return 401; unconfigured public `/slots` returns 503 `NOT_CONFIGURED`, as intended. Performance advisor reports the new exclusion index unused because no bookings exist; keep it to prevent overlapping reservations: https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index .
