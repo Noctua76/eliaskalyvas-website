@@ -29,6 +29,7 @@ jobs:
         env:
           GITHUB_PAGES_BASE: /eliaskalyvas-website/
           VITE_OPERATIONS_API_URL: ${{ vars.VITE_OPERATIONS_API_URL }}
+          VITE_ADMIN_API_URL: ${{ vars.VITE_ADMIN_API_URL }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
