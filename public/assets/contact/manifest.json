@@ -1,0 +1,140 @@
+[
+  {
+    "source": "Εικόνα ChatGPT 4 Οκτ 2026, 05_59_38 μ.μ-1.png",
+    "optimized": "website.webp",
+    "source_sha256": "0c8955c72008f1941288613f5e466e844d762b33077cd0e76c0dd111db7d51dd",
+    "crop_transparent_margin": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "size": [
+      320,
+      320
+    ],
+    "bytes": 17966
+  },
+  {
+    "source": "Εικόνα ChatGPT 4 Οκτ 2026, 05_59_40 μ.μ-2.png",
+    "optimized": "ai-solution.webp",
+    "source_sha256": "ef02ad0877cc1fce129f89769b36da3b8246dd0a7b866f2ae849f5ed17cfc92e",
+    "crop_transparent_margin": [
+      29,
+      0,
+      1246,
+      1250
+    ],
+    "size": [
+      320,
+      320
+    ],
+    "bytes": 23376
+  },
+  {
+    "source": "Εικόνα ChatGPT 4 Οκτ 2026, 05_59_42 μ.μ-3.png",
+    "optimized": "business-system.webp",
+    "source_sha256": "f78e52caaa35c59656634b43948e2cbf0917664e6ff1b377891213abd40a5211",
+    "crop_transparent_margin": [
+      5,
+      0,
+      1226,
+      1242
+    ],
+    "size": [
+      320,
+      320
+    ],
+    "bytes": 22736
+  },
+  {
+    "source": "Εικόνα ChatGPT 4 Οκτ 2026, 05_59_43 μ.μ-4.png",
+    "optimized": "consulting.webp",
+    "source_sha256": "1d24a692296924ea94e542ec2f580f0dedba2e38827db524410a0ba3d5cc5047",
+    "crop_transparent_margin": [
+      21,
+      0,
+      1246,
+      1218
+    ],
+    "size": [
+      320,
+      320
+    ],
+    "bytes": 20758
+  },
+  {
+    "source": "Εικόνα ChatGPT 4 Οκτ 2026, 05_59_44 μ.μ-5.png",
+    "optimized": "idea.webp",
+    "source_sha256": "6668bb4252aef86b10ded512ffcece561f2d4d6b77d43ea5bb84d32b604ee994",
+    "crop_transparent_margin": [
+      27,
+      0,
+      1254,
+      1248
+    ],
+    "size": [
+      320,
+      320
+    ],
+    "bytes": 17914
+  },
+  {
+    "source": "Εικόνα ChatGPT 4 Οκτ 2026, 05_59_45 μ.μ-6.png",
+    "optimized": "email.webp",
+    "source_sha256": "804070d3878dcd2e9601b6c9ad8b81b02b69cee9fd8365cca2fe825d1a410a0b",
+    "crop_transparent_margin": [
+      0,
+      0,
+      1254,
+      1250
+    ],
+    "size": [
+      320,
+      320
+    ],
+    "bytes": 20864
+  },
+  {
+    "source": "Εικόνα ChatGPT 4 Οκτ 2026, 05_59_47 μ.μ-7.png",
+    "optimized": "location.webp",
+    "source_sha256": "910b44c554d1a46c75b624d27a81b81b1961273cd1c9c7876a9d0c99c8c2a2ca",
+    "crop_transparent_margin": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "size": [
+      320,
+      320
+    ],
+    "bytes": 22974
+  },
+  {
+    "source": "Εικόνα ChatGPT 4 Οκτ 2026, 05_59_48 μ.μ-8.png",
+    "optimized": "icon-calendar.webp",
+    "source_sha256": "c301dadfbbe8950823c16deda78f1612adaa645fd27dd3e6eadde966269eb23d",
+    "crop_transparent_margin": [
+      11,
+      0,
+      1252,
+      1250
+    ],
+    "size": [
+      320,
+      320
+    ],
+    "bytes": 20582
+  },
+  {
+    "source": "Πανοραμική Ανατολή Πάνω από τον Κόλπο.png",
+    "optimized": "bay-sunrise.webp",
+    "source_sha256": "a248c1f25099c424b65f39d2ed3a5a02e9bb637f3ac143b8024857429c6727c8",
+    "size": [
+      1672,
+      941
+    ],
+    "bytes": 214314
+  }
+]

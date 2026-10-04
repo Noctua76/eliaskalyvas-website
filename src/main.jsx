@@ -7,6 +7,8 @@ import SectionSidebar from './SectionSidebar.jsx';
 import AISystemsSection from './AISystemsSection.jsx';
 import SelectedWorkSection from './SelectedWorkSection.jsx';
 import AboutSection from './AboutSection.jsx';
+import ContactSection from './ContactSection.jsx';
+import BrandLockup from './BrandLockup.jsx';
 
 const el = document.documentElement.lang === 'el';
 const base = import.meta.env.BASE_URL;
@@ -95,24 +97,28 @@ function App() {
   const [selected, setSelected] = useState(null);
   const [story, setStory] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [contactActive, setContactActive] = useState(window.location.hash === '#contact');
   const areasRef = useRef(null);
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => setContactActive(entry.isIntersecting), { threshold: 0, rootMargin: '-15% 0px -35% 0px' });
+    observer.observe(document.getElementById('contact'));
+    return () => observer.disconnect();
+  }, []);
   const select = i => {
     setSelected(selected === i ? null : i);
     window.setTimeout(() => areasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50);
   };
-  return <main id="top">
+  return <main id="top" className={contactActive ? 'is-contact-active' : undefined}>
     <div className="ambient ambient-one" aria-hidden="true"/><div className="ambient ambient-two" aria-hidden="true"/>
     <header className="site-header shell">
-      <a className="brand" href="#top" aria-label={el ? 'Ηλίας Καλύβας — Αρχική' : 'Elias Kalyvas — Home'}>
-        <img className="brand-mark" src={`${base}assets/brand/ek-mark.png`} alt="" /><span className="brand-name">ELIAS KALYVAS<small>IDEAS INTO REALITY</small></span>
-      </a>
+      <BrandLockup base={base} lang={el ? 'el' : 'en'} />
       <nav className={menu ? 'main-nav open' : 'main-nav'} aria-label={el ? 'Κύρια πλοήγηση' : 'Main navigation'}>
-        <a className="active" href="#top" onClick={() => setMenu(false)}>{copy.home}</a>
+        <a className={!contactActive ? 'active' : ''} href="#top" onClick={() => setMenu(false)}>{copy.home}</a>
         <a href="#areas" onClick={() => setMenu(false)}>{copy.services}</a>
-        <a href="#selected-work" onClick={() => setMenu(false)}>{copy.work}</a><span>{copy.thinking}</span><a href="#thinking" onClick={() => setMenu(false)}>{copy.about}</a><span>{copy.contact}</span>
+        <a href="#selected-work" onClick={() => setMenu(false)}>{copy.work}</a><span>{copy.thinking}</span><a href="#thinking" onClick={() => setMenu(false)}>{copy.about}</a><a className={contactActive ? 'active' : ''} aria-current={contactActive ? 'location' : undefined} href="#contact" onClick={() => setMenu(false)}>{copy.contact}</a>
       </nav>
       <div className="header-actions"><div className="languages" aria-label="Language"><a className={!el ? 'current' : ''} href={`${base}en/`} lang="en">EN</a><span>|</span><a className={el ? 'current' : ''} href={`${base}gr/`} lang="el">GR</a></div>
-        <a className="build-button" href="#areas">{copy.build}<span aria-hidden="true">⟶</span></a></div>
+        <a className="build-button" href="#contact">{copy.build}<span aria-hidden="true">⟶</span></a></div>
       <button className="menu-button" type="button" onClick={() => setMenu(!menu)} aria-label={menu ? copy.close : 'Menu'} aria-expanded={menu}><span/><span/></button>
     </header>
 
@@ -143,7 +149,7 @@ function App() {
     <AISystemsSection lang={el ? 'el' : 'en'} base={base} />
     <SelectedWorkSection lang={el ? 'el' : 'en'} base={base} />
     <AboutSection lang={el ? 'el' : 'en'} base={base} />
-    <p className="preview-footnote shell">ELIAS KALYVAS <span>—</span> IDEAS INTO REALITY</p>
+    <ContactSection lang={el ? 'el' : 'en'} base={base} />
     {story && <div className="story-backdrop" onClick={() => setStory(false)}><div className="story-dialog" role="dialog" aria-modal="true" aria-label={copy.story} onClick={e => e.stopPropagation()}><button className="dialog-close" onClick={() => setStory(false)} aria-label={copy.close}>×</button><span>ELIAS KALYVAS / THINKING</span><h2>{el ? 'Μετατρέπω την εμπειρία σε συστήματα.' : 'I turn experience into systems.'}</h2><p>{copy.storyText}</p></div></div>}
   </main>;
 }
