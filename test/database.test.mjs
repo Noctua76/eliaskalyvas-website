@@ -7,6 +7,9 @@ const db=new PGlite();
 await db.exec(`create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key); create function auth.jwt() returns jsonb language sql as $$ select coalesce(current_setting('request.jwt.claims',true),'{}')::jsonb $$; create function auth.uid() returns uuid language sql as $$ select (auth.jwt()->>'sub')::uuid $$; grant usage on schema public,auth to anon,authenticated,service_role;grant execute on function auth.jwt(),auth.uid() to authenticated;`);
 await db.exec(await readFile(new URL('../supabase/migrations/202610040001_website_operations.sql',import.meta.url),'utf8'));
 await db.exec(await readFile(new URL('../supabase/migrations/20261004195605_protect_owner_lookup.sql',import.meta.url),'utf8'));
+const settingsMigration=await readFile(new URL('../supabase/migrations/20261005082721_fix_website_save_settings_safeupdate.sql',import.meta.url),'utf8');
+const beforeSettingsDefinition=(await db.query("select prosrc,proacl from pg_proc where oid='public.website_save_settings(jsonb,jsonb,jsonb,uuid)'::regprocedure")).rows[0];
+await db.exec(settingsMigration);
 const rpc=async(name,p)=> (await db.query(`select ${name}($1::jsonb) result`,[JSON.stringify(p)])).rows[0].result;
 const query=async(sql,params=[])=> (await db.query(sql,params)).rows;
 const today=(await query(`select (now() at time zone 'Europe/Athens')::date::text d`))[0].d;
@@ -61,5 +64,32 @@ test('anonymous and authenticated nonowners cannot access sensitive tables or ex
 });
 test('management tokens are deterministic high-entropy server HMACs and hashed for storage',async()=>{
  const secret='x'.repeat(48),a=await manageToken(booked.id,secret),b=await manageToken(booked.id,secret);assert.equal(a,b);assert.equal(a.length,64);assert.notEqual(await hash(a),a);assert.notEqual(a,await manageToken(crypto.randomUUID(),secret));
+});
+test('settings migration changes only the three approved predicates and preserves access',async()=>{
+ const after=(await query("select prosrc,proacl from pg_proc where oid='public.website_save_settings(jsonb,jsonb,jsonb,uuid)'::regprocedure"))[0];
+ assert.equal(after.prosrc,beforeSettingsDefinition.prosrc.replace('updated_at=now();','updated_at=now() where id = true;').replace('delete from meeting_hours;','delete from meeting_hours where id is not null;').replace('delete from meeting_blocks;','delete from meeting_blocks where id is not null;'));
+ assert.deepEqual(after.proacl,beforeSettingsDefinition.proacl);
+});
+test('settings save updates the singleton and replaces hours/blocks without changing bookings or outbox',async()=>{
+ await db.exec('begin');
+ try {
+  const beforeBookings=await query('select * from meeting_bookings order by id');
+  const beforeJobs=await query('select * from notification_jobs order by id');
+  const current=(await query('select * from meeting_settings'))[0];
+  const hours=[{weekday:1,starts:'19:00:00',ends:'20:00:00'},{weekday:4,starts:'18:00:00',ends:'19:00:00'}];
+  const blocks=[{starts_at:'2027-01-10T10:00:00Z',ends_at:'2027-01-10T11:00:00Z'}];
+  const save=(settings,h,b)=>query('select website_save_settings($1::jsonb,$2::jsonb,$3::jsonb,null)',[JSON.stringify(settings),JSON.stringify(h),JSON.stringify(b)]);
+  await save({...current,enabled:false,location:'Google Meet',calendar_mode:'google'},hours,blocks);
+  let rows=await query('select * from meeting_settings');assert.equal(rows.length,1);assert.equal(rows[0].id,true);assert.equal(rows[0].enabled,false);assert.equal(rows[0].location,'Google Meet');assert.equal(rows[0].calendar_mode,'google');
+  for(const key of ['timezone','duration_minutes','buffer_minutes','notice_hours','horizon_days'])assert.equal(rows[0][key],current[key]);
+  assert.deepEqual(await query('select weekday,starts,ends from meeting_hours order by weekday'),hours);
+  assert.deepEqual((await query('select starts_at,ends_at from meeting_blocks')).map(b=>({starts_at:new Date(b.starts_at).toISOString(),ends_at:new Date(b.ends_at).toISOString()})),[{starts_at:'2027-01-10T10:00:00.000Z',ends_at:'2027-01-10T11:00:00.000Z'}]);
+  await save({...rows[0],enabled:true},[hours[1]],[]);
+  assert.equal((await query('select enabled from meeting_settings'))[0].enabled,true);
+  assert.deepEqual(await query('select weekday,starts,ends from meeting_hours'),[hours[1]]);
+  assert.deepEqual(await query('select * from meeting_blocks'),[]);
+  assert.deepEqual(await query('select * from meeting_bookings order by id'),beforeBookings);
+  assert.deepEqual(await query('select * from notification_jobs order by id'),beforeJobs);
+ } finally {await db.exec('rollback');}
 });
 test.after(()=>db.close());
