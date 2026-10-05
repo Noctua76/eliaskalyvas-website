@@ -85,10 +85,10 @@ function CinematicScene() {
     film.currentTime = 5;
     film.play().catch(() => setMotion(false));
   };
-  return <div className="hero-scene" aria-hidden="true" data-hero-revision="7">
-    <img className="hero-rest-frame" src={`${base}assets/hero/hero-rest.jpg?v=7`} alt="" fetchPriority="high" />
-    {motion && <video ref={filmRef} className="hero-film" src={`${base}assets/hero/hero-sequence.mp4?v=7`}
-      poster={`${base}assets/hero/hero-first.jpg?v=7`} autoPlay muted playsInline preload="auto"
+  return <div className="hero-scene" aria-hidden="true" data-hero-revision="8">
+    <img className="hero-rest-frame" src={`${base}assets/hero/hero-rest.jpg?v=8`} alt="" fetchPriority="high" />
+    {motion && <video ref={filmRef} className="hero-film" src={`${base}assets/hero/hero-sequence.mp4?v=8`}
+      poster={`${base}assets/hero/hero-first.jpg?v=8`} autoPlay muted playsInline preload="auto"
       onTimeUpdate={keepLoopingFallback} onEnded={resumeLoop} onError={() => setMotion(false)} />}
   </div>;
 }
