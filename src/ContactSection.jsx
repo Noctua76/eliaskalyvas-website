@@ -72,7 +72,7 @@ function ContactForm({ lang, interest, onMissingIntent }) {
     if (!interest) { onMissingIntent(); return; }
     if (contactConfig.endpoint && !captcha) { setStatus('verification'); return; }
     const data = new FormData(form);
-    const payload = { name: data.get('name').trim(), email: data.get('email').trim(), message: data.get('message').trim(), interest, language: lang, key: key.current, turnstileToken: captcha, company: data.get('company') };
+    const payload = { name: data.get('name').trim(), email: data.get('email').trim(), message: data.get('message').trim(), interest, language: lang, key: key.current, turnstileToken: captcha, company: data.get('x_c4e8a1') };
     setDraft(payload);
     if (!contactConfig.endpoint) { setStatus('email'); return; }
     busy.current = true;
@@ -92,7 +92,7 @@ function ContactForm({ lang, interest, onMissingIntent }) {
     <h3 id="contact-form-title">{t.formTitle}</h3><p className="contact-form-intro">{t.formText}</p>
     <fieldset disabled={status === 'loading'}>
       <input type="hidden" name="interest" value={interest} />
-      <div className="contact-honeypot" aria-hidden="true"><label htmlFor="contact-company">Company</label><input id="contact-company" name="company" tabIndex={-1} autoComplete="off" /></div>
+      <div className="contact-honeypot" aria-hidden="true"><input name="x_c4e8a1" tabIndex={-1} autoComplete="new-password" aria-hidden="true" defaultValue="" /></div>
       <label htmlFor="contact-name">{t.name} <span aria-hidden="true">*</span></label>
       <input id="contact-name" name="name" autoComplete="name" placeholder={t.namePlaceholder} required maxLength={120} />
       <label htmlFor="contact-email">{t.email} <span aria-hidden="true">*</span></label>

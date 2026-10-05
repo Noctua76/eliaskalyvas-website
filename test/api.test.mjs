@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {fixture} from './fixture.mjs';
 import {createHandler} from '../supabase/functions/website-api/lib/api.mjs';
 import {ApiError,manageToken} from '../supabase/functions/website-api/lib/validation.mjs';
@@ -76,5 +77,42 @@ test('admin identity is allowlisted and records require verified AAL2; worker re
  assert.equal((await call('/admin/identity',undefined,{Authorization:'Bearer '+a})).status,200);assert.equal((await call('/admin/data',undefined,{Authorization:'Bearer '+a})).status,403);assert.equal((await call('/admin/data',undefined,{Authorization:'Bearer '+b})).status,200);
  const forged='header.'+btoa(JSON.stringify({sub:id,aal:'aal2'}))+'.forged';assert.equal((await call('/admin/data',undefined,{Authorization:'Bearer '+forged})).status,401);
  const outsider=crypto.randomUUID(),other='header.'+btoa(JSON.stringify({sub:outsider,aal:'aal2'}))+'.other';users.set(other,{id:outsider});assert.equal((await call('/admin/data',undefined,{Authorization:'Bearer '+other})).status,403);
+});
+// Model visible name/email autofill while taking the decoy's name from the real form.
+async function autofilledForm(sourcePath,honeypotValue='') {
+ const source=await readFile(new URL(sourcePath,import.meta.url),'utf8');
+ const decoy=source.match(/<input name="(x_[a-f0-9]+)" tabIndex=\{-1\} autoComplete="new-password" aria-hidden="true" defaultValue=""\s*\/>/);
+ assert(decoy,'The offscreen decoy must have neutral semantics and autofill-resistant attributes');
+ assert(!source.includes('name="company"'));
+ assert(source.includes('company:')&&new RegExp("company:\\s*(?:f|data)\\.get\\('"+decoy[1]+"'\\)").test(source),'Submit must forward the real decoy value, not discard it');
+ const form=new FormData();form.set('name','Browser Autofill Visitor');form.set('email','autofilled@example.invalid');form.set(decoy[1],honeypotValue);
+ return {name:form.get('name'),email:form.get('email'),company:form.get(decoy[1])};
+}
+test('booking accepts autofilled visible name/email with the real form honeypot empty',async()=>{
+ const visible=await autofilledForm('../src/operations/Booking.jsx');
+ const date=(await pg.query("select ((now() at time zone 'Europe/Athens')::date+3)::text d")).rows[0].d;
+ const slots=await (await call(`/slots?from=${date}&to=${date}`)).json();assert(slots.enabled&&slots.slots.length);
+ const response=await call('/bookings',{topic:'Autofill regression only',timezone:'Europe/Athens',language:'en',key:crypto.randomUUID(),starts_at:slots.slots[0].starts_at,...anti('booking'),...visible});
+ assert.equal(response.status,202);const result=await response.json();
+ const row=(await pg.query('select attendee_name,attendee_email from meeting_bookings where id=$1',[result.id])).rows[0];
+ assert.deepEqual(row,{attendee_name:visible.name,attendee_email:visible.email});
+});
+test('contact accepts autofilled visible fields with the real form honeypot empty',async()=>{
+ const visible=await autofilledForm('../src/ContactSection.jsx');
+ const response=await call('/messages',{...payload(),...visible});assert.equal(response.status,202);const result=await response.json();
+ const row=(await pg.query('select name,email from contact_messages where id=$1',[result.id])).rows[0];
+ assert.deepEqual(row,{name:visible.name,email:visible.email});
+});
+test('non-empty honeypots still reject both forms and empty honeypots still require Turnstile',async()=>{
+ const before=(await pg.query('select (select count(*) from meeting_bookings) bookings,(select count(*) from contact_messages) messages,(select count(*) from notification_jobs) jobs')).rows[0];
+ const date=(await pg.query("select ((now() at time zone 'Europe/Athens')::date+4)::text d")).rows[0].d;
+ const slots=await (await call(`/slots?from=${date}&to=${date}`)).json();
+ const bookingPayload={topic:'Spam regression only',timezone:'Europe/Athens',language:'en',key:crypto.randomUUID(),starts_at:slots.slots[0].starts_at,...anti('booking'),...await autofilledForm('../src/operations/Booking.jsx','bot-filled')};
+ const contactPayload={...payload(),...await autofilledForm('../src/ContactSection.jsx','bot-filled')};
+ for(const [path,p] of [['/bookings',bookingPayload],['/messages',contactPayload]]){
+  const response=await call(path,p);assert.equal(response.status,400);assert.deepEqual(await response.json(),{error:'SPAM_REJECTED'});
+  const unverified=await call(path,{...p,company:'',turnstileToken:'invalid'});assert.equal(unverified.status,400);assert.deepEqual(await unverified.json(),{error:'VERIFICATION_FAILED'});
+ }
+ assert.deepEqual((await pg.query('select (select count(*) from meeting_bookings) bookings,(select count(*) from contact_messages) messages,(select count(*) from notification_jobs) jobs')).rows[0],before);
 });
 test.after(()=>pg.close());
