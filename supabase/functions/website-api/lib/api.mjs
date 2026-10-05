@@ -99,6 +99,10 @@ export function createHandler({ db, env, fetcher=fetch, calendar=calendarAdapter
       if(path.startsWith('/admin/')) {
         const actor=await owner(req,path!=='/admin/identity');
         if(path==='/admin/identity'&&req.method==='GET')return reply(actor);
+        if(path==='/admin/calendar-check'&&req.method==='GET') {
+          const config=await checked(db.from('meeting_settings').select('*').single());
+          return reply(await calendar.check(config));
+        }
         if(path==='/admin/data'&&req.method==='GET') {
           const results=await Promise.all(['contact_messages','meeting_bookings','notification_jobs','website_audit'].map(t=>checked(db.from(t).select('*').order('created_at',{ascending:false}).limit(250))));
           return reply(Object.fromEntries(['messages','meetings','jobs','audit'].map((t,i)=>[t,results[i]])));

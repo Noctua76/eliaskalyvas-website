@@ -1,11 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {fixture} from './fixture.mjs';
 import {createHandler} from '../supabase/functions/website-api/lib/api.mjs';
-import {manageToken} from '../supabase/functions/website-api/lib/validation.mjs';
-const {pg,db,users}=await fixture();const sent=[],used=new Set();let emailFails=false,calendarFails=false;
+import {ApiError,manageToken} from '../supabase/functions/website-api/lib/validation.mjs';
+const {pg,db,users}=await fixture();const sent=[],used=new Set();let emailFails=false,calendarFails=false,meetPending=false;
 const env={ALLOWED_ORIGINS:'https://website.test',TURNSTILE_HOSTNAMES:'website.test',TURNSTILE_SECRET_KEY:'test-only',RATE_LIMIT_SALT:'test-only',TRUSTED_IP_HEADER:'x-forwarded-for',PUBLIC_RATE_LIMIT:'100',RESEND_API_KEY:'test-only',EMAIL_FROM:'Website <test@example.invalid>',WORKER_SECRET:'test-only',BOOKING_TOKEN_SECRET:'test-only-secret-32-characters-long',PUBLIC_SITE_URL:'https://website.test/site/'};
 const fetcher=async(url,options)=>{if(url.includes('siteverify')){const p=JSON.parse(options.body),valid=p.response.startsWith('valid:')&&!used.has(p.response);used.add(p.response);return Response.json({success:valid,hostname:'website.test',action:p.response.split(':')[1]});}if(url==='https://api.resend.com/emails'){if(emailFails)return new Response('Failure',{status:503});sent.push({body:JSON.parse(options.body),headers:options.headers});return Response.json({id:'test-provider-id'});}throw new Error('Unexpected external URL');};
-const calendar={busy:async()=>{if(calendarFails)throw new Error('Authorization revoked');return [];},sync:async()=>({id:'test-event-id',status:'synced'})};
+const calendar={check:async()=>({connected:true}),busy:async()=>{if(calendarFails)throw new Error('Authorization revoked');return [];},sync:async()=>{if(meetPending)throw new ApiError('CALENDAR_MEET_PENDING',503);return {id:'test-event-id',status:'synced',meeting_url:'https://meet.google.com/abc-defg-hij'};}};
 const handler=createHandler({db,env,fetcher,calendar});
 const call=(path,p,headers={})=>handler(new Request('https://edge.test/website-api'+path,{method:p===undefined?'GET':'POST',headers:{Origin:'https://website.test','Content-Type':'application/json','x-forwarded-for':'203.0.113.10',...headers},body:p===undefined?undefined:JSON.stringify(p)}));
 const anti=action=>({turnstileToken:'valid:'+action+':'+crypto.randomUUID(),company:''});
@@ -41,7 +41,7 @@ let booking;
 test('bookings disabled until configured; current slots only; duplicate retry safe',async()=>{
  const tomorrow=(await pg.query("select ((now() at time zone 'Europe/Athens')::date+2)::text d")).rows[0].d;
  let a=await (await call(`/slots?from=${tomorrow}&to=${tomorrow}`)).json();assert.equal(a.enabled,false);
- await pg.exec("update meeting_settings set enabled=true,calendar_mode='manual',manual_acknowledged=true,location='Owner-approved meeting method',notice_hours=1;insert into meeting_hours(weekday,starts,ends) select generate_series(0,6),'09:00','12:00'");
+ await pg.exec("update meeting_settings set enabled=true,calendar_mode='google',location='Google Meet',notice_hours=1;insert into meeting_hours(weekday,starts,ends) select generate_series(0,6),'09:00','12:00'");
  a=await (await call(`/slots?from=${tomorrow}&to=${tomorrow}`)).json();assert(a.enabled&&a.slots.length);
  assert(a.slots.every(s=>Object.keys(s).sort().join(',')==='ends_at,starts_at'));
  const p={name:'Test Attendee',email:'attendee@example.invalid',topic:'Test meeting',timezone:'Europe/Athens',language:'el',key:crypto.randomUUID(),starts_at:a.slots[0].starts_at,...anti('booking')};
@@ -49,6 +49,18 @@ test('bookings disabled until configured; current slots only; duplicate retry sa
  const retry=await (await call('/bookings',{...p,...anti('booking')})).json();assert.equal(retry.id,booking.id);
  assert.equal((await call('/bookings',{...p,key:crypto.randomUUID(),...anti('booking')})).status,409);
  assert.equal((await call('/bookings',{...p,key:crypto.randomUUID(),starts_at:new Date(Date.parse(p.starts_at)+60000).toISOString(),...anti('booking')})).status,409);
+});
+test('booking emails wait for Meet and include the stored link in email and ICS after retry',async()=>{
+ await pg.exec("update meeting_settings set calendar_mode='google',location='Google Meet'");
+ meetPending=true;const before=sent.length;for(let i=0;i<2;i++)await call('/worker',{}, {'x-worker-secret':env.WORKER_SECRET});
+ assert(!sent.slice(before).some(m=>m.body.subject.startsWith('Meeting confirmed')));
+ assert.equal((await pg.query('select sync_status from meeting_bookings where id=$1',[booking.id])).rows[0].sync_status,'failed');
+ meetPending=false;await pg.exec("update notification_jobs set next_attempt_at=now() where status='failed'");
+ await call('/worker',{}, {'x-worker-secret':env.WORKER_SECRET});
+ const row=(await pg.query('select meeting_url,sync_status from meeting_bookings where id=$1',[booking.id])).rows[0];assert.equal(row.meeting_url,'https://meet.google.com/abc-defg-hij');assert.equal(row.sync_status,'synced');
+ const emails=sent.slice(before).filter(m=>m.body.subject.startsWith('Meeting confirmed'));assert.equal(emails.length,2);
+ for(const mail of emails){assert(mail.body.text.includes('Join Google Meet: '+row.meeting_url));const ics=Buffer.from(mail.body.attachments[0].content,'base64').toString();assert(ics.includes('URL:'+row.meeting_url));assert(ics.includes('LOCATION:'+row.meeting_url));}
+ assert.deepEqual(emails.find(m=>m.body.cc).body.cc,['iliaskalivas@hotmail.com']);assert.deepEqual(emails.find(m=>!m.body.cc).body.to,['attendee@example.invalid']);
 });
 test('calendar outage fails closed for slots, and GET/link scanning never cancels meetings',async()=>{
  calendarFails=true;const date=booking.starts_at.slice(0,10);assert.equal((await call(`/slots?from=${date}&to=${date}`)).status,503);calendarFails=false;
@@ -60,6 +72,7 @@ test('admin identity is allowlisted and records require verified AAL2; worker re
  assert.equal((await call('/admin/data')).status,401);assert.equal((await call('/worker',{})).status,401);
  const id=crypto.randomUUID();await pg.query('insert into auth.users values($1)',[id]);await pg.query('insert into website_owners values($1)',[id]);
  const token=aal=>'header.'+btoa(JSON.stringify({sub:id,aal}))+'.verified-by-mock-auth';const a=token('aal1'),b=token('aal2');users.set(a,{id});users.set(b,{id});
+ assert.equal((await call('/admin/calendar-check')).status,401);assert.equal((await call('/admin/calendar-check',undefined,{Authorization:'Bearer '+a})).status,403);assert.deepEqual(await (await call('/admin/calendar-check',undefined,{Authorization:'Bearer '+b})).json(),{connected:true});
  assert.equal((await call('/admin/identity',undefined,{Authorization:'Bearer '+a})).status,200);assert.equal((await call('/admin/data',undefined,{Authorization:'Bearer '+a})).status,403);assert.equal((await call('/admin/data',undefined,{Authorization:'Bearer '+b})).status,200);
  const forged='header.'+btoa(JSON.stringify({sub:id,aal:'aal2'}))+'.forged';assert.equal((await call('/admin/data',undefined,{Authorization:'Bearer '+forged})).status,401);
  const outsider=crypto.randomUUID(),other='header.'+btoa(JSON.stringify({sub:outsider,aal:'aal2'}))+'.other';users.set(other,{id:outsider});assert.equal((await call('/admin/data',undefined,{Authorization:'Bearer '+other})).status,403);
