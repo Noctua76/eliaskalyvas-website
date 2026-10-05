@@ -2,7 +2,17 @@ import { ApiError, manageToken } from './validation.mjs';
 async function data(result){const r=await result;if(r.error)throw new ApiError('STORAGE_UNAVAILABLE',503);return r.data;}
 async function json(fetcher,url,options={}) {
  const r=await fetcher(url,{...options,signal:AbortSignal.timeout(15000)});
- if(!r.ok)throw new ApiError(r.status===401||r.status===403?'PROVIDER_AUTHORIZATION_FAILED':'PROVIDER_UNAVAILABLE',503);
+ if(!r.ok){
+  // Return only allowlisted error identifiers, never Google's descriptions or token response.
+  if(url==='https://oauth2.googleapis.com/token'){
+   let error;try{error=(await r.json()).error;}catch{}
+   const codes={invalid_grant:'GOOGLE_REFRESH_TOKEN_REJECTED',invalid_client:'GOOGLE_CLIENT_CREDENTIALS_REJECTED',unauthorized_client:'GOOGLE_CLIENT_NOT_AUTHORIZED',invalid_request:'GOOGLE_OAUTH_REQUEST_INVALID'};
+   if(Object.hasOwn(codes,error))throw new ApiError(codes[error],503);
+   if(r.status===400)throw new ApiError('GOOGLE_TOKEN_REQUEST_FAILED',503);
+  }
+  if(r.status===400&&url.startsWith('https://www.googleapis.com/calendar/v3/'))throw new ApiError(url.includes('/freeBusy')?'CALENDAR_BUSY_REQUEST_FAILED':'CALENDAR_EVENT_REQUEST_FAILED',503);
+  throw new ApiError(r.status===401||r.status===403?'PROVIDER_AUTHORIZATION_FAILED':'PROVIDER_UNAVAILABLE',503);
+ }
  if(r.status===204)return null;return r.json();
 }
 export function calendarAdapter(env,fetcher=fetch) {

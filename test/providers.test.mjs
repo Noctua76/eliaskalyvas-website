@@ -60,3 +60,11 @@ test('connection check verifies authorization without creating events or returni
  const readOnly=async(url,o)=>url.includes('/token')?Response.json({access_token:'private-token',scope:'https://www.googleapis.com/auth/calendar.events.readonly'}):fetcher(url,o);
  await assert.rejects(calendarAdapter(googleEnv,readOnly).check({calendar_mode:'google'}),/CALENDAR_WRITE_PERMISSION_REQUIRED/);
 });
+
+test('Google OAuth failures report safe actionable identifiers and discard sensitive error descriptions',async()=>{
+ const codes={invalid_grant:'GOOGLE_REFRESH_TOKEN_REJECTED',invalid_client:'GOOGLE_CLIENT_CREDENTIALS_REJECTED',unauthorized_client:'GOOGLE_CLIENT_NOT_AUTHORIZED',invalid_request:'GOOGLE_OAUTH_REQUEST_INVALID',unknown:'GOOGLE_TOKEN_REQUEST_FAILED'};
+ for(const [error,code] of Object.entries(codes)){
+  const fetcher=async()=>Response.json({error,error_description:'private-client-secret-and-token'},{status:400});
+  await assert.rejects(calendarAdapter(googleEnv,fetcher).check({calendar_mode:'google'}),e=>e.message===code&&!e.message.includes('private'));
+ }
+});
