@@ -5,13 +5,41 @@ import {operationsConfig,request} from './config.js';
 const statuses=['new','read','replied','archived'];
 export default function Admin({lang}) {
  const gr=lang==='el',client=useRef(null),session=useRef(null);
+ const refreshInFlight=useRef(false);
  const [stage,setStage]=useState('login'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[factor,setFactor]=useState(null),[qr,setQr]=useState(''),[code,setCode]=useState('');
  const [meetingView,setMeetingView]=useState('list'),[calendarMonth,setCalendarMonth]=useState(()=>DateTime.now().startOf('month')),[dateFilter,setDateFilter]=useState('');
  const [data,setData]=useState(null),[availability,setAvailability]=useState(null),[tab,setTab]=useState('messages'),[filter,setFilter]=useState('all'),[chosen,setChosen]=useState(null),[saved,setSaved]=useState(''),[calendarCheck,setCalendarCheck]=useState('');
  const configured=operationsConfig.adminApiUrl&&operationsConfig.supabaseUrl&&operationsConfig.publicKey;
  useEffect(()=>{if(configured)client.current=createClient(operationsConfig.supabaseUrl,operationsConfig.publicKey,{auth:{persistSession:false,autoRefreshToken:true,detectSessionInUrl:false}});return()=>{client.current?.auth.signOut({scope:'local'});};},[configured]);
- async function token(){const {data,error}=await client.current.auth.getSession();if(error||!data.session)throw new Error('UNAUTHORIZED');session.current=data.session;return data.session.access_token;}
+ async function token(){const {data,error}=await client.current.auth.getSession();if(error)throw error;if(!data.session)throw Object.assign(new Error('UNAUTHORIZED'),{status:401});session.current=data.session;return data.session.access_token;}
  const api=async(path,p)=>request('/admin/'+path,p,await token(),operationsConfig.adminApiUrl);
+ useEffect(()=>{
+  if(stage!=='ready')return;
+  let active=true;
+  async function refreshData(){
+   if(!active||refreshInFlight.current)return;
+   refreshInFlight.current=true;
+   try{
+    const d=await api('data');
+    if(!active)return;
+    setData(d);
+    setChosen(current=>current?(d[tab]?.find(record=>record.id===current.id)||current):current);
+   }catch(e){
+    if(active&&(e.status===401||['session_not_found','refresh_token_not_found','refresh_token_already_used'].includes(e.code)))await logout();
+   }finally{refreshInFlight.current=false;}
+  }
+  const onVisible=()=>{if(document.visibilityState==='visible')void refreshData();};
+  const onFocus=()=>{void refreshData();};
+  const interval=window.setInterval(()=>{void refreshData();},5000);
+  document.addEventListener('visibilitychange',onVisible);
+  window.addEventListener('focus',onFocus);
+  return()=>{
+   active=false;
+   window.clearInterval(interval);
+   document.removeEventListener('visibilitychange',onVisible);
+   window.removeEventListener('focus',onFocus);
+  };
+ },[stage,tab]);
  async function load(){const [d,a]=await Promise.all([api('data'),api('settings')]);setData(d);setAvailability(a);}
  async function act(fn){if(busy)return;setBusy(true);setError('');setSaved('');try{await fn();}catch(e){setError(e.message==='FORBIDDEN'?(gr?'Ο λογαριασμός δεν έχει πρόσβαση.':'This account is not authorized.'):e.message==='MFA_REQUIRED'?(gr?'Απαιτείται επαλήθευση δύο παραγόντων.':'Two-factor verification is required.'):e.message==='DELIVERY_REVIEW_REQUIRED'?(gr?'Η παράδοση απαιτεί έλεγχο πριν την επανάληψη.':'Delivery must be reviewed before retrying.'):(gr?'Η ενέργεια δεν ολοκληρώθηκε. Έλεγξε τα στοιχεία και δοκίμασε ξανά.':'The action could not be completed. Check the details and try again.'));if(e.status===401){await client.current.auth.signOut({scope:'local'});setStage('login');setData(null);setAvailability(null);}}finally{setBusy(false);}}
  async function checkCalendar(){setCalendarCheck('');await act(async()=>{try{await api('calendar-check');setCalendarCheck(gr?'Η σύνδεση Google Calendar λειτουργεί. Ο έλεγχος διαθέσιμων ωρών και η πρόσβαση στα events επιβεβαιώθηκαν. Η δημιουργία Meet θα επιβεβαιωθεί με δοκιμαστική συνάντηση.':'Google Calendar is connected. Busy-time lookup and event access are verified. Meet creation still needs a test meeting.');}catch(e){const messages={CALENDAR_NOT_CONFIGURED:gr?'Λείπουν οι ρυθμίσεις σύνδεσης Google.':'Google connection settings are missing.',CALENDAR_WRITE_PERMISSION_REQUIRED:gr?'Χρειάζεται άδεια διαχείρισης Google Calendar events.':'Google Calendar event management permission is required.',PROVIDER_AUTHORIZATION_FAILED:gr?'Η Google δεν δέχτηκε την εξουσιοδότηση. Απαιτείται έλεγχος της σύνδεσης.':'Google rejected the authorization. Review the connection.'};setCalendarCheck(messages[e.message]||(gr?'Ο έλεγχος απέτυχε. Κωδικός: ':'Connection check failed. Code: ')+e.message);}});}
