@@ -27,3 +27,9 @@ Both language pages contain their own HTML title, description and Open Graph tex
 - Navigation labels for unbuilt sections are presentation text at this stage. The language selector, Home, Services and Hero interactions work.
 
 The current preview needs visual review on real desktop and mobile browsers before the Hero can be approved. It is not a finished site.
+
+## Public booking pre-launch action
+
+**PRE-LAUNCH SECURITY ACTION — rotate TURNSTILE_SECRET_KEY**
+
+The Turnstile secret was visible in an earlier screenshot. Rotate it in Cloudflare and the website Supabase project before final production launch. Do not expose secret values in frontend configuration, Git, logs, or screenshots. The public booking acceptance test does not rotate this secret.
