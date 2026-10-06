@@ -129,7 +129,7 @@ function App() {
       <div className="portrait-halo" aria-hidden="true"/>
       <img className="portrait" src={`${base}portrait.png`} alt="" fetchPriority="high" />
       <p className="eyebrow">{copy.eyebrow}</p>
-      <h1 id="hero-title" className="visually-hidden">BRAINSTORM</h1>
+      <h1 id="hero-title" className="visually-hidden">{el ? 'Ηλίας Καλύβας — Ηγεσία, Επιχειρήσεις και Στρατηγική AI' : 'Elias Kalyvas — Leadership, Business and AI Strategy'}</h1>
       <div className="hero-statement"><p className="motto">{copy.motto.map((part, i) => <span className={i === 2 ? 'emphasis' : ''} key={part}>{part}</span>)}</p><p className="subline">{copy.sub}</p></div>
       <button className="story-button" type="button" onClick={() => setStory(true)}><span className="play-icon" aria-hidden="true">▸</span><span>{copy.story}</span><i/></button>
       <aside className="hero-aside" aria-hidden="true"><span>STRATEGY</span><span>LEADERSHIP</span><span>AI SYSTEMS</span><span>DIGITAL PRODUCTS</span><span>REAL IMPACT</span></aside>
