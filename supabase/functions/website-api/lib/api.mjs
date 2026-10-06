@@ -112,6 +112,7 @@ export function createHandler({ db, env, fetcher=fetch, calendar=calendarAdapter
         }
         if(req.method!=='POST')throw new ApiError('NOT_FOUND',404);
         const b=await body(req);
+        if(path==='/admin/message-delete'){if(Object.keys(b).length!==1||!Object.hasOwn(b,'id'))throw new ApiError('INVALID_FIELDS');await checked(db.rpc('website_delete_message',{p_id:uuid(b.id),p_actor:actor.id}));return reply({accepted:true});}
         if(path==='/admin/message'){if(!['new','read','replied','archived'].includes(b.status))throw new ApiError('INVALID_FIELDS');await checked(db.rpc('website_message_status',{p_id:uuid(b.id),p_status:b.status,p_actor:actor.id}));return reply({accepted:true});}
         if(path==='/admin/meeting') {
           if(!['cancel','reschedule'].includes(b.action))throw new ApiError('INVALID_ACTION');

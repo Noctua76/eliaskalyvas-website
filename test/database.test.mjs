@@ -10,6 +10,7 @@ await db.exec(await readFile(new URL('../supabase/migrations/20261004195605_prot
 const settingsMigration=await readFile(new URL('../supabase/migrations/20261005082721_fix_website_save_settings_safeupdate.sql',import.meta.url),'utf8');
 const beforeSettingsDefinition=(await db.query("select prosrc,proacl from pg_proc where oid='public.website_save_settings(jsonb,jsonb,jsonb,uuid)'::regprocedure")).rows[0];
 await db.exec(settingsMigration);
+await db.exec(await readFile(new URL('../supabase/migrations/20261006192643_delete_contact_message.sql',import.meta.url),'utf8'));
 const rpc=async(name,p)=> (await db.query(`select ${name}($1::jsonb) result`,[JSON.stringify(p)])).rows[0].result;
 const query=async(sql,params=[])=> (await db.query(sql,params)).rows;
 const today=(await query(`select (now() at time zone 'Europe/Athens')::date::text d`))[0].d;
@@ -91,5 +92,49 @@ test('settings save updates the singleton and replaces hours/blocks without chan
   assert.deepEqual(await query('select * from meeting_bookings order by id'),beforeBookings);
   assert.deepEqual(await query('select * from notification_jobs order by id'),beforeJobs);
  } finally {await db.exec('rollback');}
+});
+
+test('message deletion is atomic, UUID-only audited and scoped to message jobs',async()=>{
+ await db.exec('begin');
+ try{
+  const actor=crypto.randomUUID();await query('insert into auth.users values($1)',[actor]);await query('insert into website_owners values($1)',[actor]);
+  const target=await rpc('website_submit_message',{...message,key:crypto.randomUUID()});
+  // Same resource UUID with a different kind must survive the precise deletion predicate.
+  await query("insert into notification_jobs(resource_id,kind,channel,revision) values($1,'booking','calendar',99)",[target.id]);
+  await query("select website_message_status($1,'archived',$2)",[target.id,actor]);
+  const beforeMeetings=await query('select * from meeting_bookings order by id');
+  const beforeOtherJobs=await query("select * from notification_jobs where not (resource_id=$1 and kind='message') order by id",[target.id]);
+  const beforeOtherMessages=await query('select * from contact_messages where id<>$1 order by id',[target.id]);
+  const beforeAudit=await query('select * from website_audit order by id');
+  // Force audit insertion failure and prove both deletes roll back together.
+  await db.exec("create function reject_delete_audit() returns trigger language plpgsql as $$ begin if new.action='message_deleted' then raise exception 'TEST_AUDIT_FAILURE'; end if;return new;end $$;create trigger reject_delete_audit before insert on website_audit for each row execute function reject_delete_audit();savepoint deletion_failure;");
+  await assert.rejects(query('select website_delete_message($1,$2)',[target.id,actor]),/TEST_AUDIT_FAILURE/);
+  await db.exec('rollback to savepoint deletion_failure');
+  assert.equal((await query('select * from contact_messages where id=$1',[target.id])).length,1);
+  assert.equal((await query("select * from notification_jobs where resource_id=$1 and kind='message'",[target.id])).length,1);
+  assert.deepEqual(await query('select * from website_audit order by id'),beforeAudit);
+  await db.exec('drop trigger reject_delete_audit on website_audit;drop function reject_delete_audit();set role service_role');
+  await query('select website_delete_message($1,$2)',[target.id,actor]);await db.exec('reset role');
+  assert.deepEqual(await query('select * from contact_messages order by id'),beforeOtherMessages);
+  assert.deepEqual(await query('select * from notification_jobs order by id'),beforeOtherJobs);
+  assert.deepEqual(await query('select * from meeting_bookings order by id'),beforeMeetings);
+  const after=await query('select * from website_audit order by id');assert.deepEqual(after.slice(0,-1),beforeAudit);
+  assert.deepEqual({action:after.at(-1).action,actor_id:after.at(-1).actor_id,resource_id:after.at(-1).resource_id},{action:'message_deleted',actor_id:actor,resource_id:target.id});
+  assert.deepEqual(Object.keys(after.at(-1)).sort(),['action','actor_id','created_at','id','resource_id']);
+ }finally{await db.exec('reset role;rollback');}
+});
+test('message deletion RPC is service-only and missing records cannot delete orphan jobs',async()=>{
+ const signature='public.website_delete_message(uuid,uuid)';
+ const permissions=await query("select has_function_privilege('anon',$1,'EXECUTE') anon,has_function_privilege('authenticated',$1,'EXECUTE') authenticated,has_function_privilege('service_role',$1,'EXECUTE') service",[signature]);assert.deepEqual(permissions[0],{anon:false,authenticated:false,service:true});
+ for(const role of ['anon','authenticated']){
+  await db.exec('set role '+role);
+  try{await assert.rejects(query('select website_delete_message($1,$2)',[crypto.randomUUID(),crypto.randomUUID()]),/permission denied/);}finally{await db.exec('reset role');}
+ }
+ const actor=(await query('select user_id from website_owners limit 1'))[0].user_id;
+ const missing=crypto.randomUUID();await query("insert into notification_jobs(resource_id,kind,channel) values($1,'message','owner')",[missing]);
+ const jobs=await query('select * from notification_jobs order by id'),audit=await query('select * from website_audit order by id');
+ await assert.rejects(query('select website_delete_message($1,$2)',[missing,actor]),/NOT_FOUND/);
+ await assert.rejects(query('select website_delete_message($1,$2)',[missing,null]),/FORBIDDEN/);
+ assert.deepEqual(await query('select * from notification_jobs order by id'),jobs);assert.deepEqual(await query('select * from website_audit order by id'),audit);
 });
 test.after(()=>db.close());
