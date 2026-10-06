@@ -27,7 +27,7 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          GITHUB_PAGES_BASE: /eliaskalyvas-website/
+          GITHUB_PAGES_BASE: /
           VITE_OPERATIONS_API_URL: ${{ vars.VITE_OPERATIONS_API_URL }}
           VITE_ADMIN_API_URL: ${{ vars.VITE_ADMIN_API_URL }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
