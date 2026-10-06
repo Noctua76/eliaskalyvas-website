@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import SectionSidebar from './SectionSidebar.jsx';
 import './ai-systems.css';
+import { createPortal } from 'react-dom';
+import { bookingPath } from './operations/config.js';
 
 const services = [
   { title: ['Websites &', 'Digital Experiences'], image: 'crystalline-laptop.webp' },
@@ -74,8 +76,44 @@ function MainVisual({ base }) {
   </div>;
 }
 
+function BookingDialog({ base, lang, onClose }) {
+  const dialogRef = useRef(null);
+  const frameRef = useRef(null);
+  const frameKeydown = useRef(null);
+  const closeLabel = lang === 'el' ? 'Κλείσιμο' : 'Close';
+  const title = lang === 'el' ? 'Κλείσε μια κλήση' : 'Book a call';
+  const connectFrame = () => {
+    frameKeydown.current?.();
+    const frameDocument = frameRef.current?.contentDocument;
+    if (!frameDocument) return;
+    const escape = event => { if (event.key === 'Escape') { event.preventDefault(); onClose(); } };
+    frameDocument.addEventListener('keydown', escape);
+    frameKeydown.current = () => frameDocument.removeEventListener('keydown', escape);
+  };
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    const dialog = dialogRef.current;
+    document.body.style.overflow = 'hidden';
+    dialog.showModal();
+    return () => {
+      frameKeydown.current?.();
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, []);
+  return createPortal(<dialog ref={dialogRef} className="ai-booking-dialog" aria-label={title}
+    onCancel={event => { event.preventDefault(); onClose(); }}
+    onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose(); } }}>
+    <div className="ai-booking-bar"><span>{title}</span><button type="button" autoFocus aria-label={closeLabel} onClick={onClose}>×</button></div>
+    <iframe ref={frameRef} src={bookingPath(base, lang)} title={title} onLoad={connectFrame} />
+  </dialog>, document.body);
+}
+
 export default function AISystemsSection({ lang, base }) {
   const sectionRef = useRef(null);
+  const [bookingOpen, setBookingOpen] = useState(false);
   const copy = translations[lang] || translations.en;
   useEffect(() => {
     const section = sectionRef.current;
@@ -128,10 +166,11 @@ export default function AISystemsSection({ lang, base }) {
           {['100+', '25+', '500K+', '∞'].map((value, index) => <div className="ai-metric" key={value}><strong>{value}</strong><p>{copy.metrics[index]}</p></div>)}
         </div>
         <div className="ai-build">
-          <a className="ai-build-button" href={contactHref('AI & Systems — Let’s Build Yours')}>{copy.build}<span aria-hidden="true">⟶</span></a>
+          <a className="ai-build-button" href={bookingPath(base, lang)} aria-haspopup="dialog" onClick={event => { event.preventDefault(); setBookingOpen(true); }}>{copy.build}<span aria-hidden="true">⟶</span></a>
           <span className="ai-build-caption">FROM POSSIBILITY TO PROGRESS</span>
         </div>
       </div>
     </div>
+    {bookingOpen && <BookingDialog base={base} lang={lang} onClose={() => setBookingOpen(false)} />}
   </section>;
 }

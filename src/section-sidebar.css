@@ -27,3 +27,5 @@
   .hero-section>.areas,.people-inner{width:calc(100% - 112px);margin-left:80px;margin-right:32px}
 }
 @media(max-width:1100px){.section-sidebar{display:none}}
+
+@media(min-width:1280px){.side-taxonomy{left:8px;width:78px;align-items:flex-end;text-align:right;letter-spacing:.08em}}

@@ -52,3 +52,5 @@ html[lang=el] .business-microtext{font-size:12px;letter-spacing:.08em;top:41%}
 .business-card:nth-child(2) .business-card-visual img{transform:scale(1.16)}
 .business-card:nth-child(2):hover .business-card-visual img{transform:scale(1.19)}
 .business-card:nth-child(3) .business-card-visual img{object-fit:cover}
+
+@media(max-width:650px){.business-cards-grid>.business-card-detail{margin-top:0;min-width:0}}

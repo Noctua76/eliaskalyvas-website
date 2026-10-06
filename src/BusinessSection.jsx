@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './business.css';
+import useMobileCards from './useMobileCards.js';
 import SectionSidebar from './SectionSidebar.jsx';
 
 const assets = {
@@ -84,6 +85,12 @@ export default function BusinessSection({ lang, base }) {
   const copy = translations[lang] || translations.en;
   const sectionRef = useRef(null);
   const [selected, setSelected] = useState(null);
+  const mobile = useMobileCards();
+  const detail = selected !== null && <div className="business-card-detail" id={`business-card-detail-${selected}`} role="region" aria-label={copy.cards[selected].title} style={mobile ? { order: selected * 2 + 1 } : undefined}>
+    <div><h3>{copy.cards[selected].title}</h3><p>{copy.cards[selected].lines.join(' ')}</p></div>
+    <div className="business-detail-result"><strong>{copy.metrics[selected][0]}</strong><span>{copy.metrics[selected].slice(1).join(' ')}</span></div>
+    <button type="button" aria-label={copy.close} onClick={() => { setSelected(null); sectionRef.current.querySelectorAll('.business-card-action')[selected]?.focus(); }}>×</button>
+  </div>;
   useEffect(() => {
     const section = sectionRef.current;
     const observer = new IntersectionObserver(([entry]) => {
@@ -107,18 +114,15 @@ export default function BusinessSection({ lang, base }) {
         <BusinessVisual copy={copy} base={base} />
       </div>
       <div className="business-cards-grid" id="business-cards">
-        {copy.cards.map((card, index) => <article key={card.key} className={`business-card ${selected === index ? 'is-selected' : ''}`}>
+        {copy.cards.map((card, index) => <article style={{ order: index * 2 }} key={card.key} className={`business-card ${selected === index ? 'is-selected' : ''}`}>
           <span className="business-card-number">0{index + 1}</span>
           <div className="business-card-visual"><img src={`${base}assets/business/${assets[card.key]}`} alt="" width="1448" height="1086" loading="lazy" decoding="async" /></div>
           <div className="business-card-body"><h3>{card.title}</h3><p>{card.lines.map(line => <span key={line}>{line}</span>)}</p></div>
-          <button className="business-card-action" type="button" aria-label={`${copy.exploreCard} ${card.title}`} aria-expanded={selected === index} aria-controls="business-card-detail" onClick={() => setSelected(selected === index ? null : index)}><span aria-hidden="true">→</span></button>
+          <button className="business-card-action" type="button" aria-label={`${copy.exploreCard} ${card.title}`} aria-expanded={selected === index} aria-controls={`business-card-detail-${index}`} onClick={() => setSelected(selected === index ? null : index)}><span aria-hidden="true">→</span></button>
         </article>)}
+        {mobile && detail}
       </div>
-      {selected !== null && <div className="business-card-detail" id="business-card-detail" role="region" aria-label={copy.cards[selected].title}>
-        <div><h3>{copy.cards[selected].title}</h3><p>{copy.cards[selected].lines.join(' ')}</p></div>
-        <div className="business-detail-result"><strong>{copy.metrics[selected][0]}</strong><span>{copy.metrics[selected].slice(1).join(' ')}</span></div>
-        <button type="button" aria-label={copy.close} onClick={() => { setSelected(null); sectionRef.current.querySelectorAll('.business-card-action')[selected]?.focus(); }}>×</button>
-      </div>}
+      {!mobile && detail}
       <div className="business-metrics" aria-label={lang === 'el' ? 'Αποτελέσματα' : 'Results'}>{copy.metrics.map(([value, label, qualifier]) => <div className="business-metric" key={value}><strong>{value}</strong><p>{label}<span>{qualifier}</span></p></div>)}</div>
       <div className="business-signature" aria-hidden="true"><i /><span>{copy.signature}</span></div>
     </div>

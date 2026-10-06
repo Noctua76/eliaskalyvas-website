@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import './people.css';
+import useMobileCards from './useMobileCards.js';
 import SectionSidebar from './SectionSidebar.jsx';
 
 const images = {
@@ -84,27 +85,31 @@ function PeopleHeroVisual({ copy, base }) {
   </div>;
 }
 
-function InfoCard({ card, index, base, selected, onSelect }) {
-  return <article className={`people-card${selected ? ' is-selected' : ''}`}>
+function InfoCard({ card, index, base, selected, onSelect, actionRef }) {
+  return <article style={{ order: index * 2 }} className={`people-card${selected ? ' is-selected' : ''}`}>
     <img src={`${base}${card.image}`} alt="" loading="lazy" decoding="async" />
     <div className="people-card-shade" aria-hidden="true" />
     <span className="people-card-index">0{index + 1}</span>
     <div className="people-card-copy"><h3>{card.title}</h3><p>{card.description}</p></div>
-    <button className="people-card-action" type="button" onClick={onSelect} aria-label={`${card.title} — ${selected ? 'close' : 'explore'}`} aria-expanded={selected} aria-controls="people-card-detail"><span aria-hidden="true">→</span></button>
+    <button ref={actionRef} className="people-card-action" type="button" onClick={onSelect} aria-label={`${card.title} — ${selected ? 'close' : 'explore'}`} aria-expanded={selected} aria-controls={`people-card-detail-${index}`}><span aria-hidden="true">→</span></button>
   </article>;
 }
 
 function PeopleCardsGrid({ copy, base }) {
   const [selected, setSelected] = useState(null);
+  const mobile = useMobileCards();
+  const actions = useRef([]);
+  const detail = selected !== null && <div className="people-card-detail" id={`people-card-detail-${selected}`} role="status" style={mobile ? { order: selected * 2 + 1 } : undefined}>
+    <span>0{selected + 1} / {copy.cards[selected].title}</span>
+    <p>{copy.cards[selected].detail}</p>
+    <button type="button" onClick={() => { setSelected(null); actions.current[selected]?.focus(); }} aria-label={copy.close}>×</button>
+  </div>;
   return <div className="people-cards-area" id="people-cards">
     <div className="people-cards-grid">
-      {copy.cards.map((card, index) => <InfoCard key={card.title} card={card} index={index} base={base} selected={selected === index} onSelect={() => setSelected(selected === index ? null : index)} />)}
+      {copy.cards.map((card, index) => <InfoCard key={card.title} card={card} index={index} base={base} selected={selected === index} actionRef={element => { actions.current[index] = element; }} onSelect={() => setSelected(selected === index ? null : index)} />)}
+      {mobile && detail}
     </div>
-    {selected !== null && <div className="people-card-detail" id="people-card-detail" role="status">
-      <span>0{selected + 1} / {copy.cards[selected].title}</span>
-      <p>{copy.cards[selected].detail}</p>
-      <button type="button" onClick={() => setSelected(null)} aria-label={copy.close}>×</button>
-    </div>}
+    {!mobile && detail}
   </div>;
 }
 

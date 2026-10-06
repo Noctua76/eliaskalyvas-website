@@ -91,3 +91,14 @@ html[lang=el] .contact-intents>p{font-size:13px}html[lang=el] .contact-intent-ti
 .contact-intents #contact-intent-error {color:#f2bd95;font-size:12px;}
 .contact-form .ops-verification {margin:12px 0;min-width:0;}
 .contact-form .ops-error {font-size:12px;color:#f2bd95;}
+
+/* Mobile grid items must be allowed to shrink to the shared viewport gutter. */
+@media(max-width:650px){
+  .contact-inner{max-width:calc(100% - 40px);min-width:0;box-sizing:border-box;transform:none}
+  .contact-main{grid-template-columns:minmax(0,1fr);width:100%;min-width:0}
+  .contact-main>*,.contact-intents,.contact-intent-grid,.contact-intent,.contact-form{min-width:0;max-width:100%;box-sizing:border-box}
+  .contact-intent-grid{width:100%;grid-template-columns:minmax(0,1fr)}
+  .contact-form{width:100%;margin-inline:0}
+  .contact-intro h2>span,.contact-intents>p{white-space:normal;word-break:normal;overflow-wrap:normal}
+  .contact-form input:not([type=hidden]),.contact-form textarea{min-width:0;max-width:100%}
+}
