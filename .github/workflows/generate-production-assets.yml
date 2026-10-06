@@ -1,0 +1,58 @@
+name: Generate production brand assets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/generate-production-assets.yml
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+      - name: Generate favicon and social assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          MARK="public/assets/brand/ek-mark.png"
+
+          icon() {
+            local size="$1"
+            local inner="$2"
+            local output="$3"
+            convert "$MARK" -trim +repage -resize "${inner}x${inner}"               -gravity center -background none -extent "${size}x${size}" "$output"
+          }
+
+          icon 16 14 public/favicon-16x16.png
+          icon 32 28 public/favicon-32x32.png
+          icon 180 154 public/apple-touch-icon.png
+          icon 192 164 public/android-chrome-192x192.png
+          icon 512 436 public/android-chrome-512x512.png
+          convert public/favicon-16x16.png public/favicon-32x32.png public/favicon.ico
+
+          convert -size 1200x630 xc:'#05080c'             -fill '#0b1823' -draw 'rectangle 0,0 1200,630'             -fill '#10283a' -draw 'polygon 760,0 1200,0 1200,630 980,630'             \( "$MARK" -trim +repage -resize 330x330 \)             -gravity east -geometry +110+0 -composite             -gravity northwest -font DejaVu-Sans             -fill '#f2f5f7' -pointsize 58 -annotate +88+168 'ELIAS KALYVAS'             -fill '#aebbc7' -pointsize 27 -annotate +90+252 'Leadership · Business · AI'             -fill '#f2f5f7' -pointsize 34 -annotate +89+322 'Ideas into reality.'             -fill '#7d8d9b' -draw 'rectangle 90,372 590,374'             -quality 92 public/assets/brand/elias-kalyvas-social-1200x630.jpg
+
+          identify public/favicon-16x16.png public/favicon-32x32.png             public/apple-touch-icon.png public/android-chrome-192x192.png             public/android-chrome-512x512.png public/favicon.ico             public/assets/brand/elias-kalyvas-social-1200x630.jpg
+      - name: Commit generated assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/favicon.ico public/favicon-16x16.png public/favicon-32x32.png             public/apple-touch-icon.png public/android-chrome-192x192.png             public/android-chrome-512x512.png             public/assets/brand/elias-kalyvas-social-1200x630.jpg
+          if git diff --cached --quiet; then
+            echo "No asset changes."
+            exit 0
+          fi
+          git commit -m "Generate production favicon and social assets"
+          git push origin HEAD:main
