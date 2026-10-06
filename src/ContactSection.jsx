@@ -3,6 +3,7 @@ import SectionSidebar from './SectionSidebar.jsx';
 import BrandLockup from './BrandLockup.jsx';
 import { contactConfig, contactEmailHref, sendContactMessage } from './contact-config.js';
 import './contact.css';
+import LegalControls from './legal/LegalControls.jsx';
 import { bookingPath } from './operations/config.js';
 import Turnstile from './operations/Turnstile.jsx';
 
@@ -29,8 +30,6 @@ const copy = {
     quote: ['Every meaningful project', 'starts with a conversation.'],
     nav: ['Home', 'Work', 'Services', 'About', 'Contact'], footerNav: 'Footer navigation',
     rights: 'All rights reserved.', privacy: 'Privacy Policy', terms: 'Terms', close: 'Close',
-    pendingPolicy: 'The full Privacy Policy will be published before the final website launches. The policy will cover message and booking storage, notifications and retention. For privacy questions, please contact info@eliaskalyvas.gr.',
-    pendingTerms: 'The Terms will be published before the final website launches. For questions about a collaboration, please contact info@eliaskalyvas.gr.',
     pendingSocial: 'The official profile will be linked here soon. You can connect with Elias on LinkedIn or by email.',
   },
   el: {
@@ -48,8 +47,6 @@ const copy = {
     quote: ['Κάθε ουσιαστικό έργο', 'ξεκινά με μια συζήτηση.'],
     nav: ['Αρχική', 'Έργα', 'Τομείς', 'Σχετικά', 'Επικοινωνία'], footerNav: 'Πλοήγηση υποσέλιδου',
     rights: 'Με επιφύλαξη παντός δικαιώματος.', privacy: 'Πολιτική απορρήτου', terms: 'Όροι χρήσης', close: 'Κλείσιμο',
-    pendingPolicy: 'Η πλήρης πολιτική απορρήτου θα δημοσιευτεί πριν από την τελική έναρξη λειτουργίας του website. Θα καλύπτει την αποθήκευση μηνυμάτων και κρατήσεων, τις ειδοποιήσεις και τον χρόνο διατήρησης. Για ερωτήσεις σχετικά με το απόρρητο, επικοινώνησε στο info@eliaskalyvas.gr.',
-    pendingTerms: 'Οι όροι χρήσης θα δημοσιευτούν πριν από την τελική έναρξη λειτουργίας του website. Για ερωτήσεις σχετικά με μια συνεργασία, επικοινώνησε στο info@eliaskalyvas.gr.',
     pendingSocial: 'Το επίσημο προφίλ θα συνδεθεί εδώ σύντομα. Μπορείς να επικοινωνήσεις με τον Ηλία στο LinkedIn ή μέσω email.',
   },
 };
@@ -149,7 +146,7 @@ function SiteFooter({ lang, base }) {
     </div>
     <div className="contact-footer-baseline"><p className="contact-footer-domains">PEOPLE <b>/</b> BUSINESS <b>/</b> AI &amp; SYSTEMS</p>
       <p className="contact-copyright">© 2026 Elias Kalyvas. {t.rights}</p>
-      <div className="contact-legal">{[['privacy', contactConfig.privacyUrl, t.pendingPolicy], ['terms', contactConfig.termsUrl, t.pendingTerms]].map(([key, href, text]) => href ? <a href={href} key={key}>{t[key]}</a> : <button type="button" key={key} onClick={() => setNotice({ title: t[key], text })}>{t[key]}</button>)}</div>
+      <div className="contact-legal"><LegalControls lang={lang} base={base} /></div>
     </div>
     {notice && <FooterNotice notice={notice} lang={lang} close={() => setNotice(null)} />}
   </footer>;
