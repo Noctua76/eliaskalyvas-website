@@ -15,7 +15,19 @@ export default function LegalModal({ kind, lang, onClose, children }) {
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, []);
+  function trapFocus(event) {
+    if (event.key !== 'Tab') return;
+    const focusable = [...ref.current.querySelectorAll('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])')].filter(element => element.getClientRects().length);
+    const first = focusable[0]; const last = focusable.at(-1);
+    if (!first) { event.preventDefault(); return; }
+    if (event.shiftKey && (document.activeElement === first || !ref.current.contains(document.activeElement))) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !ref.current.contains(document.activeElement))) {
+      event.preventDefault(); first.focus();
+    }
+  }
   return <dialog ref={ref} className="legal-dialog" aria-labelledby={titleId}
+    onKeyDown={trapFocus}
     onCancel={e => { e.preventDefault(); onClose(); }}
     onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
     <div className="legal-dialog-surface">
