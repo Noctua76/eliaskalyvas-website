@@ -39,7 +39,6 @@ const clusters = [
   { key: 'impact', lines: ['REAL PROBLEMS.', 'REAL SOLUTIONS.', 'REAL IMPACT.'] },
   { key: 'purpose', lines: ['TECHNOLOGY', 'WITH A', 'HUMAN PURPOSE'] },
 ];
-const contactHref = subject => `mailto:info@eliaskalyvas.gr?subject=${encodeURIComponent(subject)}`;
 
 function MainVisual({ base }) {
   return <div className="ai-visual" aria-hidden="true">
@@ -158,7 +157,7 @@ export default function AISystemsSection({ lang, base }) {
           <span className="ai-card-number">0{index + 1}</span>
           <div className="ai-card-visual"><img src={`${base}assets/ai-systems/${service.image}`} alt="" width="1000" height="750" loading="lazy" decoding="async" /></div>
           <div className="ai-card-copy"><h3>{service.title.map(line => <span key={line}>{line}</span>)}</h3><p>{copy.descriptions[index]}</p></div>
-          <a className="ai-card-action" href={contactHref(`AI & Systems — ${service.title.join(' ')}`)} aria-label={`${copy.enquire} ${service.title.join(' ')}`}><span aria-hidden="true">→</span></a>
+          <a className="ai-card-action" href="#contact" aria-label={`${copy.enquire} ${service.title.join(' ')}`}><span aria-hidden="true">→</span></a>
         </article>)}
       </div>
       <div className="ai-bottom ai-reveal">
