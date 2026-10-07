@@ -27,8 +27,35 @@
     <meta name="twitter:title" content="Elias Kalyvas — Ideas into reality" />
     <meta name="twitter:description" content="I think. I design. I build. For people, businesses and ideas worth making real." />
     <meta name="twitter:image" content="https://eliaskalyvas.gr/assets/brand/elias-kalyvas-social-1200x630.jpg" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #05080c;
+      }
+      .root-fallback {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    </style>
+    <script>
+      (() => {
+        const target = new URL('./en/', window.location.href);
+        target.search = window.location.search;
+        target.hash = window.location.hash;
+        window.location.replace(target.href);
+      })();
+    </script>
     <meta http-equiv="refresh" content="0;url=./en/" />
     <title>Elias Kalyvas | Leadership, Business &amp; AI Systems</title>
   </head>
-  <body><a href="./en/">Enter site / Είσοδος</a></body>
+  <body><a class="root-fallback" href="./en/">Enter site / Είσοδος</a></body>
 </html>
