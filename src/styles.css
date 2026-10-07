@@ -57,3 +57,12 @@
 @media(max-width:900px){.hero-scene{background:transparent}.hero-rest-frame{width:125vw;height:auto;max-width:none;left:-12vw;top:56px;object-fit:contain}}
 @media(max-width:650px){.hero-rest-frame{width:150vw;left:-22vw;top:234px}}
 @media(prefers-reduced-motion:reduce){.hero-film{display:none}}
+
+
+/* Mobile navigation stays available across the full page. The 68px main
+   reservation replaces the header's former in-flow height without shifting content. */
+@media(max-width:650px){
+  main{padding-top:68px}
+  .site-header{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:15;background:linear-gradient(180deg,#02060ae6,#02060a00)}
+  #areas,#selected-work,#about,#contact{scroll-margin-top:84px}
+}
