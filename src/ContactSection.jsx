@@ -6,6 +6,7 @@ import './contact.css';
 import LegalControls from './legal/LegalControls.jsx';
 import { bookingPath } from './operations/config.js';
 import Turnstile from './operations/Turnstile.jsx';
+import useMobileCards from './useMobileCards.js';
 
 const intents = [
   { value: 'Website', titleLines: ['I need a', 'website'], image: 'website.webp', en: ['I need a website', 'A modern, high-performance site.'], el: ['Χρειάζομαι ένα website', 'Μια σύγχρονη ιστοσελίδα υψηλών επιδόσεων.'] },
@@ -51,7 +52,7 @@ const copy = {
   },
 };
 
-function ContactForm({ lang, interest, onMissingIntent }) {
+function ContactForm({ lang, interest, onMissingIntent, formRef }) {
   const t = copy[lang];
   const [status, setStatus] = useState('idle');
   const [draft, setDraft] = useState(null);
@@ -85,7 +86,7 @@ function ContactForm({ lang, interest, onMissingIntent }) {
     event.target.setCustomValidity?.('');
     if (status !== 'loading') { setStatus('idle'); key.current = crypto.randomUUID(); }
   };
-  return <form className="contact-form contact-reveal" onSubmit={submit} onInput={edit} aria-labelledby="contact-form-title" aria-busy={status === 'loading'}>
+  return <form ref={formRef} className="contact-form contact-reveal" onSubmit={submit} onInput={edit} aria-labelledby="contact-form-title" aria-busy={status === 'loading'}>
     <h3 id="contact-form-title">{t.formTitle}</h3><p className="contact-form-intro">{t.formText}</p>
     <fieldset disabled={status === 'loading'}>
       <input type="hidden" name="interest" value={interest} />
@@ -153,9 +154,16 @@ function SiteFooter({ lang, base }) {
 }
 
 export default function ContactSection({ lang, base }) {
-  const t = copy[lang]; const ref = useRef(null); const [interest, setInterest] = useState('');
+  const t = copy[lang]; const ref = useRef(null); const formRef = useRef(null); const isMobile = useMobileCards(); const [interest, setInterest] = useState('');
   const [intentError, setIntentError] = useState(false);
   const missingIntent = () => { setIntentError(true); ref.current.querySelector('.contact-intent').focus(); };
+  const selectIntent = value => {
+    setInterest(value);
+    setIntentError(false);
+    if (!isMobile) return;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' }));
+  };
   const image = file => `${base}assets/contact/${file}`;
   useEffect(() => {
     const section = ref.current;
@@ -178,13 +186,13 @@ export default function ContactSection({ lang, base }) {
         </div>
         <div className="contact-image-labels" aria-hidden="true"><p className="contact-tomorrow">{['A', 'BRIGHTER', 'TOMORROW', 'BUILDS', 'TODAY.'].map(line => <span key={line}>{line}</span>)}</p><p className="contact-right-taxonomy">{['IDEAS', 'PEOPLE', 'BUSINESS', 'TECHNOLOGY', 'REAL IMPACT'].map(line => <span key={line}>{line}</span>)}<i /></p></div>
         <div className="contact-intents contact-reveal"><h3 id="contact-needs">{t.needs}</h3><p>{t.needsText}</p>
-          <div className="contact-intent-grid" role="group" aria-labelledby="contact-needs" aria-describedby={intentError ? "contact-intent-error" : undefined}>{intents.map(intent => <button type="button" className={`contact-intent${interest === intent.value ? ' is-selected' : ''}`} key={intent.value} aria-pressed={interest === intent.value} onClick={() => { setInterest(intent.value); setIntentError(false); }}>
+          <div className="contact-intent-grid" role="group" aria-labelledby="contact-needs" aria-describedby={intentError ? "contact-intent-error" : undefined}>{intents.map(intent => <button type="button" className={`contact-intent${interest === intent.value ? ' is-selected' : ''}`} key={intent.value} aria-pressed={interest === intent.value} onClick={() => selectIntent(intent.value)}>
             <img src={image(intent.image)} alt="" loading="lazy" width="160" height="160" />
             <span className="contact-intent-title">{lang === 'en' ? intent.titleLines.map(line => <span key={line}>{line} </span>) : intent[lang][0]}</span><span className="contact-intent-text">{intent[lang][1]}</span>
           </button>)}</div>
           {intentError && <p id="contact-intent-error" role="alert">{lang === 'el' ? 'Επίλεξε τι χρειάζεσαι πριν συνεχίσεις.' : 'Please select what you need before continuing.'}</p>}
         </div>
-        <ContactForm lang={lang} interest={interest} onMissingIntent={missingIntent} />
+        <ContactForm lang={lang} interest={interest} onMissingIntent={missingIntent} formRef={formRef} />
       </div>
       <div className="contact-information contact-reveal">
         <div className="contact-info-block"><img src={image('email.webp')} alt="" loading="lazy" width="160" height="160" /><div><h3>{t.email}</h3><a href={contactEmailHref()}>info@eliaskalyvas.gr</a></div></div>

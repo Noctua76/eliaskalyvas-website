@@ -98,7 +98,7 @@ html[lang=el] .contact-intents>p{font-size:13px}html[lang=el] .contact-intent-ti
   .contact-main{grid-template-columns:minmax(0,1fr);width:100%;min-width:0}
   .contact-main>*,.contact-intents,.contact-intent-grid,.contact-intent,.contact-form{min-width:0;max-width:100%;box-sizing:border-box}
   .contact-intent-grid{width:100%;grid-template-columns:minmax(0,1fr)}
-  .contact-form{width:100%;margin-inline:0}
+  .contact-form{width:100%;margin-inline:0;scroll-margin-top:84px}
   .contact-intro h2>span,.contact-intents>p{white-space:normal;word-break:normal;overflow-wrap:normal}
   .contact-form input:not([type=hidden]),.contact-form textarea{min-width:0;max-width:100%}
 }
