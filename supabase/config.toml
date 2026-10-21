@@ -1,3 +1,7 @@
 # Public and private routes authenticate inside the handler, with fail-closed checks.
 [functions.website-api]
 verify_jwt = false
+
+# Nyra validates the owner JWT with Auth, the owner allowlist and AAL2 itself.
+[functions.nyra-api]
+verify_jwt = false
