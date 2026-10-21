@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { runEditorialWorkflow } from '../src/operations/nyra-workflow.mjs';
 
 const assignment = { topic: 'judgment', direction: 'original angle', language: 'gr', format: 'signal' };
-const research = { ticket: 'signed-1', assignment };
+const research = { ticket: 'signed-1', assignment, evidence_ready: true };
 const draft = n => ({ run: { id: 'draft-' + n }, article: { title: 'Article ' + n, status: 'needs_revision' } });
 const review = (passed, needsResearch = false) => ({ passed, needs_research: needsResearch, issues: passed ? [] : ['Explain the finding plainly.'], revision_instructions: passed ? '' : 'Simplify paragraph 3.', research_questions: needsResearch ? 'Check the correction.' : '' });
 function fake(outputs) {
@@ -48,4 +48,22 @@ test('two research repairs stop with unresolved findings, without a third resear
   const d = await runEditorialWorkflow(s.options);
   assert.equal(s.requests.filter(x => x.path === '/research').length, 2);
   assert.equal(d.article.status, 'needs_revision'); assert.equal(d.automatic_review.needs_research, true);
+});
+test('source content is captured before writing without another model call', async () => {
+  const capture = { ticket: 'with-receipts', source_records: [], evidence_ready: true };
+  const s = fake([capture, draft(1), review(true)]);
+  const d = await runEditorialWorkflow({ ...s.options, research: { ...research, evidence_ready: false } });
+  assert.deepEqual(s.requests.map(x => x.path), ['/evidence', '/draft', '/review']);
+  assert.equal(s.requests[1].payload.ticket, 'with-receipts');
+  assert.equal(d.research.evidence_ready, true);
+});
+test('fresh research keeps signed evidence and prioritizes exact research questions', async () => {
+  const detailed = { ...review(false, true), issues: ['x'.repeat(5000)], research_questions: 'Retrieve Plato 21d.' };
+  const fresh = { ...research, ticket: 'new-research', evidence_ready: false };
+  const s = fake([draft(1), detailed, fresh, { ticket: 'new-receipts', evidence_ready: true, source_records: [] }, draft(2), review(true)]);
+  await runEditorialWorkflow(s.options);
+  const request = s.requests.find(x => x.path === '/research');
+  assert.ok(request.payload.research_focus.startsWith('Retrieve Plato 21d.'));
+  assert.equal(request.payload.previous_ticket, research.ticket);
+  assert.equal(s.requests.filter(x => x.path === '/evidence').length, 1);
 });
