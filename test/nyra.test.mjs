@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createNyraHandler, seal, unseal, extractEvidence, validateArticle, assignmentPayload } from '../supabase/functions/nyra-api/lib/api.mjs';
+import { createNyraHandler, seal, unseal, extractEvidence, validateArticle, assignmentPayload, validateReview } from '../supabase/functions/nyra-api/lib/api.mjs';
 import { PROMPT_VERSION } from '../supabase/functions/nyra-api/lib/instructions.mjs';
 import { fixture } from './fixture.mjs';
 
@@ -52,7 +52,7 @@ test('Nyra research and draft use owner/MFA auth and return traceable, unpublish
   assert.equal(r.data.sources[0].access, 'opened_page');
   const d = await s.call('/draft', { ticket: r.data.ticket });
   assert.equal(d.response.status, 200); assert.equal(d.data.article.word_count, 600);
-  assert.equal(d.data.article.status, 'pending_review'); assert.equal(d.data.publishing, false);
+  assert.equal(d.data.article.status, 'needs_revision'); assert.equal(d.data.publishing, false);
   assert.equal(d.data.run.prompt_version, PROMPT_VERSION);
   assert.equal(s.requests.length, 2); assert.equal(s.lookups.length, 2);
   assert.ok(s.tokens.every(t => t === jwt()));
@@ -203,4 +203,52 @@ test('the existing PostgreSQL rate counter persists the Nyra owner limit across 
     assert.equal((await db.rpc('website_rate_check', args)).data, false);
     assert.equal((await db.rpc('website_rate_check', { ...args, p_bucket: 'nyra-lab:' + ownerId + ':draft', p_limit: 6 })).data, true);
   } finally { await pg.close(); }
+});
+
+const reviewResult = (changes = {}) => ({ checks: { clarity: true, coherence: true, editorial_contribution: true, counterargument: true, evidence: true }, needs_research: false, issues: [], revision_instructions: '', research_questions: '', ...changes });
+test('review uses owner MFA, signed research and server tools configuration', async () => {
+  const s = setup({ outputs: [researchOutput(), draftOutput(reviewResult())] });
+  const r = await s.call('/research', assignment);
+  const result = await s.call('/review', { ticket: r.data.ticket, article: article(), tools: [{ type: 'web_search' }] });
+  assert.equal(result.response.status, 200); assert.equal(result.data.passed, true);
+  assert.equal(result.data.approval, 'human_required'); assert.equal(result.data.publishing, false);
+  assert.equal(s.requests[1].payload.tools, undefined);
+  assert.equal(s.requests[1].payload.text.format.name, 'nyra_review');
+  assert.equal(s.rpcs[1].args.p_bucket, 'nyra-lab:' + ownerId + ':review');
+  assert.equal((await s.call('/review', { ticket: r.data.ticket, article: article() }, {}, jwt('aal1'))).response.status, 403);
+  assert.equal((await s.call('/review', { ticket: 'invalid', article: article() })).response.status, 409);
+  assert.equal(s.requests.length, 2);
+});
+test('review cannot override server length and recorded access gaps with a passing verdict', () => {
+  const a = validateArticle(article(100), [{ url: source }], 'signal');
+  const r = validateReview(reviewResult(), a, [{ url: source, access: 'cited_by_research' }], 'gr');
+  assert.equal(r.passed, false); assert.equal(r.needs_research, true);
+  assert.equal(r.checks.length, false); assert.equal(r.checks.recorded_source_access, false);
+  assert.deepEqual(r.access_gaps, [source]); assert.equal(r.issues.length, 2);
+});
+test('incomplete and failed opens never become recorded completed page access', () => {
+  for (const status of ['searching', 'failed', 'incomplete']) {
+    const r = researchOutput(); r.output.find(x => x.id === 'open-1').status = status;
+    assert.notEqual(extractEvidence(r).sources[0].access, 'opened_page');
+  }
+});
+test('cited sources survive the discovery result cap', () => {
+  const r = researchOutput();
+  r.output[0].action.sources = Array.from({ length: 70 }, (_, i) => ({ url: 'https://example.org/discovery/' + i }));
+  const evidence = extractEvidence(r);
+  assert.equal(evidence.sources.length, 60);
+  assert.ok(evidence.sources.some(s => s.url === source && s.access === 'opened_page'));
+});
+test('invalid reviews fail closed; missing evidence requests research', () => {
+  const a = validateArticle(article(), [{ url: source }], 'signal');
+  for (const invalid of [null, {}, reviewResult({ issues: ['x'.repeat(1001)] }), reviewResult({ needs_research: 'false' })]) assert.throws(() => validateReview(invalid, a, [], 'en'));
+  const r = validateReview(reviewResult({ checks: { ...reviewResult().checks, evidence: false } }), a, [{ url: source, access: 'opened_page' }], 'en');
+  assert.equal(r.passed, false); assert.equal(r.needs_research, true);
+});
+test('review provider failures stop without automatic retry or secret disclosure', async () => {
+  const s = setup({ outputs: [researchOutput(), new Response('private account body', { status: 429 })] });
+  const r = await s.call('/research', assignment);
+  const result = await s.call('/review', { ticket: r.data.ticket, article: article() });
+  assert.equal(result.data.error, 'PROVIDER_LIMIT'); assert.equal(s.requests.length, 2);
+  assert.ok(!JSON.stringify(result.data).includes('private'));
 });

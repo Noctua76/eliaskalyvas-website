@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { operationsConfig } from './config.js';
+import { runEditorialWorkflow } from './nyra-workflow.mjs';
 import './nyra-lab.css';
 
 const messages = {
@@ -41,7 +42,7 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
   const [phase, setPhase] = useState('idle'), [error, setError] = useState(''), [status, setStatus] = useState(null);
   const [research, setResearch] = useState(null), [drafts, setDrafts] = useState([]), [revision, setRevision] = useState('');
   const [downloaded, setDownloaded] = useState(false);
-  const busy = ['research', 'draft', 'checking'].includes(phase);
+  const busy = ['research', 'draft', 'review', 'checking'].includes(phase);
   const apiUrl = operationsConfig.supabaseUrl + '/functions/v1/nyra-api';
   const current = drafts.at(-1);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; controller.current?.abort(); }; }, []);
@@ -77,16 +78,26 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
     } finally { inFlight.current = false; if (mounted.current) setPhase('idle'); }
   }
   async function check() { await action(async () => { setPhase('checking'); const s = await call('/status'); if (mounted.current) setStatus(s); }); }
+  async function editorial(r, previousArticle, revisionNote = '') {
+    return runEditorialWorkflow({ call, research: r, previousArticle, revisionNote,
+      onPhase: p => { if (mounted.current) setPhase(p); },
+      onResearch: next => { if (mounted.current) setResearch(next); },
+      onDraft: d => {
+        if (!mounted.current) return;
+        setDrafts(previous => previous.some(x => x.run.id === d.run.id) ? previous.map(x => x.run.id === d.run.id ? d : x) : [...previous, d]);
+        setDownloaded(false);
+      },
+    });
+  }
   async function write(e) {
     e.preventDefault();
     await action(async () => {
       setPhase('research');
       const r = await call('/research', { topic, direction, language, format });
       if (!mounted.current) return;
-      setResearch(r); setPhase('draft');
-      const d = await call('/draft', { ticket: r.ticket });
-      if (!mounted.current) return;
-      setDrafts(previous => [...previous, { ...d, research: r }]); setRevision(''); setDownloaded(false);
+      setResearch(r);
+      await editorial(r);
+      if (mounted.current) setRevision('');
     });
   }
   async function revise(e) {
@@ -95,17 +106,14 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
       setPhase('draft');
       const r = current.research;
       const note = [current.revision_note, revision].filter(Boolean).join('\n').slice(-3000);
-      const d = await call('/draft', { ticket: r.ticket, previous_article: current.article, revision_note: note });
-      if (!mounted.current) return;
-      setDrafts(previous => [...previous, { ...d, research: r }]); setRevision(''); setDownloaded(false);
+      await editorial(r, current.article, note);
+      if (mounted.current) setRevision('');
     });
   }
   async function retryDraft() {
     if (!research) return;
     await action(async () => {
-      setPhase('draft'); const d = await call('/draft', { ticket: research.ticket });
-      if (!mounted.current) return;
-      setDrafts(previous => [...previous, { ...d, research }]); setDownloaded(false);
+      await editorial(research);
     });
   }
   function download() {
@@ -121,7 +129,7 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
       <p className="ops-eyebrow">NYRA / PRIVATE EDITORIAL LAB</p>
       <h2 id="nyra-title">{gr ? 'Μια ιδέα. Ένα νέο ερώτημα.' : 'An idea. A new question.'}</h2>
       <p>{gr ? 'Δώσε στη Nyra ένα θέμα. Θα το ερευνήσει και θα γράψει ένα προσχέδιο με τη δική της οπτική.' : 'Give Nyra a topic. She will research it and write a draft with her own perspective.'}</p>
-      <p className="nyra-notice">{gr ? 'Δοκιμαστικό περιβάλλον. Τα προσχέδια παραμένουν μόνο σε αυτή τη συνεδρία· κατέβασέ τα πριν αποσυνδεθείς. Κάθε έρευνα ή συγγραφή χρησιμοποιεί το OpenAI API. Η δημοσίευση δεν είναι ενεργή.' : 'Test environment. Drafts remain in this session only; download them before signing out. Each research or writing operation uses the OpenAI API. Publishing is not enabled.'}</p>
+      <p className="nyra-notice">{gr ? 'Δοκιμαστικό περιβάλλον. Τα προσχέδια παραμένουν μόνο σε αυτή τη συνεδρία· κατέβασέ τα πριν αποσυνδεθείς. Η Nyra ερευνά, γράφει, ελέγχει και διορθώνει έως δύο φορές, με πρόσθετη έρευνα όταν χρειάζεται. Κάθε βήμα χρησιμοποιεί το OpenAI API και χρεώνεται. Η δημοσίευση χρειάζεται τη δική σου έγκριση και δεν είναι ακόμη ενεργή.' : 'Test environment. Drafts remain in this session only; download them before signing out. Nyra researches, writes, reviews and repairs up to twice, with further research when needed. Each step uses the paid OpenAI API. Publishing requires your approval and is not enabled yet.'}</p>
       <button type="button" disabled={busy} onClick={check}>{gr ? 'Έλεγχος σύνδεσης' : 'Check connection'}</button>
       {status && <p role="status">{status.enabled ? (gr ? 'Η σύνδεση είναι ρυθμισμένη. Η πρώτη εργασία θα ελέγξει τη λειτουργία του API.' : 'Configuration is present. The first task will verify the API connection.') : (gr ? 'Αναμονή ενεργοποίησης.' : 'Awaiting activation.')} · {status.prompt_version}{status.model ? ' · ' + status.model : ''}</p>}
       <form onSubmit={write}>
@@ -135,7 +143,7 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
           <button className="ops-button" type="submit">{gr ? 'Έρευνα και προσχέδιο' : 'Research and draft'} ⟶</button>
         </fieldset>
       </form>
-      {busy && <p role="status" aria-live="polite">{phase === 'research' ? (gr ? 'Η Nyra ερευνά το θέμα…' : 'Nyra is researching the topic…') : phase === 'draft' ? (gr ? 'Η Nyra γράφει το προσχέδιο…' : 'Nyra is writing the draft…') : (gr ? 'Έλεγχος διαμόρφωσης…' : 'Checking configuration…')}</p>}
+      {busy && <p role="status" aria-live="polite">{phase === 'research' ? (gr ? 'Η Nyra ερευνά το θέμα…' : 'Nyra is researching the topic…') : phase === 'draft' ? (gr ? 'Η Nyra γράφει ή αναθεωρεί το προσχέδιο…' : 'Nyra is writing or revising the draft…') : phase === 'review' ? (gr ? 'Η Nyra ελέγχει σαφήνεια, επιχειρήματα και τεκμηρίωση…' : 'Nyra is reviewing clarity, arguments and evidence…') : (gr ? 'Έλεγχος διαμόρφωσης…' : 'Checking configuration…')}</p>}
       {error && <p className="ops-error" role="alert">{error}</p>}
       {research && !busy && error && <button onClick={retryDraft}>{gr ? 'Νέα προσπάθεια συγγραφής με αυτή την έρευνα' : 'Try writing again with this research'}</button>}
     </div>
@@ -144,6 +152,11 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
       <h2>{current.article.title}</h2><p className="nyra-summary">{current.article.summary}</p>
       <p className="nyra-meta">{current.assignment.language.toUpperCase()} · {current.article.word_count} {gr ? 'λέξεις' : 'words'} · {current.run.prompt_version} · {current.run.model}</p>
       {!current.article.checks.length && <p role="status">{gr ? 'Η έκταση είναι εκτός ορίου. Χρειάζεται αναθεώρηση.' : 'Length is outside the requested range. A revision is needed.'}</p>}
+      <div role="status">
+        <p>{!current.automatic_review ? (gr ? 'Ο αυτόματος συντακτικός έλεγχος δεν έχει ολοκληρωθεί.' : 'Automatic editorial review has not completed.') : current.automatic_review.passed ? (gr ? 'Ο αυτόματος έλεγχος ολοκληρώθηκε χωρίς εκκρεμότητες. Ακολουθεί η δική σου αξιολόγηση.' : 'Automatic review completed without outstanding issues. Your editorial review follows.') : (gr ? 'Παραμένουν εκκρεμότητες μετά τον αυτόματο έλεγχο. Το προσχέδιο χρειάζεται αναθεώρηση.' : 'Issues remain after automatic review. The draft needs revision.')}</p>
+        {current.automatic_review?.issues.length > 0 && <ul>{current.automatic_review.issues.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+      </div>
+      {current.automatic_review && <details><summary>{gr ? 'Αυτόματος συντακτικός έλεγχος' : 'Automatic editorial review'}</summary><p>{gr ? 'Κύκλοι αυτόματης διόρθωσης: ' : 'Automatic repair cycles: '}{current.repair_cycles}/2</p><p>{current.automatic_review.revision_instructions}</p><p>{current.automatic_review.research_questions}</p><p>{gr ? 'Ο αυτοέλεγχος δεν αποτελεί ανεξάρτητη επαλήθευση των γεγονότων ή έγκριση δημοσίευσης.' : 'Self-review is not independent fact verification or publication approval.'}</p></details>}
       {current.article.paragraphs.map((p, i) => <p key={i}>{p.text}{p.source_urls.map(url => <sup key={url}> {sourceLink({ url }, '[' + (current.sources.findIndex(s => s.url === url) + 1) + ']')}</sup>)}</p>)}
       <details><summary>{gr ? 'Πηγές και πρόσβαση' : 'Sources and access'}</summary><ol>{current.sources.map(s => <li key={s.url}>{sourceLink(s)} <small>· {s.access === 'opened_page' ? (gr ? 'Καταγεγραμμένο άνοιγμα σελίδας' : 'Recorded page open') : (gr ? 'Αποτέλεσμα αναζήτησης / παραπομπή' : 'Search result / citation')}</small></li>)}</ol><p>{gr ? 'Η προέλευση των παραπομπών ελέγχθηκε. Η ακρίβεια και η αντιστοίχιση κάθε ισχυρισμού χρειάζονται συντακτικό έλεγχο.' : 'Citation provenance was checked. Accuracy and claim-level support require editorial review.'}</p></details>
       <details><summary>{gr ? 'Σημείωμα προς τον Ηλία' : 'Editorial note'}</summary>
@@ -153,7 +166,7 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
         <p>{current.article.editor_note}</p><ul>{current.article.uncertainties.map((x, i) => <li key={i}>{x}</li>)}</ul>
       </details>
       <form onSubmit={revise}><fieldset disabled={busy}><label>{gr ? 'Τι θέλεις να αλλάξει;' : 'What should change?'}<textarea value={revision} onChange={e => setRevision(e.target.value)} maxLength={3000} rows={3} required /></label><button type="submit">{gr ? 'Ζήτησε αναθεώρηση' : 'Request revision'}</button></fieldset></form>
-      <p>{gr ? 'Η αναθεώρηση χρησιμοποιεί την ίδια έρευνα, η οποία ισχύει για 30 λεπτά. Για νέα στοιχεία, ξεκίνα νέα ανάθεση.' : 'Revision uses the same research, valid for 30 minutes. Start a new assignment for fresh evidence.'}</p>
+      <p>{gr ? 'Η αναθεώρηση ξεκινά από την τρέχουσα έρευνα, η οποία ισχύει για 30 λεπτά. Αν ο αυτόματος έλεγχος εντοπίσει κενό, θα ακολουθήσει πρόσθετη έρευνα.' : 'Revision starts with the current research, valid for 30 minutes. Evidence gaps found during review trigger further research.'}</p>
       <button type="button" onClick={download}>{gr ? 'Λήψη προσχεδίων και έρευνας' : 'Download drafts and research'}</button>
       <details><summary>{gr ? 'Προηγούμενα προσχέδια αυτής της συνεδρίας' : 'Earlier drafts in this session'}</summary>{drafts.map((d, i) => <p key={i}>{i + 1}. {d.article.title} · {d.run.created_at} · {d.article.word_count} {gr ? 'λέξεις' : 'words'}</p>)}</details>
     </article>}
