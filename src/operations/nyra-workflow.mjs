@@ -5,6 +5,11 @@ export async function runEditorialWorkflow({ call, research, previousArticle, re
   let r = research, prior = previousArticle, feedback = '';
   const history = [];
   for (let cycle = 0; cycle <= MAX_REPAIR_CYCLES; cycle++) {
+    if (!r.evidence_ready) {
+      onPhase('evidence');
+      const captured = await call('/evidence', { ticket: r.ticket });
+      r = { ...r, ...captured }; onResearch(r);
+    }
     onPhase('draft');
     const d = await call('/draft', { ticket: r.ticket, ...(prior ? { previous_article: prior } : {}), revision_note: revisionNote, editorial_feedback: feedback });
     let version = { ...d, research: r, automatic_review: null, review_history: [...history], repair_cycles: cycle, article: { ...d.article, status: 'needs_revision' } };
@@ -19,7 +24,7 @@ export async function runEditorialWorkflow({ call, research, previousArticle, re
     feedback = [review.revision_instructions, ...review.issues, review.research_questions].filter(Boolean).join('\n').slice(0, 5000);
     if (review.needs_research) {
       onPhase('research');
-      r = await call('/research', { ...r.assignment, research_focus: feedback.slice(0, 3000) });
+      r = await call('/research', { ...r.assignment, research_focus: [review.research_questions, review.revision_instructions, ...review.issues].filter(Boolean).join('\n').slice(0, 3000), previous_ticket: r.ticket });
       onResearch(r);
       // New research may have a different verified URL set. Regenerate against that set.
       prior = undefined;

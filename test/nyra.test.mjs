@@ -6,7 +6,7 @@ import { fixture } from './fixture.mjs';
 
 const ownerId = 'dad84105-d898-4194-bbe1-721a2636e543';
 const env = { NYRA_ENABLED: 'true', OPENAI_API_KEY: 'test-key-never-real', NYRA_MODEL: 'test-model', ALLOWED_ORIGINS: 'https://eliaskalyvas.gr' };
-const source = 'https://example.org/original-study';
+const source = 'https://arxiv.org/abs/2207.05221';
 const assignment = { topic: 'AI and judgment', direction: '', language: 'gr', format: 'signal' };
 const jwt = (aal = 'aal2') => 'header.' + Buffer.from(JSON.stringify({ aal })).toString('base64url') + '.signature';
 const article = (words = 600) => ({ title: 'Judgment', summary: 'A summary', thesis: 'A thesis', original_contribution: 'An original question', counterargument: 'A counterargument', paragraphs: [{ text: Array(words).fill('λέξη').join(' '), source_urls: [source] }], uncertainties: [], editor_note: 'Human editorial review required.' });
@@ -16,7 +16,7 @@ const researchOutput = () => ({ id: 'research-1', status: 'completed', usage: { 
   { type: 'message', content: [{ type: 'output_text', text: 'An evidence report [1].', annotations: [{ type: 'url_citation', url: source, title: 'Original study', start_index: 19, end_index: 22 }] }] },
 ] });
 const draftOutput = (a = article()) => ({ id: 'draft-1', status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(a) }] }], usage: { input_tokens: 40, output_tokens: 50 } });
-function setup({ membership = true, auth = true, rate = true, config = {}, outputs = [researchOutput(), draftOutput()] } = {}) {
+function setup({ membership = true, auth = true, rate = true, config = {}, outputs = [researchOutput(), draftOutput()], sourceFetcher = async () => new Response('<html><body><h1>Original study</h1><p>' + 'Original primary source evidence and limitations. '.repeat(20) + '</p></body></html>', { headers: { 'content-type': 'text/html' } }) } = {}) {
   const requests = [], rpcs = [], tokens = [], lookups = [];
   const db = {
     auth: { getUser: async token => { tokens.push(token); return { data: auth ? { user: { id: ownerId } } : null, error: auth ? null : { message: 'invalid' } }; } },
@@ -33,7 +33,7 @@ function setup({ membership = true, auth = true, rate = true, config = {}, outpu
     if (output instanceof Response) return output;
     return Response.json(output);
   };
-  const handler = createNyraHandler({ db, env: { ...env, ...config }, fetcher });
+  const handler = createNyraHandler({ db, env: { ...env, ...config }, fetcher, sourceFetcher });
   const call = async (path, body, headers = {}, token = jwt()) => {
     const req = new Request('https://project.supabase.co/functions/v1/nyra-api' + path, {
       method: body === undefined ? 'GET' : 'POST',
@@ -187,7 +187,7 @@ test('provider errors are sanitized and never automatically retried', async t =>
   });
 });
 test('payloads are bounded even without a content-length header', async () => {
-  const s = setup(), r = await s.call('/research', { ...assignment, direction: 'x'.repeat(132000) });
+  const s = setup(), r = await s.call('/research', { ...assignment, direction: 'x'.repeat(263000) });
   assert.equal(r.response.status, 413); assert.equal(s.requests.length, 0);
 });
 test('credential-free CORS preflight does not execute owner lookup or model', async () => {
@@ -210,7 +210,7 @@ test('review uses owner MFA, signed research and server tools configuration', as
   const s = setup({ outputs: [researchOutput(), draftOutput(reviewResult())] });
   const r = await s.call('/research', assignment);
   const result = await s.call('/review', { ticket: r.data.ticket, article: article(), tools: [{ type: 'web_search' }] });
-  assert.equal(result.response.status, 200); assert.equal(result.data.passed, true);
+  assert.equal(result.response.status, 200); assert.equal(result.data.passed, false); // Metadata alone cannot establish excerpt support.
   assert.equal(result.data.approval, 'human_required'); assert.equal(result.data.publishing, false);
   assert.equal(s.requests[1].payload.tools, undefined);
   assert.equal(s.requests[1].payload.text.format.name, 'nyra_review');
@@ -251,4 +251,38 @@ test('review provider failures stop without automatic retry or secret disclosure
   const result = await s.call('/review', { ticket: r.data.ticket, article: article() });
   assert.equal(result.data.error, 'PROVIDER_LIMIT'); assert.equal(s.requests.length, 2);
   assert.ok(!JSON.stringify(result.data).includes('private'));
+});
+test('evidence retrieval is owner-bound and incurs no provider call; captured IDs travel into drafting and review', async () => {
+  const s = setup({ outputs: [researchOutput(), draftOutput(), draftOutput(reviewResult())] });
+  const r = await s.call('/research', assignment);
+  const e = await s.call('/evidence', { ticket: r.data.ticket });
+  assert.equal(e.response.status, 200); assert.equal(s.requests.length, 1);
+  assert.equal(e.data.source_records[0].status, 'captured'); assert.equal(e.data.evidence_ready, true);
+  const packet = await unseal(e.data.ticket, env.OPENAI_API_KEY, ownerId);
+  assert.equal(packet.source_records[0].excerpts[0].text, e.data.source_records[0].excerpts[0].text);
+  const d = await s.call('/draft', { ticket: e.data.ticket });
+  const input = JSON.parse(s.requests[1].payload.input);
+  assert.equal(input.source_records[0].sha256, packet.source_records[0].sha256);
+  const a = d.data.article; a.paragraphs[0].evidence_ids = [packet.source_records[0].excerpts[0].id];
+  const reviewed = await s.call('/review', { ticket: e.data.ticket, article: a });
+  assert.equal(reviewed.data.passed, true); assert.equal(reviewed.data.approval, 'human_required');
+  assert.equal(JSON.parse(s.requests[2].payload.input).presentation.source_list_rendered_by_application, true);
+  assert.equal((await s.call('/evidence', { ticket: 'tampered' })).response.status, 409);
+  assert.equal((await s.call('/evidence', { ticket: e.data.ticket }, {}, jwt('aal1'))).response.status, 403);
+});
+test('invented evidence IDs or IDs belonging to a different cited source are rejected', () => {
+  const records = [{ source_url: source, status: 'captured', excerpts: [{ id: 'receipt:1', text: 'source content' }] }];
+  const a = article(); a.paragraphs[0].evidence_ids = ['invented'];
+  assert.throws(() => validateArticle(a, [{ url: source }], 'signal', records), /UNVERIFIED_EXCERPT/);
+  a.paragraphs[0].evidence_ids = ['receipt:1']; a.paragraphs[0].source_urls = ['https://arxiv.org/abs/other'];
+  assert.throws(() => validateArticle(a, [{ url: 'https://arxiv.org/abs/other' }], 'signal', records), /UNVERIFIED_EXCERPT/);
+});
+test('fresh research receives earlier captured evidence and rejects changed assignment before billing', async () => {
+  const s = setup({ outputs: [researchOutput(), researchOutput()] });
+  const r = await s.call('/research', assignment), e = await s.call('/evidence', { ticket: r.data.ticket });
+  const next = await s.call('/research', { ...assignment, previous_ticket: e.data.ticket, research_focus: 'Check a specific claim.' });
+  assert.equal(next.response.status, 200);
+  assert.equal(JSON.parse(s.requests[1].payload.input).existing_evidence[0].status, 'captured');
+  assert.equal((await s.call('/research', { ...assignment, topic: 'different', previous_ticket: e.data.ticket })).response.status, 400);
+  assert.equal(s.requests.length, 2);
 });

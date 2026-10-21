@@ -12,6 +12,7 @@ const messages = {
   RESEARCH_EXPIRED_OR_INVALID: ['Η έρευνα έληξε ή άλλαξε η διαμόρφωση. Ξεκίνα νέα έρευνα.', 'The research expired or the configuration changed. Start new research.'],
   UNVERIFIED_CITATION: ['Το προσχέδιο περιείχε παραπομπή εκτός της έρευνας και δεν παραδόθηκε.', 'The draft contained a citation outside the research and was withheld.'],
   ARTICLE_WITHOUT_CITATIONS: ['Το προσχέδιο δεν είχε παραπομπές και δεν παραδόθηκε.', 'The draft had no citations and was withheld.'],
+  UNVERIFIED_EXCERPT: ['Το προσχέδιο παρέπεμπε σε απόσπασμα που δεν είχε καταγραφεί για τη συγκεκριμένη πηγή.', 'The draft referenced an excerpt not recorded for that source.'],
   RESEARCH_WITHOUT_SOURCES: ['Δεν επιστράφηκαν ελέγξιμες πηγές. Το άρθρο δεν δημιουργήθηκε.', 'No traceable sources were returned. The article was not generated.'],
   MODEL_INCOMPLETE: ['Η απάντηση του μοντέλου ήταν ελλιπής. Δεν έγινε αυτόματη επανάληψη.', 'The model response was incomplete. It was not retried automatically.'],
   MODEL_REFUSED: ['Το μοντέλο δεν ολοκλήρωσε τη συγκεκριμένη εργασία.', 'The model declined this task.'],
@@ -42,7 +43,7 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
   const [phase, setPhase] = useState('idle'), [error, setError] = useState(''), [status, setStatus] = useState(null);
   const [research, setResearch] = useState(null), [drafts, setDrafts] = useState([]), [revision, setRevision] = useState('');
   const [downloaded, setDownloaded] = useState(false);
-  const busy = ['research', 'draft', 'review', 'checking'].includes(phase);
+  const busy = ['research', 'evidence', 'draft', 'review', 'checking'].includes(phase);
   const apiUrl = operationsConfig.supabaseUrl + '/functions/v1/nyra-api';
   const current = drafts.at(-1);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; controller.current?.abort(); }; }, []);
@@ -143,7 +144,7 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
           <button className="ops-button" type="submit">{gr ? 'Έρευνα και προσχέδιο' : 'Research and draft'} ⟶</button>
         </fieldset>
       </form>
-      {busy && <p role="status" aria-live="polite">{phase === 'research' ? (gr ? 'Η Nyra ερευνά το θέμα…' : 'Nyra is researching the topic…') : phase === 'draft' ? (gr ? 'Η Nyra γράφει ή αναθεωρεί το προσχέδιο…' : 'Nyra is writing or revising the draft…') : phase === 'review' ? (gr ? 'Η Nyra ελέγχει σαφήνεια, επιχειρήματα και τεκμηρίωση…' : 'Nyra is reviewing clarity, arguments and evidence…') : (gr ? 'Έλεγχος διαμόρφωσης…' : 'Checking configuration…')}</p>}
+      {busy && <p role="status" aria-live="polite">{phase === 'research' ? (gr ? 'Η Nyra ερευνά το θέμα…' : 'Nyra is researching the topic…') : phase === 'evidence' ? (gr ? 'Ανάκτηση και καταγραφή αποσπασμάτων από τις πηγές…' : 'Retrieving and recording source excerpts…') : phase === 'draft' ? (gr ? 'Η Nyra γράφει ή αναθεωρεί το προσχέδιο…' : 'Nyra is writing or revising the draft…') : phase === 'review' ? (gr ? 'Η Nyra ελέγχει σαφήνεια, επιχειρήματα και τεκμηρίωση…' : 'Nyra is reviewing clarity, arguments and evidence…') : (gr ? 'Έλεγχος διαμόρφωσης…' : 'Checking configuration…')}</p>}
       {error && <p className="ops-error" role="alert">{error}</p>}
       {research && !busy && error && <button onClick={retryDraft}>{gr ? 'Νέα προσπάθεια συγγραφής με αυτή την έρευνα' : 'Try writing again with this research'}</button>}
     </div>
@@ -158,6 +159,11 @@ export default function NyraLab({ lang, token, onUnauthorized }) {
       </div>
       {current.automatic_review && <details><summary>{gr ? 'Αυτόματος συντακτικός έλεγχος' : 'Automatic editorial review'}</summary><p>{gr ? 'Κύκλοι αυτόματης διόρθωσης: ' : 'Automatic repair cycles: '}{current.repair_cycles}/2</p><p>{current.automatic_review.revision_instructions}</p><p>{current.automatic_review.research_questions}</p><p>{gr ? 'Ο αυτοέλεγχος δεν αποτελεί ανεξάρτητη επαλήθευση των γεγονότων ή έγκριση δημοσίευσης.' : 'Self-review is not independent fact verification or publication approval.'}</p></details>}
       {current.article.paragraphs.map((p, i) => <p key={i}>{p.text}{p.source_urls.map(url => <sup key={url}> {sourceLink({ url }, '[' + (current.sources.findIndex(s => s.url === url) + 1) + ']')}</sup>)}</p>)}
+      {current.research?.source_records && <details><summary>{gr ? 'Καταγεγραμμένα αποσπάσματα πηγών' : 'Captured source excerpts'}</summary>
+        <p>{gr ? 'Επιλεγμένο περιεχόμενο που ανακτήθηκε από την εφαρμογή. Η αντιστοίχιση με τους ισχυρισμούς ελέγχεται χωριστά· δεν πιστοποιείται πλήρης ανάγνωση.' : 'Selected content retrieved by the application. Claim support is reviewed separately; this does not certify full reading.'}</p>
+        {current.research.source_records.map(r => <div key={r.source_url}><p>{sourceLink({ url: r.source_url })} · {r.retrieved_at} · {r.status === 'captured' ? (gr ? 'Ανακτήθηκε απόσπασμα' : 'Excerpt captured') : (gr ? 'Δεν ανακτήθηκε: ' : 'Not retrieved: ') + r.limitation}</p>
+          {r.excerpts.map(e => <div key={e.id}><small>{e.id} · {gr ? 'Χαρακτήρες' : 'Characters'} {e.start}–{e.end}</small><blockquote>{e.text}</blockquote></div>)}</div>)}
+      </details>}
       <details><summary>{gr ? 'Πηγές και πρόσβαση' : 'Sources and access'}</summary><ol>{current.sources.map(s => <li key={s.url}>{sourceLink(s)} <small>· {s.access === 'opened_page' ? (gr ? 'Καταγεγραμμένο άνοιγμα σελίδας' : 'Recorded page open') : (gr ? 'Αποτέλεσμα αναζήτησης / παραπομπή' : 'Search result / citation')}</small></li>)}</ol><p>{gr ? 'Η προέλευση των παραπομπών ελέγχθηκε. Η ακρίβεια και η αντιστοίχιση κάθε ισχυρισμού χρειάζονται συντακτικό έλεγχο.' : 'Citation provenance was checked. Accuracy and claim-level support require editorial review.'}</p></details>
       <details><summary>{gr ? 'Σημείωμα προς τον Ηλία' : 'Editorial note'}</summary>
         <h3>{gr ? 'Κεντρική θέση' : 'Thesis'}</h3><p>{current.article.thesis}</p>
