@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { operationsConfig } from './config.js';
 import './nyra-lab.css';
+import NyraPresentation from './NyraPresentation.jsx';
 const MODELS=['gpt-6.1-sol','gpt-6-astra','gpt-6-luna'];
 const names={'gpt-6.1-sol':'GPT-6.1 Sol','gpt-6-astra':'GPT-6 Astra','gpt-6-luna':'GPT-6 Luna'};
 const usd=n=>'$'+Number(n||0).toFixed(4);
@@ -29,7 +30,7 @@ export default function NyraLab({lang,token,onUnauthorized}) {
   const phaseNames={research:gr?'Έρευνα':'Research',evidence:gr?'Ανάκτηση πηγών':'Source retrieval',draft:gr?'Συγγραφή':'Writing',review:gr?'Έλεγχος':'Review',proposals:gr?'Προτάσεις θεμάτων':'Topic proposals',paused:gr?'Αναμονή έγκρισης διόρθωσης':'Awaiting repair approval',done:gr?'Ολοκληρώθηκε':'Completed',selection:gr?'Επιλογή θέματος':'Choose a topic',error:gr?'Διακοπή':'Stopped'};
   const drafts=work?.state.drafts||[],current=version<0?drafts.at(-1):drafts[version],research=work?.state.research;
   const api=operationsConfig.supabaseUrl+'/functions/v1/nyra-api';
-  const errors={BUDGET_EXCEEDED:gr?'Η εκτίμηση του επόμενου σταδίου υπερβαίνει τον προϋπολογισμό. Η εργασία αποθηκεύτηκε.':'The next stage estimate exceeds the budget. Your work is saved.',PROVIDER_LIMIT:gr?'Το API επέστρεψε όριο χρήσης ή διαθέσιμου υπολοίπου.':'The API reported a usage or balance limit.',WORK_BUSY:gr?'Η εργασία εκτελείται ήδη. Ανανέωσε το ιστορικό σε λίγο.':'This work is already running. Refresh history shortly.',INTERRUPTED_COST_UNKNOWN:gr?'Η εργασία διακόπηκε και η χρέωση δεν επιβεβαιώθηκε. Διατηρήθηκε η εκτίμηση κόστους.':'The work was interrupted and billing is unconfirmed. Its cost allowance was retained.'};
+  const errors={BUDGET_EXCEEDED:gr?'Η εκτίμηση του επόμενου σταδίου υπερβαίνει τον προϋπολογισμό. Η εργασία αποθηκεύτηκε.':'The next stage estimate exceeds the budget. Your work is saved.',PROVIDER_LIMIT:gr?'Το API επέστρεψε όριο χρήσης ή διαθέσιμου υπολοίπου.':'The API reported a usage or balance limit.',WORK_BUSY:gr?'Η εργασία εκτελείται ήδη. Ανανέωσε το ιστορικό σε λίγο.':'This work is already running. Refresh history shortly.',INVALID_PRESENTATION:gr?'Έλεγξε τα πεδία: έως 5 hashtags χωρίς κενά, έγκυροι HTTPS σύνδεσμοι και πλήρη στοιχεία για επιβεβαιωμένη εικόνα.':'Check the fields: up to five hashtags without spaces, valid HTTPS URLs and complete details for a confirmed image.',STALE_PRESENTATION:gr?'Η παρουσίαση έχει νεότερη αποθήκευση. Άνοιξε ξανά την εργασία από το ιστορικό.':'A newer presentation was saved. Reopen this work from history.',INTERRUPTED_COST_UNKNOWN:gr?'Η εργασία διακόπηκε και η χρέωση δεν επιβεβαιώθηκε. Διατηρήθηκε η εκτίμηση κόστους.':'The work was interrupted and billing is unconfirmed. Its cost allowance was retained.'};
   async function call(path,payload) {
     const jwt=await access.current.token();
     const response=await fetch(api+path,{method:payload===undefined?'GET':'POST',credentials:'omit',headers:{Authorization:'Bearer '+jwt,Accept:'application/json',...(payload===undefined?{}:{'Content-Type':'application/json'})},body:payload===undefined?undefined:JSON.stringify(payload),signal:AbortSignal.any([control.current?.signal||new AbortController().signal,AbortSignal.timeout(125000)])});
@@ -43,6 +44,13 @@ export default function NyraLab({lang,token,onUnauthorized}) {
   async function create(kind,selected){await action(async()=>{const w=await call('/work',{kind,topic,direction,language,format,model,budget:Number(budget),auto_repairs:auto,...selected});accept(w);await run(w);});}
   async function open(id){await action(async()=>accept(await call('/work/'+id),true));}
   async function saveSettings(resume=false){await action(async()=>{const w=await call('/work/'+work.id+'/settings',{model,budget:Number(budget),auto_repairs:auto,resume});accept(w);if(resume)await run(w);});}
+  async function savePresentation(payload){
+    if(inFlight.current)throw new Error(gr?'Περίμενε να ολοκληρωθεί η τρέχουσα εργασία.':'Wait for the current operation.');
+    inFlight.current=true;control.current=new AbortController();setBusy(true);setError('');
+    try{const next=await call('/work/'+work.id+'/presentation',payload);if(mounted.current)setWork(next);}
+    catch(e){throw new Error(errors[e.message]||e.message);}
+    finally{inFlight.current=false;if(mounted.current)setBusy(false);}
+  }
   async function revise(e){e.preventDefault();await action(async()=>{const w=await call('/work/'+work.id+'/revision',{revision_note:revision,version});accept(w);setRevision('');await run(w);});}
   async function importHistory(event){const file=event.target.files?.[0];if(!file)return;event.target.value='';await action(async()=>{if(file.size>2000000)throw new Error('PAYLOAD_TOO_LARGE');const content=JSON.parse(await file.text());const w=await call('/import',{export:content,model,budget:Number(budget),auto_repairs:auto});accept(w);});}
   function download(){if(!work)return;const blob=new Blob([JSON.stringify({export_version:2,exported_at:new Date().toISOString(),work,drafts},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='nyra-work-'+work.id+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -85,6 +93,7 @@ export default function NyraLab({lang,token,onUnauthorized}) {
       {drafts.length>0&&<label>{gr?'Έκδοση άρθρου':'Article version'}<select value={version} onChange={e=>setVersion(Number(e.target.value))}><option value={-1}>{gr?'Τελευταία':'Latest'}</option>{drafts.map((d,i)=><option key={d.run.id} value={i}>{i+1}. {d.article.title} · {d.run.model}</option>)}</select></label>}
     </div>}
     {work?.state.proposals&&<div className="ops-panel"><h3>{gr?'Τρία προτεινόμενα θέματα':'Three proposed topics'}</h3><p>{gr?'Έρευνα: ':'Researched: '}{new Date(work.state.proposals.created_at).toLocaleString()}</p><div className="nyra-topic-grid">{work.state.proposals.topics.map((t,i)=><article key={i}><p className="ops-eyebrow">{t.sector} · {t.event_date}</p><h3>{t.title}</h3><p><strong>{gr?'Γιατί τώρα: ':'Why now: '}</strong>{t.why_now}</p><p>{t.central_question}</p><p><strong>{gr?'Προσωρινή θέση: ':'Provisional thesis: '}</strong>{t.provisional_thesis}</p><p><strong>{gr?'Οπτική: ':'Angle: '}</strong>{t.original_angle}</p><p><strong>{gr?'Αντίλογος: ':'Counterargument: '}</strong>{t.counterargument}</p><ul>{t.source_urls.map(url=><li key={url}>{sourceLink({url})}</li>)}</ul><p>{t.format==='essay'?'Signal Essay · 1.200–1.800':'Signal · 500–800'}</p><button disabled={busy} onClick={()=>create('article',{selected_from:work.id,selected_index:i})}>{gr?'Εγκρίνω το θέμα — έναρξη συγγραφής με τις επιλεγμένες ρυθμίσεις':'Approve topic — start writing with selected settings'}</button></article>)}</div></div>}
+    {!current&&<div className="ops-panel"><h3>{gr?'Παρουσίαση άρθρου και κοινοποίηση':'Article presentation and sharing'}</h3><p>{gr?'Σε κάθε προσχέδιο θα εμφανίζονται επεξεργάσιμα πεδία για θεματικές ετικέτες, 3–5 hashtags, τίτλο και κείμενο κοινοποίησης, περιγραφή εικόνας και στοιχεία χρήσης. Η συμπλήρωση και αποθήκευσή τους δεν καλεί το API.':'Each draft will have editable topic labels, 3–5 hashtags, sharing title and text, an image brief and image attribution. Editing and saving these fields does not call the API.'}</p><p>{(status?.hashtag_labels?.[language]||[]).join(' · ')}</p></div>}
     {current && <article className="ops-panel nyra-article">
       <p className="ops-eyebrow">{gr ? 'ΠΡΟΣΧΕΔΙΟ / ΧΡΕΙΑΖΕΤΑΙ ΣΥΝΤΑΚΤΙΚΟ ΕΛΕΓΧΟ' : 'DRAFT / EDITORIAL REVIEW REQUIRED'}</p>
       <h2>{current.article.title}</h2><p className="nyra-summary">{current.article.summary}</p>
@@ -108,6 +117,7 @@ export default function NyraLab({lang,token,onUnauthorized}) {
         <h3>{gr ? 'Ισχυρότερη αντίρρηση' : 'Strongest counterargument'}</h3><p>{current.article.counterargument}</p>
         <p>{current.article.editor_note}</p><ul>{current.article.uncertainties.map((x, i) => <li key={i}>{x}</li>)}</ul>
       </details>
+      <NyraPresentation gr={gr} workId={work.id} draft={current} index={version<0?drafts.length-1:version} busy={busy} status={status} onSave={savePresentation} />
       <form onSubmit={revise}><label>{gr ? 'Οδηγία αναθεώρησης' : 'Revision instruction'}<textarea value={revision} onChange={e => setRevision(e.target.value)} required maxLength={3000} /></label><button disabled={busy||work.state.imported} type="submit">{gr ? 'Αναθεώρηση με χρέωση' : 'Revise (paid)'}</button></form>
     </article>}
     {research&&<details className="ops-panel"><summary>{gr?'Τελευταία έρευνα':'Latest research'}</summary><ResearchText text={research.report} annotations={research.annotations} /></details>}

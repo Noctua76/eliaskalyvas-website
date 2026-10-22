@@ -1,3 +1,13 @@
+# v0.7 — Presentation preparation (current)
+
+New ARTICLE_SCHEMA output requires presentation fields: tags, hashtags, share_title, share_description, share_text, image_brief. Legacy saved/imported articles remain readable without these fields. Metadata is excluded from article body word counts. There is no extra model request for generation; normal input/output token pricing applies.
+
+NyraPresentation adds per-version owner editing, a GR/EN tag/hashtag catalog, draft share preview, copyable introduction/hashtags and manually recorded cover provenance/rights fields. /work/:id/presentation calls the service-only nyra_save_presentation RPC. It locks the work row, blocks active requests, checks expected presentation revision, saves edit history, invalidates any future publication_approval and leaves paid sequence/costs untouched. Owner and MFA checks apply to this route. Import clears external rights confirmation. Public history excludes signed research tickets as before.
+
+Image URLs are not server-fetched; opt-in browser preview uses validated public HTTPS and no-referrer. The image brief is not a retrieved/licensed image. Actual automatic image discovery/download, public Signals routes, Open Graph cards, publication approval and social posting are not implemented in v0.7. Browser visual QA remains unavailable under the environment policy; code/build and provider-mocked database tests cover validation, persistence, race checks, owner isolation and no-provider metadata writes.
+
+Persisted v0.6 tickets can be renewed by the managed server only after signature/owner verification; public ticket verification still requires current instructions. API keys and authentication remain unchanged.
+
 # Nyra private editorial workspace — v0.6
 
 ## Current implementation (supersedes the session-only v0.5 notes below)

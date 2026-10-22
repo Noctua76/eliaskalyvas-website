@@ -1,5 +1,6 @@
 import { CORE_INSTRUCTIONS, PROMPT_VERSION, RESEARCH_GUIDANCE, REVIEW_GUIDANCE } from './instructions.mjs';
 import { collectSourceRecords } from './evidence.mjs';
+import { PRESENTATION_SCHEMA, validatePresentation } from './presentation.mjs';
 
 const encoder = new TextEncoder();
 export class NyraError extends Error {
@@ -42,14 +43,14 @@ export async function seal(packet, secret) {
   const payload = b64(encoder.encode(JSON.stringify(packet)));
   return payload + '.' + b64(new Uint8Array(await crypto.subtle.sign('HMAC', await signingKey(secret), encoder.encode(payload))));
 }
-export async function unseal(ticket, secret, ownerId, now = Date.now()) {
+export async function unseal(ticket, secret, ownerId, now = Date.now(), compatibleVersions = []) {
   try {
     if (typeof ticket !== 'string' || ticket.length > 120000) throw 0;
     const [payload, signature, extra] = ticket.split('.'); if (!payload || !signature || extra) throw 0;
     const valid = await crypto.subtle.verify('HMAC', await signingKey(secret), unb64(signature), encoder.encode(payload));
     if (!valid) throw 0;
     const p = JSON.parse(new TextDecoder().decode(unb64(payload)));
-    if (p.owner_id !== ownerId || !Number.isFinite(p.expires_at) || p.expires_at <= now || p.prompt_version !== PROMPT_VERSION) throw 0;
+    if (p.owner_id !== ownerId || !Number.isFinite(p.expires_at) || p.expires_at <= now || ![PROMPT_VERSION, ...compatibleVersions].includes(p.prompt_version)) throw 0;
     return p;
   } catch { fail('RESEARCH_EXPIRED_OR_INVALID', 409); }
 }
@@ -89,11 +90,11 @@ const textSchema = { type: 'string' };
 const stringsSchema = { type: 'array', items: textSchema };
 export const ARTICLE_SCHEMA = {
   type: 'object', additionalProperties: false,
-  required: ['title', 'summary', 'thesis', 'original_contribution', 'counterargument', 'paragraphs', 'uncertainties', 'editor_note'],
+  required: ['title', 'summary', 'thesis', 'original_contribution', 'counterargument', 'paragraphs', 'uncertainties', 'editor_note', 'presentation'],
   properties: {
     title: textSchema, summary: textSchema, thesis: textSchema, original_contribution: textSchema, counterargument: textSchema,
     paragraphs: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['text', 'source_urls', 'evidence_ids'], properties: { text: textSchema, source_urls: stringsSchema, evidence_ids: stringsSchema } } },
-    uncertainties: stringsSchema, editor_note: textSchema,
+    uncertainties: stringsSchema, editor_note: textSchema, presentation: PRESENTATION_SCHEMA,
   },
 };
 export function validateArticle(a, evidence, format, records = []) {
@@ -117,6 +118,7 @@ export function validateArticle(a, evidence, format, records = []) {
     }))];
   }
   if (!citations) fail('ARTICLE_WITHOUT_CITATIONS', 422);
+  if(a.presentation!==undefined){try{a.presentation=validatePresentation(a.presentation,{generated:true});}catch{fail('INVALID_PRESENTATION',422);}}
   const words = a.paragraphs.map(p => p.text).join(' ').trim().split(/\s+/u).length;
   const [min, max] = format === 'essay' ? [1200, 1800] : [500, 800];
   // Source provenance is checked; truth, novelty and claim-level support still require editorial review.

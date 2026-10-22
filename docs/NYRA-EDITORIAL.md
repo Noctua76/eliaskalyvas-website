@@ -1,7 +1,7 @@
 # NYRA — Constitution, Voice & Behavior Tests
 
 Project: eliaskalyvas.gr / Signals
-Version: 0.6 — 22 October 2026
+Version: 0.7 — 22 October 2026
 Status: Editorial specification updated after the first Greek Signal trial. Private lab implemented; v0.5 adds captured primary-source excerpts and paragraph evidence links after reviewing the v0.4 automatic repair run. Full editorial acceptance remains pending.
 
 ## 1. Scope and provenance
@@ -304,3 +304,14 @@ Signal: 500–800 λέξεις. Signal Essay: 1.200–1.800 λέξεις. Τα �
 The owner can choose Sol (default), Astra or Luna per assignment and before later stages, set a USD preflight budget, and enable/disable automatic repairs. Every provider stage saves model, reported usage and estimated cost. A row-locked reservation blocks concurrent calls or a next stage whose allowance exceeds the budget. This estimate is not an invoice cap. Unknown charges stay reserved. No silent retries or fallback models.
 
 Private history persists assignment, research, evidence, article versions, reviews and costs across refresh/sign-in. Old exports can be imported as explicitly unverified historical material. Topic discovery searches current events and proposes three different, sourced themes linking AI/technology to economy, startups, investment, society, politics or work. The owner first selects a theme; this approves research/writing only. Final article publication still requires a separate exact-version approval and is not enabled. Topic discovery is on demand; no unattended schedule is configured.
+
+
+## 13. v0.7 — Article presentation and distribution preparation
+
+Each new article includes a presentation object with topical labels, 3–5 relevant hashtags in the article language, a faithful share title/description, a short share introduction and an image brief/search terms. The baseline vocabulary includes economy, startups, AI, technology, investment, society, politics, work, innovation and entrepreneurship, with Greek and English equivalents. Select by relevance, never attach the whole vocabulary to every article. Hashtags and metadata remain separate from the body word count. These fields are generated inside the existing drafting call, not an additional paid phase; their tokens still consume API usage.
+
+The owner can edit and persist these fields per draft version through an owner/MFA-protected endpoint without calling AI. A row lock blocks edits during active paid work, an expected revision prevents lost updates, and previous presentation saves remain in history. Imported drafts get editable empty metadata and cannot import rights confirmation as trusted approval. Existing server-held v0.6 research tickets are renewed only after signature/owner verification, so upgrading instructions does not discard saved research.
+
+Cover records support image URL, original source page, creator/rights holder, license or permission description, optional license URL, alt text and caption/attribution. URLs are public HTTPS only. Rights confirmation is the owner's declaration, not automated legal/license verification. Cover changes clear the UI confirmation. Image preview is opt-in, without a referrer. The current application does not autonomously search, download, cache, license-check or attach external images to a public article; the generated image brief prepares that future workflow. It never fabricates image URLs or rights claims.
+
+The private Admin offers a draft share preview and copyable introduction/hashtags. There is no public Signals URL, Open Graph delivery, social-network posting or publication in this release. Those remain part of Signals page implementation. Future publication approval must bind the exact article and presentation/cover revision, and any later edits invalidate that approval. Saving metadata does not approve publication.

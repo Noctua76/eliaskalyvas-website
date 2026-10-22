@@ -2,11 +2,13 @@ import { createNyraHandler, assignmentPayload, seal, unseal, safeUrl, validateAr
 import { PROMPT_VERSION } from './instructions.mjs';
 import { MODELS, PRICE_DATE, usageCost, stageEstimate } from './costs.mjs';
 import { proposeTopics } from './proposals.mjs';
+import { emptyPresentation, validatePresentation, presentationStatus, TOPIC_LABELS, HASHTAG_LABELS } from './presentation.mjs';
 const fail = code => { throw new Error(code); };
 const terminal = new Set(['done','selection','paused','error']);
 export function publicWork(work, steps = []) {
   const clean = value => Array.isArray(value) ? value.map(clean) : value && typeof value==='object' ? Object.fromEntries(Object.entries(value).filter(([k])=>!['ticket','owner_id'].includes(k)).map(([k,v])=>[k,clean(v)])) : value;
   const result = clean(work);
+  if(result.state.drafts)result.state.drafts=result.state.drafts.map(d=>({...d,presentation:d.presentation||emptyPresentation(d.article)}));
   result.steps = steps;
   const nextStage=['paused','error'].includes(work.state.stage)?work.state.resume_stage:work.state.stage;
   result.next_estimate = !nextStage||['done','selection'].includes(nextStage) ? 0 : stageEstimate(work.model,nextStage,work.state);
@@ -26,7 +28,7 @@ export function advanceState(state, stage, data, autoRepairs) {
   if(stage==='research') { delete s.previous_article; s.research=data; s.stage='evidence'; }
   if(stage==='evidence') { s.research={...s.research,...data}; s.stage='draft'; }
   if(stage==='draft') {
-    s.drafts.push({...data,research:s.research,automatic_review:null,repair_cycles:s.cycle,review_history:[],article:{...data.article,status:'needs_revision'}});
+    s.drafts.push({...data,presentation:{...(data.article.presentation||emptyPresentation(data.article)),revision:0},research:s.research,automatic_review:null,repair_cycles:s.cycle,review_history:[],article:{...data.article,status:'needs_revision'}});
     delete s.previous_article;
     s.stage='review';
   }
@@ -60,7 +62,7 @@ export function createWorkspaceHandler({ db,env,fetcher=fetch,sourceFetcher=fetc
     const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
     try {
       const path=new URL(req.url).pathname.replace(/^.*\/nyra-api/,'').replace(/\/$/,'');
-      if(path==='/status'&&req.method==='GET') return reply({...await authResponse.json(),prompt_version:PROMPT_VERSION,model:'gpt-6.1-sol',models:MODELS,price_date:PRICE_DATE,persistence:'database',budget_control:'estimated_preflight',publishing:false});
+      if(path==='/status'&&req.method==='GET') return reply({...await authResponse.json(),prompt_version:PROMPT_VERSION,model:'gpt-6.1-sol',models:MODELS,price_date:PRICE_DATE,persistence:'database',budget_control:'estimated_preflight',topic_labels:TOPIC_LABELS,hashtag_labels:HASHTAG_LABELS,presentation_editing:true,publishing:false});
       const {data:user}=await db.auth.getUser(req.headers.get('authorization').slice(7));
       if(!user?.user?.id) fail('UNAUTHORIZED');const owner=user.user.id;
       let b={};
@@ -72,7 +74,9 @@ export function createWorkspaceHandler({ db,env,fetcher=fetch,sourceFetcher=fetc
           const assignment=assignmentPayload(d.assignment);
           const sources=(d.sources||[]).map(s=>({url:safeUrl(s.url),title:typeof s.title==='string'?s.title.slice(0,500):'',access:'imported_reference'})).filter(s=>s.url).slice(0,60);
           const article=validateArticle({...d.article,paragraphs:(d.article?.paragraphs||[]).map(p=>({...p,evidence_ids:[]}))},sources,assignment.format);
-          return {assignment,article:{...article,status:'needs_revision'},sources,automatic_review:null,repair_cycles:0,run:{id:crypto.randomUUID(),model:typeof d.run?.model==='string'?d.run.model.slice(0,100):'imported',prompt_version:'imported',created_at:new Date(now()).toISOString()},research:{assignment,report:typeof d.research?.report==='string'?d.research.report.slice(0,25000):'',annotations:[],source_records:[]}};
+          const importedPresentation=validatePresentation(d.presentation||d.article.presentation||emptyPresentation(article));
+          importedPresentation.cover.rights_confirmed=false;
+          return {assignment,presentation:{...importedPresentation,revision:0},article:{...article,status:'needs_revision'},sources,automatic_review:null,repair_cycles:0,run:{id:crypto.randomUUID(),model:typeof d.run?.model==='string'?d.run.model.slice(0,100):'imported',prompt_version:'imported',created_at:new Date(now()).toISOString()},research:{assignment,report:typeof d.research?.report==='string'?d.research.report.slice(0,25000):'',annotations:[],source_records:[]}};
         });
         const assignment=drafts.at(-1).assignment;
         const row=await checked(db.from('nyra_work').insert({owner_id:owner,title:assignment.topic+' / import',kind:'article',...settings(b),state:{assignment,stage:'done',imported:true,cycle:0,drafts,reviews:[]}}).select('*').single());
@@ -97,10 +101,17 @@ export function createWorkspaceHandler({ db,env,fetcher=fetch,sourceFetcher=fetc
         const row=await checked(db.from('nyra_work').insert({owner_id:owner,title:kind==='topics'?'3 θέματα / Topic proposals':assignment.topic,kind,...config,state}).select('*').single());
         return reply(await withSteps(row));
       }
-      const match=path.match(/^\/work\/([\da-f-]+)(?:\/(step|settings|recover|revision))?$/);
+      const match=path.match(/^\/work\/([\da-f-]+)(?:\/(step|settings|recover|revision|presentation))?$/);
       if(!match)fail('NOT_FOUND');let work=await getWork(match[1],owner);
       if(req.method==='GET'&&!match[2])return reply(await withSteps(work));
       if(req.method!=='POST')fail('NOT_FOUND');
+      if(match[2]==='presentation') {
+        if(!Number.isInteger(b.version)||b.version<0||!work.state.drafts[b.version]||!Number.isInteger(b.expected_revision)||b.expected_revision<0)fail('INVALID_VERSION');
+        const presentation=validatePresentation(b.presentation);
+        const saved=await checked(db.rpc('nyra_save_presentation',{p_id:work.id,p_owner:owner,p_version:b.version,p_expected_revision:b.expected_revision,p_presentation:{...presentation,checks:presentationStatus(presentation)}}));
+        if(saved!=='OK')fail(saved);
+        return reply(await withSteps(await getWork(work.id,owner)));
+      }
       if(match[2]==='revision') {
         if(work.active_seq!==null)fail('WORK_BUSY');
         if(work.state.imported)fail('IMPORTED_RESEARCH_REQUIRES_NEW_ASSIGNMENT');
@@ -154,8 +165,8 @@ export function createWorkspaceHandler({ db,env,fetcher=fetch,sourceFetcher=fetc
           let ticket;
           if(work.state.research?.ticket) {
             // Renew only a server-persisted, signature-verified packet after owner/MFA authorization.
-            const packet=await unseal(work.state.research.ticket,env.OPENAI_API_KEY,owner,0);
-            ticket=await seal({...packet,model:work.model,expires_at:now()+30*60000},env.OPENAI_API_KEY);
+            const packet=await unseal(work.state.research.ticket,env.OPENAI_API_KEY,owner,0,['nyra-core-0.6']);
+            ticket=await seal({...packet,prompt_version:PROMPT_VERSION,model:work.model,expires_at:now()+30*60000},env.OPENAI_API_KEY);
           }
           const payload=stage==='research'?{...work.state.assignment,research_focus:work.state.research_focus||'',...(ticket?{previous_ticket:ticket}:{})}:stage==='draft'?{ticket,editorial_feedback:work.state.feedback||'',revision_note:work.state.revision_note||'',...(work.state.previous_article?{previous_article:work.state.previous_article}:{})}:stage==='review'?{ticket,article:work.state.drafts.at(-1).article}:{ticket};
           const url=new URL(req.url);url.pathname=url.pathname.replace(/\/nyra-api.*$/,'/nyra-api/'+stage);
@@ -164,7 +175,7 @@ export function createWorkspaceHandler({ db,env,fetcher=fetch,sourceFetcher=fetc
         }
         state=advanceState(work.state,stage,result,work.auto_repairs);
       } catch(e) {
-        const known=['PROVIDER_LIMIT','PROVIDER_TIMEOUT','PROVIDER_ERROR','PROVIDER_UNAVAILABLE','PROVIDER_CONFIGURATION','RATE_LIMITED','MODEL_INCOMPLETE','MODEL_REFUSED','INVALID_PROPOSALS','UNVERIFIED_CITATION','UNVERIFIED_EXCERPT','INVALID_REVIEW','RESEARCH_WITHOUT_SOURCES','RESEARCH_TOO_LARGE','RESEARCH_EXPIRED_OR_INVALID','STORAGE_UNAVAILABLE'];
+        const known=['INVALID_PRESENTATION','PROVIDER_LIMIT','PROVIDER_TIMEOUT','PROVIDER_ERROR','PROVIDER_UNAVAILABLE','PROVIDER_CONFIGURATION','RATE_LIMITED','MODEL_INCOMPLETE','MODEL_REFUSED','INVALID_PROPOSALS','UNVERIFIED_CITATION','UNVERIFIED_EXCERPT','INVALID_REVIEW','RESEARCH_WITHOUT_SOURCES','RESEARCH_TOO_LARGE','RESEARCH_EXPIRED_OR_INVALID','STORAGE_UNAVAILABLE'];
         error=known.includes(e.message)?e.message:'SERVICE_UNAVAILABLE';
         state={...work.state,stage:'error',resume_stage:stage,error};
       }
@@ -173,7 +184,7 @@ export function createWorkspaceHandler({ db,env,fetcher=fetch,sourceFetcher=fetc
       if(!finished)fail('STORAGE_UNAVAILABLE');
       return reply(await withSteps(await getWork(work.id,owner)));
     } catch(e) {
-      const allowed=['IMPORTED_RESEARCH_REQUIRES_NEW_ASSIGNMENT','NYRA_NOT_CONFIGURED','NOT_FOUND','UNAUTHORIZED','INVALID_MODEL','INVALID_BUDGET','INVALID_FIELDS','INVALID_SELECTION','INVALID_JSON','PAYLOAD_TOO_LARGE','STORAGE_UNAVAILABLE','WORK_BUSY','WORK_BUSY_OR_BUDGET_TOO_LOW','BUDGET_EXCEEDED','STALE_STEP','WORK_PAUSED_OR_DONE'];
+      const allowed=['INVALID_PRESENTATION','INVALID_VERSION','STALE_PRESENTATION','IMPORTED_RESEARCH_REQUIRES_NEW_ASSIGNMENT','NYRA_NOT_CONFIGURED','NOT_FOUND','UNAUTHORIZED','INVALID_MODEL','INVALID_BUDGET','INVALID_FIELDS','INVALID_SELECTION','INVALID_JSON','PAYLOAD_TOO_LARGE','STORAGE_UNAVAILABLE','WORK_BUSY','WORK_BUSY_OR_BUDGET_TOO_LOW','BUDGET_EXCEEDED','STALE_STEP','WORK_PAUSED_OR_DONE'];
       const code=allowed.includes(e.message)?e.message:'SERVICE_UNAVAILABLE';
       return reply({error:code},code==='NOT_FOUND'?404:code==='UNAUTHORIZED'?401:code==='BUDGET_EXCEEDED'?409:code==='STORAGE_UNAVAILABLE'||code==='SERVICE_UNAVAILABLE'?503:400);
     }

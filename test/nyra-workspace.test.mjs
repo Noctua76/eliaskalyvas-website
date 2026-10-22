@@ -16,6 +16,7 @@ const output=(value,id='output')=>({id,status:'completed',usage:{input_tokens:10
 async function setup(outputs=[]) {
  const f=await fixture();
  await f.pg.exec(await readFile(new URL('../supabase/migrations/20261022073258_nyra_persistent_editorial_workspace.sql',import.meta.url),'utf8'));
+ await f.pg.exec(await readFile(new URL('../supabase/migrations/20261022082003_nyra_article_presentation.sql',import.meta.url),'utf8'));
  await f.pg.exec(`insert into auth.users(id) values ('${owner}'),('${other}');insert into website_owners(user_id) values('${owner}'),('${other}');`);
  f.users.set(token,{id:owner});
  const requests=[];
@@ -114,5 +115,16 @@ test('changing model after saved research renews its signed packet without rerun
  w=(await s.call('/work/'+w.id+'/step',{seq:w.seq})).data;
  assert.equal(w.state.stage,'review');assert.equal(w.state.drafts[0].run.model,'gpt-6-astra');assert.equal(s.requests.length,2);
  assert.equal(s.requests[0].model,'gpt-6.1-sol');assert.equal(s.requests[1].model,'gpt-6-astra');
+ }finally{await s.pg.close();}
+});
+test('owner can save presentation without a paid call; metadata persists per selected article version',async()=>{
+ const s=await setup([report,output(article,'draft-for-metadata')]);try{
+ let w=await s.create();for(let i=0;i<3;i++)w=(await s.call('/work/'+w.id+'/step',{seq:w.seq})).data;
+ const beforeCalls=s.requests.length,beforeSpent=w.spent;
+ const p={...w.state.drafts[0].presentation,tags:['Οικονομία'],hashtags:['#Οικονομία','#Startups','#ΤεχνητήΝοημοσύνη'],share_text:'A new sharing introduction'};
+ w=(await s.call('/work/'+w.id+'/presentation',{version:0,expected_revision:0,presentation:p})).data;
+ assert.equal(w.state.drafts[0].presentation.revision,1);assert.equal(w.state.drafts[0].presentation.share_text,p.share_text);assert.equal(s.requests.length,beforeCalls);assert.equal(w.spent,beforeSpent);
+ assert.equal((await s.call('/work/'+w.id+'/presentation',{version:0,expected_revision:0,presentation:p})).data.error,'STALE_PRESENTATION');
+ assert.equal((await s.call('/work/'+w.id)).data.state.drafts[0].presentation.share_text,p.share_text);
  }finally{await s.pg.close();}
 });
