@@ -1,0 +1,7 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><title>Signals responsive QA</title><style>html,body{margin:0;background:#0c151d}iframe{display:block;border:0}</style></head><body><iframe title="Signals responsive preview"></iframe><script>
+const params=new URLSearchParams(location.search),width=[360,768,1024,1440].includes(Number(params.get('width')))?Number(params.get('width')):360;
+const lang=params.get('lang')==='en'?'en':'gr';
+const route=params.get('view')==='home'?'':('signals/'+(params.get('view')==='article'?'who-decides-when-ai-suggests/':''));
+const frame=document.querySelector('iframe');frame.style.width=width+'px';frame.style.height='1000px';frame.src='./'+lang+'/'+route+(params.get('view')==='home'?'':'?preview=1');
+frame.addEventListener('load',()=>{const resize=()=>{frame.style.height=frame.contentDocument.documentElement.scrollHeight+'px';};new ResizeObserver(resize).observe(frame.contentDocument.body);resize();});
+</script></body></html>
