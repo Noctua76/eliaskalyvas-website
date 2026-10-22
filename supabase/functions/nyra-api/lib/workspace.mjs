@@ -112,6 +112,7 @@ export function createWorkspaceHandler({ db,env,fetcher=fetch,sourceFetcher=fetc
         return reply(await withSteps(row));
       }
       if(match[2]==='settings') {
+        if(b.resume===true&&!['paused','error'].includes(work.state.stage))fail('WORK_PAUSED_OR_DONE');
         const config=settings(b);
         if(b.revision_note!==undefined) fail('INVALID_FIELDS');
         const ok=await checked(db.rpc('nyra_update_work',{p_id:work.id,p_owner:owner,p_model:config.model,p_budget:config.budget,p_auto:config.auto_repairs,p_resume:b.resume===true}));

@@ -78,6 +78,7 @@ test('three current proposals require explicit owner selection before any articl
  const proposalOutput=output({topics});proposalOutput.output.unshift(report.output[0]);
  const s=await setup([proposalOutput]);try{
  let w=await s.create({kind:'topics'});w=(await s.call('/work/'+w.id+'/step',{seq:0})).data;
+ assert.equal((await s.call('/work/'+w.id+'/settings',{model:'gpt-6.1-sol',budget:3,auto_repairs:true,resume:true})).data.error,'WORK_PAUSED_OR_DONE');
  assert.equal(w.state.stage,'selection');assert.equal(w.state.drafts.length,0);assert.equal(s.requests.length,1);
  assert.equal((await s.call('/work/'+w.id+'/step',{seq:1})).data.error,'WORK_PAUSED_OR_DONE');
  const chosen=await s.create({selected_from:w.id,selected_index:1});assert.equal(chosen.title,'Topic 1');assert.equal(chosen.state.approval.index,1);assert.equal(chosen.state.stage,'research');assert.equal(s.requests.length,1);
