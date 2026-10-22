@@ -1,3 +1,23 @@
+# Nyra private editorial workspace — v0.6
+
+## Current implementation (supersedes the session-only v0.5 notes below)
+
+Owner-only persistence: `nyra_work` and `nyra_steps`, RLS enabled with no client grants. All reads and mutations use owner/Auth/AAL2/origin checks in nyra-api. No public publishing routes exist. Old direct paid endpoints are no longer exposed by the deployed entrypoint.
+
+Default model: gpt-6.1-sol; explicit choices: gpt-6-astra, gpt-6-luna. Selection is stored with work and each step. Changing a work model affects subsequent steps only. Pricing is dated 2026-10-22, USD Standard short-context; usage-based costs and web tool counts are estimates, excluding tax and hosting. Cached writes use the 30-minute rate. API Billing is authoritative.
+
+The server owns research → evidence → draft → review transitions and the two-repair bound. Automatic repairs default OFF; a failed first review pauses for owner continuation. Manual revisions create a linked work item with its own selected budget. Completed stages are persisted before the UI receives the response. Refresh does not auto-resume paid execution. Browser close may interrupt the current request; an explicit recovery after five minutes retains the allowance for uncertain billing. No automatic paid retries.
+
+Before each step, a row-locked RPC reserves an estimated allowance within the work budget. Concurrent or repeated sequence requests cannot start another call. Output caps remain research/review/topics 5,000 and drafting 12,000 tokens. Search adds up to eight web tool actions per research request. Search input can exceed the allowance, so this is an estimated preflight control, NOT a guaranteed invoice cap. Unknown usage keeps the allowance, and any error pauses the work. Reported usage is captured even if later article/schema validation fails. The sum includes all recorded iterations; reasoning is already included in output_tokens.
+
+Topic discovery is an explicit paid action: exactly three independently framed, current topics across economy, technology, startups, investment, society, politics and work, connected to AI/technology. Research prefers seven days, broadening explicitly to 30 days, separating event and publication dates. Each proposal includes sources, why now, question, thesis, original angle, counterargument and format. No article research/writing starts before the owner selects a proposal. Selection is recorded with source work/version and date. Article approval/publication remains separate and inactive. No recurring scheduler has been configured.
+
+History lists the latest 100 work items; each opens the full persisted research, sources, versions, reviews and per-step costs. Export excludes signed tickets. Import accepts earlier JSON draft exports, validates article structure and safe source URLs, strips tickets/evidence IDs, marks them imported and requires fresh research for new writing. Imported reviews/charges are not certified or counted as new ledger charges. Old session-only data cannot be recovered without its export.
+
+Tests include database persistence, client grant denial, owner isolation, model allowlist, budget rejection before billing, concurrent lock rejection, duplicate replay, unknown costs, manual repair pause, proposal selection, safe import, and the two-repair bound. Mock provider tests do not establish real editorial quality or paid-account availability. Live three-topic acceptance remains required with API credit.
+
+## Historical v0.5 implementation notes
+
 # Nyra private editorial lab
 
 The owner can give Nyra a topic, optional direction/references, language and format. Nyra researches with OpenAI Responses web search, writes a structured original draft, then performs a separate editorial review and up to two automatic repair cycles. Research and drafting use separate requests so neither needs to fit a combined Edge Function timeout. This is the private test harness preceding public Signals design.

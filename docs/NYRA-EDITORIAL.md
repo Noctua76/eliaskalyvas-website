@@ -1,7 +1,7 @@
 # NYRA — Constitution, Voice & Behavior Tests
 
 Project: eliaskalyvas.gr / Signals
-Version: 0.5 — 21 October 2026
+Version: 0.6 — 22 October 2026
 Status: Editorial specification updated after the first Greek Signal trial. Private lab implemented; v0.5 adds captured primary-source excerpts and paragraph evidence links after reviewing the v0.4 automatic repair run. Full editorial acceptance remains pending.
 
 ## 1. Scope and provenance
@@ -297,3 +297,10 @@ Signal: 500–800 λέξεις. Signal Essay: 1.200–1.800 λέξεις. Τα �
 Το όριο των εννέα χρεώσιμων κλήσεων μοντέλου παραμένει. Προστίθενται έως τρία αιτήματα καταγραφής πηγών, χωρίς κλήση μοντέλου, ενώ τα αποσπάσματα αυξάνουν το διαθέσιμο υλικό εισόδου στα επόμενα στάδια. Οι μετρήσεις κόστους δεν αποτελούν χρηματικό πλαφόν. Το σώμα κάθε αιτήματος περιορίζεται σε 256 KiB για να χωρά υπογεγραμμένο πακέτο, αποσπάσματα και προηγούμενο δοκίμιο· το ticket παραμένει έως 120.000 χαρακτήρες.
 
 Πρόσθετα σενάρια αποδοχής: B31 — το καταγεγραμμένο πλατωνικό χωρίο με συμφραζόμενα αξιολογείται χωρίς γενική απαίτηση πλήρους βιβλίου· B32 — λάθος evidence_id απορρίπτεται· B33 — αποτυχία/απαγορευμένο redirect ανάκτησης δεν μετατρέπεται σε δήθεν επιβεβαίωση· B34 — ισχυρισμός ευρύτερος από το διαθέσιμο απόσπασμα περιορίζεται ή επανερευνάται· B35 — πραγματική εμπειρική σύνδεση δεν αφαιρείται απλώς για να περάσει ο έλεγχος. Οι δοκιμές κώδικα δεν υποκαθιστούν πραγματική συντακτική αξιολόγηση αυτών των περιπτώσεων.
+
+
+## 12. v0.6 — Cost visibility, private history and topic approval
+
+The owner can choose Sol (default), Astra or Luna per assignment and before later stages, set a USD preflight budget, and enable/disable automatic repairs. Every provider stage saves model, reported usage and estimated cost. A row-locked reservation blocks concurrent calls or a next stage whose allowance exceeds the budget. This estimate is not an invoice cap. Unknown charges stay reserved. No silent retries or fallback models.
+
+Private history persists assignment, research, evidence, article versions, reviews and costs across refresh/sign-in. Old exports can be imported as explicitly unverified historical material. Topic discovery searches current events and proposes three different, sourced themes linking AI/technology to economy, startups, investment, society, politics or work. The owner first selects a theme; this approves research/writing only. Final article publication still requires a separate exact-version approval and is not enabled. Topic discovery is on demand; no unattended schedule is configured.
