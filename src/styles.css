@@ -80,5 +80,5 @@
 }
 /* Leave the narrow desktop taxonomy placement unchanged. */
 @media(min-width:1201px){
-  .hero>.hero-aside{right:24%}
+  .hero>.hero-aside{top:260px;right:auto;left:calc(50% + max(15.8854166667vw,215.081481481px))}
 }
