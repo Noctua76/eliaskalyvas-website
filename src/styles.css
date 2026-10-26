@@ -66,3 +66,19 @@
   .site-header{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:15;background:linear-gradient(180deg,#02060ae6,#02060a00)}
   #areas,#selected-work,#about,#contact{scroll-margin-top:84px}
 }
+
+/* Desktop copy follows the visible B at x=233 in the approved 1536x540
+   scene. With cover sizing, its offset from the scene centre is
+   (768 - 233) * max(100vw / 1536, 476px / 540). Keep cropped narrow
+   desktop copy inside the shell; tablet/mobile retain their existing rules. */
+@media(min-width:901px){
+  .hero{--hero-copy-left:calc(50% - max(34.8307291667vw,471.592592593px))}
+  .hero>.eyebrow,.hero>.hero-statement,.hero>.story-button{left:var(--hero-copy-left)}
+}
+@media(min-width:901px) and (max-width:1200px){
+  .hero{--hero-copy-left:max(0px,calc(50% - max(34.8307291667vw,471.592592593px)))}
+}
+/* Leave the narrow desktop taxonomy placement unchanged. */
+@media(min-width:1201px){
+  .hero>.hero-aside{right:24%}
+}
