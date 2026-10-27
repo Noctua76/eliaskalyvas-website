@@ -107,3 +107,46 @@
   html[lang=el] .hero>.hero-statement{grid-row:2}
   html[lang=el] .hero>.story-button{grid-row:3;margin-top:12px}
 }
+
+/* Scale the clear 1100px composition as one unit on narrow screens. The
+   1536x540 plate is 1353.9556x476 there; its portrait is 455.4x535.
+   Use 40% of the spare vertical space above that scaled plate, keeping
+   the whole title/head visible and the neck clear of the taxonomy.
+   The 10px adjustment below 901px cancels only the existing header-height
+   difference, so mounting the video does not move the artwork on the page. */
+@media(min-width:651px) and (max-width:1100px){
+  .hero{
+    --hero-narrow-width:100vw;
+    --hero-narrow-header-adjust:0px;
+    --hero-narrow-art-top:calc(190.4px - var(--hero-narrow-width) * .173090909091 + var(--hero-narrow-header-adjust));
+  }
+  .hero>.hero-scene>.hero-rest-frame,
+  .hero>.hero-scene>.hero-film{
+    inset:auto;
+    left:calc(50% - var(--hero-narrow-width) * .615434343434);
+    top:var(--hero-narrow-art-top);
+    width:calc(var(--hero-narrow-width) * 1.230868686869);
+    height:calc(var(--hero-narrow-width) * .432727272727);
+    max-width:none;
+    object-fit:contain;
+    object-position:center;
+  }
+  .hero>.portrait{
+    left:calc(50% + var(--hero-narrow-width) * .1472);
+    right:auto;
+    top:calc(var(--hero-narrow-art-top) - var(--hero-narrow-width) * .042727272727);
+    width:calc(var(--hero-narrow-width) * .414);
+    height:calc(var(--hero-narrow-width) * .486363636364);
+    object-position:50% 0;
+  }
+  .hero>.portrait-halo{
+    left:calc(50% + var(--hero-narrow-width) * .0184);
+    right:auto;
+    top:calc(var(--hero-narrow-art-top) - var(--hero-narrow-width) * .065454545455);
+    width:calc(var(--hero-narrow-width) * .4416);
+    height:calc(var(--hero-narrow-width) * .545454545455);
+  }
+}
+@media(min-width:651px) and (max-width:900px){
+  .hero{--hero-narrow-header-adjust:10px}
+}
