@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/dataset.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest",
+    "releases"
+  ],
+  "properties": {
+    "manifest": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/manifest.schema.json"
+    },
+    "releases": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/release.schema.json"
+      }
+    }
+  }
+}

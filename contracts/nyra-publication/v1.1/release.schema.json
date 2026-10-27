@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/release.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "article_id",
+    "variant_id",
+    "locale",
+    "format",
+    "slug",
+    "canonical_url",
+    "content_revision",
+    "presentation_revision",
+    "content",
+    "presentation",
+    "identity",
+    "translation_group_id",
+    "approved_translation_relations",
+    "authorization",
+    "release"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "nyra.publication.v1.1"
+    },
+    "article_id": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+    },
+    "variant_id": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+    },
+    "locale": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/locale"
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "signal",
+        "essay"
+      ]
+    },
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "canonical_url": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/canonical"
+    },
+    "content_revision": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/revision"
+    },
+    "presentation_revision": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/presentation_revision"
+    },
+    "content": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/content"
+    },
+    "presentation": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/presentation"
+    },
+    "identity": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/identity"
+    },
+    "translation_group_id": {
+      "anyOf": [
+        {
+          "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approved_translation_relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "article_id",
+          "variant_id",
+          "locale"
+        ],
+        "properties": {
+          "article_id": {
+            "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+          },
+          "variant_id": {
+            "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+          },
+          "locale": {
+            "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/locale"
+          }
+        }
+      },
+      "minItems": 0,
+      "maxItems": 1,
+      "uniqueItems": true
+    },
+    "authorization": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/authorization"
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sequence",
+        "replaces_release_id",
+        "restores_release_id",
+        "release_issued_at",
+        "first_published_at",
+        "modified_at"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "replaces_release_id": {
+          "anyOf": [
+            {
+              "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "restores_release_id": {
+          "anyOf": [
+            {
+              "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "release_issued_at": {
+          "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/date"
+        },
+        "first_published_at": {
+          "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/date"
+        },
+        "modified_at": {
+          "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/date"
+        }
+      }
+    }
+  }
+}
