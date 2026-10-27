@@ -1,4 +1,4 @@
-import React,{useState} from 'react';
+import React,{useEffect,useState} from 'react';
 import LegalControls from '../legal/LegalControls.jsx';
 import {getPublicArticles} from './adapter.mjs';
 import {topics,signalPath,selectStories,navigationTopics,publicShareUrl} from './model.mjs';
@@ -10,8 +10,8 @@ const copy={
 };
 function Media({article,base,t,linked=false,href,hero=false}){
  const figure=<figure className={`signals-media ${hero?'signals-media-hero':''}`}>
-  <img src={`${base}${article.image.url}`} alt={article.image.alt} width="1200" height="800" style={{objectPosition:article.image.focus}} loading={hero?'eager':'lazy'} />
-  {!hero&&<figcaption>{t.placeholder}</figcaption>}
+  <img src={article.image.url.startsWith('https://')?article.image.url:`${base}${article.image.url}`} alt={article.image.alt} width={article.image.width||1200} height={article.image.height||800} style={{objectPosition:article.image.focus}} loading={hero?'eager':'lazy'} />
+  {!hero&&article.status==='demo'&&<figcaption>{t.placeholder}</figcaption>}
  </figure>;
  return linked?<a className="signals-image-link" href={href} aria-label={article.title}>{figure}</a>:figure;
 }
@@ -41,32 +41,51 @@ function Listing({articles,lang,base,preview,t}){
  </>;
 }
 function Share({article,t}){
- const url=publicShareUrl(article),[status,setStatus]=useState('');
+ const url=publicShareUrl(article),[status,setStatus]=useState(''),[native,setNative]=useState(false);
+ useEffect(()=>setNative(typeof navigator.share==='function'),[]);
  async function copyLink(){try{await navigator.clipboard.writeText(url);setStatus(t.copied);}catch{setStatus(t.shareError);}}
  async function nativeShare(){try{await navigator.share({title:article.social.title,url});}catch(e){if(e.name!=='AbortError')setStatus(t.shareError);}}
- return <section className="signals-sharing" aria-label={t.share}><div className="signals-share-actions"><span>{t.share} ·</span>{url?<a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>:<button disabled>LinkedIn ↗</button>}<button disabled={!url} onClick={copyLink}>{t.copy}</button>{typeof navigator!=='undefined'&&navigator.share&&<button disabled={!url} onClick={nativeShare}>{t.native}</button>}</div>{!url&&<p className="signals-sharing-note">{t.shareNote}</p>}<p className="signals-feedback" role="status">{status}</p><ul className="signals-hashtags" aria-label="Hashtags">{article.hashtags.map(tag=><li key={tag}>#{tag}</li>)}</ul></section>;
+ return <section className="signals-sharing" aria-label={t.share}><div className="signals-share-actions"><span>{t.share} ·</span>{url?<a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>:<button disabled>LinkedIn ↗</button>}<button disabled={!url} onClick={copyLink}>{t.copy}</button>{native&&<button disabled={!url} onClick={nativeShare}>{t.native}</button>}</div>{!url&&<p className="signals-sharing-note">{t.shareNote}</p>}<p className="signals-feedback" role="status">{status}</p><ul className="signals-hashtags" aria-label="Hashtags">{article.hashtags.map(tag=><li key={tag}>#{tag}</li>)}</ul></section>;
 }
 function Article({article,articles,lang,base,preview,t}){
  if(!article)return <section className="signals-waiting"><a className="signals-back" href={signalPath(base,lang,'',preview)}>{t.back}</a><h1>{t.unpublished}</h1></section>;
- const related=articles.filter(a=>a.slug!==article.slug&&a.topics.some(id=>article.topics.includes(id))).slice(0,2);
+ const related=article.relatedIds?article.relatedIds.map(id=>articles.find(a=>a.id===id)).filter(Boolean):articles.filter(a=>a.slug!==article.slug&&a.topics.some(id=>article.topics.includes(id))).slice(0,2);
  return <article className="signals-article">
   <a className="signals-back" href={signalPath(base,lang,'',preview)}>{t.back}</a>
   <header className="signals-article-heading"><p className="signals-kicker">{article.format} · {article.labels}</p><h1>{article.title}</h1><p className="signals-deck">{article.intro}</p><p className="signals-byline">{t.byline}</p>{article.publishedAt&&<p className="signals-date"><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(lang,{dateStyle:'long',timeZone:'Europe/Athens'}).format(new Date(article.publishedAt))}</time>{article.readingMinutes?` · ${article.readingMinutes} ${lang==='el'?'λεπτά ανάγνωσης':'min read'}`:''}</p>}</header>
+  {article.disclosure&&<p className="signals-disclosure">{article.disclosure}</p>}
   <Media article={article} base={base} t={t} hero/>
-  <div className="signals-image-credit"><p>{article.image.caption}</p><p>{article.image.sourceUrl?<a href={article.image.sourceUrl} target="_blank" rel="noopener noreferrer">{t.credit}: {article.image.creator} ↗</a>:t.original}</p></div>
-  <div className="signals-prose">{article.body.map((block,i)=>block.type==='heading'?<h2 key={i}>{block.text}</h2>:block.type==='quote'?<blockquote key={i}>{block.text}</blockquote>:block.type==='list'?<ul key={i}>{block.items.map(item=><li key={item}>{item}</li>)}</ul>:<p key={i}>{block.text}{block.sourceId&&<a className="signals-citation" href={`#source-${block.sourceId}`} aria-label={lang==='el'?'Δες την πηγή':'See source'}> [1]</a>}</p>)}</div>
+  <div className="signals-image-credit"><p>{article.image.caption}</p><p>{article.image.sourceUrl?<a href={article.image.sourceUrl} target="_blank" rel="noopener noreferrer">{t.credit}: {article.image.creator} ↗</a>:t.original}{article.status==='published'&&<> · {article.image.licenseUrl?<a href={article.image.licenseUrl} rel="noopener noreferrer">{article.image.license}</a>:article.image.license}</>}</p></div>
+  <div className="signals-prose">{article.body.map((block,i)=><PublicBlock key={i} block={block} sources={article.sources}/>)}</div>
   <div className="signals-article-bottom"><Share article={article} t={t}/>
-   {!!article.sources.length&&<details className="signals-sources"><summary>{t.sources}</summary><ol>{article.sources.map(source=><li key={source.id} id={`source-${source.id}`}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title} ↗</a></li>)}</ol></details>}
+   {!!article.sources.length&&<details className="signals-sources"><summary>{t.sources}</summary><ol>{article.sources.map(source=><li key={source.id} id={`source-${source.id}`}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.id}: {source.title} ↗</a></li>)}</ol></details>}
    <section className="signals-discussion"><h2>{t.discussion}</h2><p>{t.discussionText}</p><p>{t.later}</p></section>
   </div>
   {!!related.length&&<section className="signals-related"><h2 className="signals-section-label">{t.related}</h2><div className="signals-grid">{related.map(a=><StoryCard key={a.slug} article={a} {...{base,lang,preview,t}}/>)}</div></section>}
  </article>;
 }
-export default function SignalsApp({lang='el',slug='',preview=false,base='/'}){
- const t=copy[lang],articles=getPublicArticles({lang,preview}),article=articles.find(a=>a.slug===slug);
+function Citations({ids=[],sources}){
+ return ids.map(id=>{const source=sources.find(s=>s.id===id);return source?<a key={id} className="signals-citation" href={`#source-${id}`} aria-label={`${id}: ${source.title}`}> [{id}]</a>:null;});
+}
+function PublicBlock({block:b,sources}){
+ const refs=item=><Citations ids={item.source_ids||(item.sourceId?[item.sourceId]:[])} sources={sources}/>;
+ const style={whiteSpace:'pre-wrap',overflowWrap:'anywhere'};
+ if(b.type==='heading')return <h2 style={style}>{b.text}</h2>;
+ if(b.type==='quote')return <blockquote style={style}>{b.text}{refs(b)}{b.attribution&&<cite>{b.attribution}</cite>}</blockquote>;
+ if(b.type==='list')return <ul>{b.items.map((item,i)=><li key={i} style={style}>{typeof item==='string'?item:item.text}{typeof item!=='string'&&refs(item)}</li>)}</ul>;
+ return <p style={style}>{b.text}{refs(b)}</p>;
+}
+// Keep existing legal UI unchanged. Its portal/storage logic mounts after hydration.
+function SignalsLegal({lang,base}){
+ const [mounted,setMounted]=useState(false);useEffect(()=>setMounted(true),[]);
+ if(mounted)return <LegalControls {...{lang,base}}/>;
+ return <span className="legal-links">{['privacy','terms'].map(kind=><a key={kind} href={`${base}${lang==='el'?'gr':'en'}/${kind}/`}>{kind==='privacy'?(lang==='el'?'Απόρρητο':'Privacy'):(lang==='el'?'Όροι':'Terms')}</a>)}</span>;
+}
+export default function SignalsApp({lang='el',slug='',preview=false,base='/',publicArticles=[]}){
+ const t=copy[lang],articles=preview?getPublicArticles({lang,preview:true}):publicArticles.filter(a=>a.lang===lang),article=articles.find(a=>a.slug===slug);
  return <div className="signals-page"><a className="signals-skip" href="#signals-main">{lang==='el'?'Μετάβαση στο περιεχόμενο':'Skip to content'}</a>
   <header className="signals-header signals-container"><a className="signals-brand" href={`${base}${lang==='el'?'gr':'en'}/`} aria-label={`Elias Kalyvas — ${t.home}`}>ELIAS KALYVAS</a><nav aria-label={lang==='el'?'Πλοήγηση Signals':'Signals navigation'}><a href={signalPath(base,lang,'',preview)}>Signals</a><span className="signals-languages" aria-label={t.lang}>{['en','el'].map((l,i)=><React.Fragment key={l}>{i>0&&<span aria-hidden="true">/</span>}{(!slug||!article||article?.translations[l])?<a href={signalPath(base,l,slug?article?.translations[l]||'':'',preview)} lang={l} aria-current={l===lang?'page':undefined}>{l==='el'?'GR':'EN'}</a>:<span aria-disabled="true">{l==='el'?'GR':'EN'}</span>}</React.Fragment>)}</span></nav></header>
   <main id="signals-main" className="signals-container">{preview&&<p className="signals-preview-note">{t.sample}</p>}{slug?<Article {...{article,articles,lang,base,preview,t}}/>:<Listing {...{articles,lang,base,preview,t}}/>}</main>
-  <footer className="signals-footer signals-container"><a href={`${base}${lang==='el'?'gr':'en'}/`}>SIGNALS / ELIAS KALYVAS</a><LegalControls {...{lang,base}}/></footer>
+  <footer className="signals-footer signals-container"><a href={`${base}${lang==='el'?'gr':'en'}/`}>SIGNALS / ELIAS KALYVAS</a><SignalsLegal {...{lang,base}}/></footer>
  </div>;
 }

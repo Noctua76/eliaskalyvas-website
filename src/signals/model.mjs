@@ -1,6 +1,7 @@
 // Public presentation contract only. Never import Nyra Lab state or research packs.
 export const topics = {
  ai:{el:'Τεχνητή νοημοσύνη',en:'Artificial intelligence'},
+ investment:{el:'Επενδύσεις',en:'Investment'},work:{el:'Εργασία',en:'Work'},
  economy:{el:'Οικονομία & επενδύσεις',en:'Economy & investment'},
  society:{el:'Κοινωνία & εργασία',en:'Society & work'},
  technology:{el:'Τεχνολογία',en:'Technology'},startups:{el:'Startups',en:'Startups'},
