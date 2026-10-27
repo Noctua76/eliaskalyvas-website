@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {canonicalize,hashJSON,parseContractJSON,validateRelease,validateManifest,validatePublicationSet,validateEvent,validateTransition,validateDeploymentTiming,activeTranslationRelations,mapNyraContent,mapStructuredContent,releaseReference,schemas,ContractError,isPublicHTTPS} from '../lib/publication/contract.mjs';
+import {canonicalize,hashJSON,parseContractJSON,validateRelease,validateManifest,validatePublicationSet,validateEvent,validateTransition,validateDeploymentTiming,validateReceipt,activeTranslationRelations,mapNyraContent,mapStructuredContent,releaseReference,schemas,ContractError,isPublicHTTPS} from '../lib/publication/contract.mjs';
 import {NOW,ISSUED,uid,internalDraft,sealFixture,releaseFixture,manifestFixture,dataset,replacement,eventFixture,nextSet} from './fixtures/publication-v1.1.mjs';
 const ctx={now:NOW};
 const rejects=(fn,code)=>assert.throws(fn,e=>e instanceof ContractError&&(!code||e.code===code));
@@ -149,9 +149,87 @@ test('duplicate approved list items are preserved without deduplication',()=>{
  assert.equal(content.blocks[0].items.length,2);const r=releaseFixture();r.content=content;sealFixture(r);validateRelease(r,ctx);
 });
 test('verified-live receipt has its own schema, exact manifest binding and timing gate',async()=>{
- const {validateReceipt}=await import('../lib/publication/contract.mjs');const r=releaseFixture(),manifest=manifestFixture([r]);manifest.issued_at=ISSUED;
+ const r=releaseFixture(),previous=dataset([]);previous.manifest.issued_at='2026-10-27T10:00:00.000Z';
+ const event=eventFixture('publish',previous,{fresh:r,target:null}),next=nextSet(previous,[r],[event]);next.manifest.issued_at=ISSUED;
+ const manifest=next.manifest,transition={previous,steps:[{next,events:[event],history:[]}]};
  const receipt={schema_version:'nyra.publication.receipt.v1.1',id:uid(800),attempt_id:uid(801),manifest_id:manifest.manifest_id,generation:manifest.generation,manifest_sha256:hashJSON(manifest),code_sha:'a'.repeat(40),github_run_id:'12345',github_run_attempt:1,github_deployment_id:'67890',status:'released_verified',deployment_requested_at:'2026-10-27T10:11:00.000Z',deployment_completed_at:'2026-10-27T10:12:00.000Z',verified_live_at:'2026-10-27T10:13:00.000Z',observed_manifest_sha256:hashJSON(manifest)};
- validateReceipt(receipt,{manifest,now:NOW,newReleases:[r]});
- for(const change of [x=>x.observed_manifest_sha256='b'.repeat(64),x=>x.verified_live_at=null,x=>x.status='release_failed',x=>x.manifest_id=uid(999),x=>x.verified_live_at='2026-10-27T10:41:00.000Z']){const x=structuredClone(receipt);change(x);rejects(()=>validateReceipt(x,{manifest,now:NOW,newReleases:[r]}));}
+ validateReceipt(receipt,{manifest,now:NOW,transition});
+ for(const change of [x=>x.observed_manifest_sha256='b'.repeat(64),x=>x.verified_live_at=null,x=>x.status='release_failed',x=>x.manifest_id=uid(999),x=>x.verified_live_at='2026-10-27T10:41:00.000Z']){const x=structuredClone(receipt);change(x);rejects(()=>validateReceipt(x,{manifest,now:NOW,transition}));}
  const unknown={...receipt,status:'delivery_unknown',deployment_completed_at:null,github_deployment_id:null,verified_live_at:null,observed_manifest_sha256:null};validateReceipt(unknown,{manifest,now:NOW});
+});
+
+
+// F01: the baseline must come from the future authority's last verified-live dataset.
+// The validator proves chain consistency; it does not authenticate fixture provenance.
+function receiptCase(previous,steps,{start='2026-10-27T10:11:00.000Z',completed='2026-10-27T10:12:00.000Z',verified='2026-10-27T10:13:00.000Z'}={}) {
+ const manifest=(steps.at(-1)?.next||previous).manifest;
+ const receipt={schema_version:'nyra.publication.receipt.v1.1',id:uid(800),attempt_id:uid(801),manifest_id:manifest.manifest_id,generation:manifest.generation,manifest_sha256:hashJSON(manifest),code_sha:'a'.repeat(40),github_run_id:'12345',github_run_attempt:1,github_deployment_id:'67890',status:'released_verified',deployment_requested_at:start,deployment_completed_at:completed,verified_live_at:verified,observed_manifest_sha256:hashJSON(manifest)};
+ return {receipt,options:{manifest,now:NOW,transition:{previous,steps}}};
+}
+function firstPublication() {
+ const previous=dataset([]);previous.manifest.issued_at='2026-10-27T10:00:00.000Z';
+ const r=releaseFixture(),event=eventFixture('publish',previous,{fresh:r,target:null}),next=nextSet(previous,[r],[event]);next.manifest.issued_at=ISSUED;
+ return receiptCase(previous,[{next,events:[event],history:[]}]);
+}
+function checkReceipt(c) { return validateReceipt(c.receipt,c.options); }
+
+test('F01: previous bypass rejects a stale verified receipt when transition information is absent',()=>{
+ const c=firstPublication();c.receipt.deployment_requested_at='2026-10-27T11:01:00.000Z';c.receipt.deployment_completed_at='2026-10-27T11:02:00.000Z';c.receipt.verified_live_at='2026-10-27T11:03:00.000Z';
+ rejects(()=>validateReceipt(c.receipt,{manifest:c.options.manifest,now:NOW}),'MISSING_RECEIPT_TRANSITION');
+ rejects(()=>checkReceipt(c),'DEPLOYMENT_WINDOW_EXPIRED');
+});
+test('F01: empty, omitted or incorrectly supplied caller release lists cannot select timing coverage',()=>{
+ const c=firstPublication(),r=c.options.transition.steps[0].next.releases[0];
+ for(const newReleases of [[],[r],[releaseFixture({locale:'en',offset:20})],null,undefined])rejects(()=>validateReceipt(c.receipt,{...c.options,newReleases}),'CALLER_SUPPLIED_RELEASE_SET');
+ rejects(()=>validateReceipt(c.receipt,{manifest:c.options.manifest,now:NOW,newReleases:[]}),'CALLER_SUPPLIED_RELEASE_SET');
+});
+test('F01: missing, incomplete, mismatched and invalid transition evidence fails closed',()=>{
+ const c=firstPublication();
+ for(const mutate of [t=>delete t.previous,t=>delete t.steps,t=>t.steps=[],t=>delete t.steps[0].events,t=>delete t.steps[0].history,t=>t.steps[0].events=[],t=>t.steps[0].next.releases=[],t=>t.steps[0].next.releases[0].content.title+='tampered',t=>t.steps[0].next.manifest.generation=99]){
+  const options=structuredClone(c.options);mutate(options.transition);rejects(()=>validateReceipt(c.receipt,options));
+ }
+});
+test('F01: derived first-publication releases enforce inclusive 15/30-minute receipt limits',()=>{
+ const c=firstPublication();c.receipt.deployment_requested_at='2026-10-27T10:25:00.000Z';c.receipt.deployment_completed_at='2026-10-27T10:26:00.000Z';c.receipt.verified_live_at='2026-10-27T10:40:00.000Z';checkReceipt(c);
+ const lateStart=structuredClone(c);lateStart.receipt.deployment_requested_at='2026-10-27T10:25:00.001Z';rejects(()=>checkReceipt(lateStart),'DEPLOYMENT_WINDOW_EXPIRED');
+ const lateVerify=structuredClone(c);lateVerify.receipt.verified_live_at='2026-10-27T10:40:00.001Z';rejects(()=>checkReceipt(lateVerify),'DEPLOYMENT_WINDOW_EXPIRED');
+});
+test('F01: unchanged ordinary rebuilds retain historical releases without freshness checks',()=>{
+ const previous=dataset([releaseFixture()]),before=canonicalize(previous);
+ const c=receiptCase(previous,[],{start:'2026-10-27T11:30:00.000Z',completed:'2026-10-27T11:31:00.000Z',verified:'2026-10-27T11:32:00.000Z'});
+ checkReceipt(c);assert.equal(canonicalize(previous),before);
+ rejects(()=>validateReceipt(c.receipt,{manifest:c.options.manifest,now:NOW}),'MISSING_RECEIPT_TRANSITION');
+});
+test('F01: a newly approved EN release is timed while retained historical GR is excluded',()=>{
+ const previous=dataset([releaseFixture()]),en=releaseFixture({locale:'en',offset:20});
+ en.authorization.human_approved_at='2026-10-27T11:00:00.000Z';en.authorization.publication_authorized_at='2026-10-27T11:01:00.000Z';en.release.release_issued_at=en.release.first_published_at=en.release.modified_at='2026-10-27T11:05:00.000Z';sealFixture(en);
+ const event=eventFixture('publish',previous,{fresh:en,target:null}),next=nextSet(previous,[previous.releases[0],en],[event]);next.manifest.issued_at=en.release.release_issued_at;
+ const c=receiptCase(previous,[{next,events:[event],history:[]}],{start:'2026-10-27T11:06:00.000Z',completed:'2026-10-27T11:07:00.000Z',verified:'2026-10-27T11:08:00.000Z'});checkReceipt(c);
+ c.receipt.verified_live_at='2026-10-27T11:35:00.001Z';rejects(()=>checkReceipt(c),'DEPLOYMENT_WINDOW_EXPIRED');
+});
+test('F01: replaced releases are derived and timed independently of their retained predecessor dates',()=>{
+ const previous=dataset([releaseFixture()]);previous.manifest.issued_at=ISSUED;
+ const fresh=replacement(previous.releases[0]),event=eventFixture('replace',previous,{fresh}),next=nextSet(previous,[fresh],[event]);next.manifest.issued_at=fresh.release.release_issued_at;
+ const c=receiptCase(previous,[{next,events:[event],history:[]}],{start:'2026-10-27T10:31:00.000Z',completed:'2026-10-27T10:32:00.000Z',verified:'2026-10-27T10:33:00.000Z'});checkReceipt(c);
+ c.receipt.verified_live_at='2026-10-27T11:00:00.001Z';rejects(()=>checkReceipt(c),'DEPLOYMENT_WINDOW_EXPIRED');
+});
+test('F01: explicit withdrawal-only deployment has no newly issued release to expire',()=>{
+ const previous=dataset([releaseFixture()]),event=eventFixture('withdraw',previous),next=nextSet(previous,[],[event]);next.manifest.issued_at='2026-10-27T11:10:00.000Z';
+ checkReceipt(receiptCase(previous,[{next,events:[event],history:[]}],{start:'2026-10-27T11:30:00.000Z',completed:'2026-10-27T11:31:00.000Z',verified:'2026-10-27T11:32:00.000Z'}));
+});
+test('F01: rollback is a newly issued release and cannot inherit an exemption from its old restore target',()=>{
+ const original=releaseFixture(),prior=replacement(original),previous=dataset([prior]);previous.manifest.issued_at=prior.release.release_issued_at;
+ const fresh=replacement(prior,{rollback:original,n:200});fresh.authorization.human_approved_at='2026-10-27T10:40:00.000Z';fresh.authorization.publication_authorized_at='2026-10-27T10:41:00.000Z';fresh.release.release_issued_at=fresh.release.modified_at='2026-10-27T10:50:00.000Z';sealFixture(fresh);
+ const event=eventFixture('rollback',previous,{fresh,target:prior,restore:original}),next=nextSet(previous,[fresh],[event]);next.manifest.issued_at=fresh.release.release_issued_at;
+ const c=receiptCase(previous,[{next,events:[event],history:[original]}],{start:'2026-10-27T10:51:00.000Z',completed:'2026-10-27T10:52:00.000Z',verified:'2026-10-27T10:53:00.000Z'});checkReceipt(c);
+ c.receipt.verified_live_at='2026-10-27T11:20:00.001Z';rejects(()=>checkReceipt(c),'DEPLOYMENT_WINDOW_EXPIRED');
+});
+test('F01: every not-yet-live release across a contiguous transition chain receives timing validation',()=>{
+ const first=firstPublication(),previous=first.options.transition.previous,step1=first.options.transition.steps[0],en=releaseFixture({locale:'en',offset:20});
+ en.authorization.human_approved_at='2026-10-27T10:11:00.000Z';en.authorization.publication_authorized_at='2026-10-27T10:12:00.000Z';en.release.release_issued_at=en.release.first_published_at=en.release.modified_at='2026-10-27T10:15:00.000Z';sealFixture(en);
+ const event=eventFixture('publish',step1.next,{fresh:en,target:null}),next=nextSet(step1.next,[...step1.next.releases,en],[event]);next.manifest.issued_at=en.release.release_issued_at;
+ const steps=[step1,{next,events:[event],history:[]}];
+ const c=receiptCase(previous,steps,{start:'2026-10-27T10:16:00.000Z',completed:'2026-10-27T10:17:00.000Z',verified:'2026-10-27T10:18:00.000Z'});checkReceipt(c);
+ c.receipt.deployment_requested_at='2026-10-27T10:26:00.000Z';c.receipt.deployment_completed_at='2026-10-27T10:27:00.000Z';c.receipt.verified_live_at='2026-10-27T10:28:00.000Z';rejects(()=>checkReceipt(c),'DEPLOYMENT_WINDOW_EXPIRED');
+ const missingStep=receiptCase(previous,[steps[1]],{start:'2026-10-27T10:16:00.000Z',completed:'2026-10-27T10:17:00.000Z',verified:'2026-10-27T10:18:00.000Z'});rejects(()=>checkReceipt(missingStep),'STALE_MANIFEST_GENERATION');
 });

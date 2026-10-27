@@ -126,16 +126,38 @@ Ordinary code rollback must rebuild against the current authorized manifest. An 
 
 All dates must be exact valid UTC `YYYY-MM-DDTHH:mm:ss.sssZ`, calendar-correct and not later than the explicit validation `now`. `now` is mandatory for deterministic validation; the future server supplies its trusted clock. Approval precedes authorization, which precedes release issue. First publication is no later than modification; modification equals the release-issued timestamp. A first release has all three release dates equal. Replacements preserve the original first-publication date.
 
-Normal publication uses one deployment. A trusted server issues a fresh release timestamp near final artifact preparation. `validateDeploymentTiming(newReleases,{now,phase})` checks the new releases only: start ≤15 minutes and verified-live ≤30 minutes after issue, inclusive. Do **not** apply that freshness gate to old retained releases on ordinary website rebuilds. Historical validity and deployment freshness are separate.
+Normal publication uses one deployment. A trusted server issues a fresh release timestamp near final artifact preparation. `validateDeploymentTiming(releases,{now,phase})` checks start ≤15 minutes and verified-live ≤30 minutes after issue, inclusive. Receipt validation derives the required release set itself; callers cannot select it. Historical validity and deployment freshness are separate.
 
 A receipt binds manifest ID/generation/hash, code SHA, attempt ID, GitHub run/attempt/deployment IDs, requested/completed/verified-live times and observed manifest hash. `released_verified` requires exact observed hash and complete ordered times. Failed/unknown outcomes cannot claim verified-live. `timing_exception` records abnormal completion instead of silently claiming normal timing. `validateReceipt` checks shape/consistency, not authenticity of the caller's GitHub/HTTP observations.
+
+### Mandatory transition evidence for a verified-live receipt (F01)
+
+`validateReceipt(receipt,{manifest,now,transition})` requires the following context for `released_verified`:
+
+```js
+transition: {
+  previous: lastVerifiedLiveDataset,
+  steps: [
+    {next: authorizedDataset, events: authorizedEvents, history: affectedVariantHistory},
+    // Every further intervening generation, in order, if the build coalesces changes.
+  ],
+}
+```
+
+Both datasets include complete manifests and active release payloads. Each step must supply all three fields, including explicit event/history arrays. The validator validates the baseline dataset, then every contiguous generation/hash/event/history transition at `deployment_requested_at`. The resulting final manifest must exactly equal the manifest bound to the receipt. Missing, skipped, stale, mismatched or malformed evidence fails closed.
+
+The timed set is **all final active release IDs absent from the last verified-live baseline**, not merely the releases introduced in the final step. This covers first publication, replacement, rollback and coalesced pending generations. Superseded releases absent from the final public artifact are not timed. Retained historical releases are validated for integrity but are not subjected to fresh-release deadlines.
+
+An ordinary rebuild supplies the actual last verified-live dataset as `previous` and `steps:[]`; the requested manifest must be identical. An explicit withdrawal-only transition may also produce an empty timed set. Neither case can be inferred merely from an omitted/empty caller release list. The obsolete `newReleases` option is rejected even if it is explicitly `undefined`, empty, complete or supplied alongside valid transition evidence. Failed/unknown receipts do not claim verified-live and do not require this successful-delivery transition context.
+
+Phase 2 must obtain `previous` from authoritative verified-live state and `steps` from the complete authorized event history, rather than accepting a browser's claimed baseline or substituting an unverified pending generation. For the initial publication it must establish an explicit known baseline (for example the empty generation-1 dataset), then supply the publish transition. This pure module verifies consistency, not the authenticity of the baseline or event provenance. The wire receipt schema is unchanged: this evidence is a mandatory validator context for successful receipts, not another public receipt field.
 
 Future integration must reconcile unknown delivery before retry, preserve a timestamp if content was actually delivered, create a fresh attempt for a proven never-delivered failure, and separately record delayed delivery. Withdrawal remains pending until removal is confirmed. There is no atomic transaction between Supabase and GitHub Pages, and caches cannot be universally erased.
 
 ## API usage (synthetic/local only)
 
 ```js
-import {parseContractJSON, validatePublicationSet, validateTransition}
+import {parseContractJSON, validatePublicationSet, validateTransition, validateReceipt}
   from '../lib/publication/contract.mjs';
 
 const candidate = parseContractJSON(input);
@@ -143,6 +165,15 @@ validatePublicationSet(candidate, {now: trustedServerUTC});
 validateTransition(previous, candidate, authorizedEvents, {
   now: trustedServerUTC,
   history: authoritativeAffectedVariantHistory,
+});
+
+validateReceipt(receipt, {
+  manifest: candidate.manifest,
+  now: trustedServerUTC,
+  transition: {
+    previous: lastVerifiedLiveDataset,
+    steps: [{next: candidate, events: authorizedEvents, history: authoritativeAffectedVariantHistory}],
+  },
 });
 ```
 
@@ -179,3 +210,16 @@ Before Phase 2, external review must approve these exact files/diff. Later phase
 - Existing production source/configuration/website content diff: empty.
 - Contract version strings and private fixture canaries: absent from generated `dist`.
 - No OpenAI requests, database changes, workflow dispatch, merge, deployment or real publication.
+
+### F01/F02 external-review correction verification — 27 October 2026
+
+- Reproduced F01 against reviewed head `d562cbce013b47da7715c30bf930a0ba237fbbea`: a stale `released_verified` receipt was accepted when the release list was omitted. The temporary probe was removed.
+- Removed caller-selected timing coverage. Verified-live receipt validation now requires an explicit validated baseline/transition chain and derives all final newly issued release IDs itself. An unchanged rebuild explicitly proves the same manifest; a missing context is never treated as an empty change set.
+- Added ten targeted regression tests: missing evidence/previous bypass, forbidden caller release lists, incomplete/tampered evidence, exact 15/30-minute boundaries, historical rebuild, independent EN with retained GR, replacement, withdrawal-only deployment, rollback and coalesced multi-generation releases.
+- Exact compatibility runtime: **Node.js v22.22.0 / npm 11.9.0**. Installed isolated Node 22 tooling outside repository dependencies; package files and GitHub Actions configuration unchanged by this correction.
+- `node --test test/publication-contract.test.mjs`: **69/69 PASS**.
+- `npm test`: **188/188 PASS** (119 existing + 69 contract tests).
+- `npm run build`: **PASS**, 131 modules transformed.
+- `git diff --check`: **PASS**.
+- Correction scope: only `lib/publication/contract.mjs`, `test/publication-contract.test.mjs` and this documentation. Receipt wire schema and fixtures unchanged.
+- No OpenAI calls, merge, deployment, workflow dispatch, production database/auth/API/credential/content/indexability changes. PR #8 remains Draft for external review.
