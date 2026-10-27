@@ -122,12 +122,15 @@ test('Phase 2 metadata-owned template requires explicit rights review and exact 
  const bad=structuredClone(cover);bad.attribution.rights_confirmed=false;assert.equal((await f.asset(bad)).status,422);
  assert.equal((await f.call('/publication/assets',{cover,rights_note:'yes'})).status,400);
 }));
-test('Phase 2 changing approved fields blocks a pending private export without exposing current drafts',()=>using(async f=>{
+test('Phase 2 authorized held snapshots survive newer private content and presentation edits',()=>using(async f=>{
  const {preparedPublicationSet}=await import('../lib/publication/authority.mjs');const {w,asset}=await setup(f),p=await f.prepare(w,asset);await f.authorize(p);
  const context=async()=>(await f.db.rpc('nyra_publication_context',{p_owner:OWNER,p_session:SESSION,p_expires:new Date(Date.now()+60000).toISOString(),p_work:w.id})).data;
  const before=preparedPublicationSet(await context());assert.equal(before.releases.length,1);
- await f.mutate(w.id,w=>w.state.drafts[0].presentation.revision++);
- const ctx=await context();assert.throws(()=>preparedPublicationSet(ctx),/STALE_AUTHORIZATION/);
+ await f.mutate(w.id,w=>{w.state.drafts[0].presentation.revision++;w.state.drafts[0].article.title='UNAPPROVED_NEW_DRAFT';w.active_seq=1;});
+ const ctx=await context(),after=preparedPublicationSet(ctx);assert.deepEqual(after,before);
+ assert.equal(ctx.authorization_state,'authorized_held');assert.equal(ctx.verified_live_manifest,null);
+ assert(!JSON.stringify(after).includes('UNAPPROVED_NEW_DRAFT'));
+ assert.throws(()=>preparedPublicationSet({...ctx,authorization_state:undefined}),/MISSING_AUTHORIZATION_STATE/);
  assert(!JSON.stringify(before).includes('PRIVATE_'));
 }));
 test('Phase 2 SQL service role can execute verified operations while preview expiry and idempotency conflicts fail closed',()=>using(async f=>{
@@ -194,3 +197,66 @@ test('Phase 2 translation added after GR authorization reserves identity without
  const english=await f.prepare(en,asset,{translation_variant_id:gr.variant_id});assert.equal(english.status,200,JSON.stringify(english.body));assert.equal((await f.authorize(english)).status,200);
  const catalog=(await rows(f,'nyra_publication_catalog'))[0];assert.equal(catalog.desired_manifest.active_releases.length,2);
 }));
+
+// Review corrections: immutable release lifecycle, authoritative lineage and visible citations.
+test('F01 private editing one article neither blocks another release nor changes a retained rebuild',()=>using(async f=>{
+ const {preparedPublicationSet}=await import('../lib/publication/authority.mjs');
+ const {w,asset}=await setup(f),first=await f.prepare(w,asset);assert.equal((await f.authorize(first)).status,200);
+ await f.mutate(w.id,w=>{w.state.drafts[0].article.title='PRIVATE_NEW_TITLE';w.state.drafts[0].automatic_review=null;});
+ const other=await f.work({language:'en'}),p=await f.prepare(other,asset);assert.equal(p.status,200,JSON.stringify(p.body));assert.equal((await f.authorize(p)).status,200);
+ const ctx=(await f.db.rpc('nyra_publication_context',{p_owner:OWNER,p_session:SESSION,p_expires:new Date(Date.now()+60000).toISOString(),p_work:other.id})).data;
+ const data=preparedPublicationSet(ctx);assert.equal(data.releases.length,2);assert(data.releases.some(r=>r.release.id===first.body.release.release.id));assert(!JSON.stringify(data).includes('PRIVATE_NEW_TITLE'));
+ const withdraw=await f.prepare(w,null,{action:'withdraw',article_id:first.body.release.article_id});assert.equal(withdraw.status,200);assert.equal((await f.authorize(withdraw)).status,200);
+}));
+test('F02 legitimate multigeneration revision chain replaces canonical and attributes the actual work',()=>using(async f=>{
+ const {w,asset}=await setup(f),first=await f.prepare(w,asset);await f.authorize(first);
+ const child=await f.work(),grandchild=await f.work();
+ await f.mutate(child.id,x=>x.state.revision_of={id:w.id,version:0});
+ await f.mutate(grandchild.id,x=>x.state.revision_of={id:child.id,version:0});
+ const p=await f.prepare(grandchild,asset,{action:'replace',article_id:first.body.release.article_id});assert.equal(p.status,200,JSON.stringify(p.body));assert.equal(p.body.release.canonical_url,first.body.release.canonical_url);
+ assert.equal((await f.authorize(p)).status,200);assert.equal((await rows(f,'nyra_publication_decisions')).at(-1).work_id,grandchild.id);
+ // Administrative actions need association, not a reviewed or even present draft.
+ await f.mutate(grandchild.id,x=>{x.state.drafts=[];x.state.stage='draft';x.active_seq=0;});
+ const withdrawal=await f.prepare(grandchild,null,{action:'withdraw',article_id:first.body.release.article_id});assert.equal(withdrawal.status,200,JSON.stringify(withdrawal.body));assert.equal((await f.authorize(withdrawal)).status,200);
+ const rollback=await f.prepare(grandchild,null,{action:'rollback',article_id:first.body.release.article_id,restore_release_id:first.body.release.release.id});assert.equal(rollback.status,200,JSON.stringify(rollback.body));assert.equal((await f.authorize(rollback)).status,200);
+ assert((await rows(f,'nyra_publication_decisions')).slice(1).every(d=>d.work_id===grandchild.id));
+}));
+for(const kind of ['unrelated','missing-parent','foreign-parent','bad-version','cycle','wrong-language','wrong-identity'])test('F02 rejects '+kind+' article lineage for all existing article actions',()=>using(async f=>{
+ const {w,asset}=await setup(f),first=await f.prepare(w,asset);await f.authorize(first);const article=first.body.release.article_id,child=await f.work();
+ if(kind==='missing-parent')await f.mutate(child.id,x=>x.state.revision_of={id:uid(987),version:0});
+ if(kind==='foreign-parent'){const foreign=await f.work({owner:OTHER});await f.mutate(child.id,x=>x.state.revision_of={id:foreign.id,version:0});}
+ if(kind==='bad-version')await f.mutate(child.id,x=>x.state.revision_of={id:w.id,version:99});
+ if(kind==='cycle')await f.mutate(child.id,x=>x.state.revision_of={id:child.id,version:0});
+ if(kind==='wrong-language')await f.mutate(child.id,x=>{x.state.revision_of={id:w.id,version:0};x.state.assignment.language='en';x.state.drafts[0].assignment.language='en';});
+ if(kind==='wrong-identity'){
+  const reserve=await f.call('/publication/identity',{work_id:child.id,version:0,slug:'another-identity',translation_variant_id:null});assert.equal(reserve.status,200);
+  await f.mutate(child.id,x=>x.state.revision_of={id:w.id,version:0});
+ }
+ for(const action of ['replace','withdraw','rollback']){
+  const p=await f.prepare(child,asset,{action,article_id:article,restore_release_id:action==='rollback'?first.body.release.release.id:null});assert.equal(p.status,409,JSON.stringify(p.body));assert.equal(p.body.error,'ARTICLE_LINEAGE_REQUIRED');
+ }
+ const forged=f.input(child,asset,{action:'replace',article_id:article});forged.revision_of={id:w.id,version:0};assert.equal((await f.call('/publication/preview',forged)).status,400);
+ assert.equal((await rows(f,'nyra_publication_decisions')).length,1);
+}));
+test('F02 commit rechecks ancestors changed after preview and rejects grafted SQL previews',()=>using(async f=>{
+ const {w,asset}=await setup(f),first=await f.prepare(w,asset);await f.authorize(first);const child=await f.work(),leaf=await f.work();
+ await f.mutate(child.id,x=>x.state.revision_of={id:w.id,version:0});await f.mutate(leaf.id,x=>x.state.revision_of={id:child.id,version:0});
+ const p=await f.prepare(leaf,asset,{action:'replace',article_id:first.body.release.article_id});assert.equal(p.status,200);
+ await f.mutate(child.id,x=>delete x.state.revision_of);assert.equal((await f.authorize(p)).body.error,'PUB_ARTICLE_LINEAGE_REQUIRED');
+ const saved=(await rows(f,'nyra_publication_previews')).find(x=>x.id===p.body.preview_id),stranger=await f.work();
+ const expected=(await f.pg.query('select to_jsonb(w) as work from nyra_work w where id=$1',[stranger.id])).rows[0].work;
+ const proposal=structuredClone(saved.preview);proposal.source_work=expected;
+ const result=await f.db.rpc('nyra_publication_preview',{p_owner:OWNER,p_session:SESSION,p_expires:new Date(Date.now()+60000).toISOString(),p_work:stranger.id,p_version:0,p_expected:expected,p_preview:proposal});
+ assert.match(result.error.message,/PUB_ARTICLE_LINEAGE_REQUIRED/);assert.equal((await rows(f,'nyra_publication_decisions')).length,1);
+}));
+test('F03 exact block text has multiple resolved public citations and safe links',async()=>{
+ const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{default:Review}=await import('../src/operations/NyraPublicationReview.mjs'),{releaseFixture}=await import('./fixtures/publication-v1.1.mjs');
+ const release=releaseFixture();release.content.sources=[{id:'s1',title:'Source <one>',url:'https://example.com/one'},{id:'s2',title:'Source two',url:'https://example.com/two'}];
+ release.content.blocks=[{type:'paragraph',text:'Paragraph <exact>\nnext',source_ids:['s1','s2']},{type:'quote',text:'Quote <exact>',attribution:'Speaker <name>',source_ids:['s2','s1']},{type:'list',items:[{text:'Item <exact>',source_ids:['s1','s2']},{text:'Second item',source_ids:['s2']}]},{type:'heading',text:'Heading <exact>'}];
+ const render=()=>renderToStaticMarkup(React.createElement(Review,{preview:{preview_id:uid(9),action:'publish',release}}));const html=render();
+ for(const [tag,text] of [['p','Paragraph &lt;exact&gt;\nnext'],['blockquote','Quote &lt;exact&gt;'],['li','Item &lt;exact&gt;']]){
+  const part=html.match(new RegExp('<'+tag+'[^>]*>'+text+'([\\s\\S]*?)</'+tag+'>'))?.[1];assert(part,tag);assert(part.includes('[s1: Source &lt;one&gt;]'));assert(part.includes('[s2: Source two]'));
+ }
+ assert(html.includes('Speaker &lt;name&gt;'));assert(html.includes('noopener noreferrer'));assert(html.includes('https://example.com/two'));assert(html.includes('Πλήρες στιγμιότυπο'));assert(!html.includes('Paragraph <exact>'));
+ release.content.sources[0].url='javascript:alert(1)';const unsafe=render();assert(!unsafe.includes('href="javascript:'));assert(!unsafe.includes('href="data:'));
+});

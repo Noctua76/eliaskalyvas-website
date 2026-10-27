@@ -15,7 +15,7 @@ There is no public release feed. The existing public adapter, robots, canonical/
 
 Reviewed on 27 October 2026:
 
-- https://supabase.com/changelog — current announcements; recent breaking TLS change concerns old clients, not a reason to alter existing auth here. The `.md` index could not be retrieved by the documentation client; the official HTML index was inspected instead.
+- https://supabase.com/changelog.md — rechecked for this correction, along with the sessions and function privilege documentation; no authentication architecture change is introduced.
 - https://supabase.com/docs/reference/javascript/auth-getuser — existing exact-token Auth-server verification architecture retained.
 - https://supabase.com/docs/reference/javascript/auth-mfa-getauthenticatorassurancelevel — explicit JWT argument used for server MFA checks; current and next levels must both be `aal2`.
 - https://supabase.com/docs/guides/auth/auth-mfa — MFA must be enforced server-side, not merely by UI flags.
@@ -84,7 +84,7 @@ File: `supabase/migrations/20261027195057_nyra_private_publication_authority.sql
 | `nyra_publication_events` | Immutable public event payload linked to private decision/generation |
 | `nyra_publication_outbox` | Separate operational record constrained to `held`, delivered_at NULL; immutable |
 
-Privileges: SELECT/INSERT only for service_role; only the catalog's desired-manifest column has UPDATE. Immutable triggers reject updates/deletes on the other eight tables. PUBLIC/anon/authenticated privileges are revoked, with no permissive RLS policies. All nine new helper/RPC functions are invoker functions with explicit search paths and service-only execution. Existing Nyra work/state/RLS functions are not changed.
+Privileges: SELECT/INSERT only for service_role; only the catalog's desired-manifest column has UPDATE. Immutable triggers reject updates/deletes on the other eight tables. PUBLIC/anon/authenticated privileges are revoked, with no permissive RLS policies. All ten new helper/RPC functions are invoker functions with explicit search paths and service-only execution. Existing Nyra work/state/RLS functions are not changed.
 
 The catalog is initialized only inside an owner/session-checked context call for an owned work. It is bound to that allowlisted owner; another owner cannot take over it. Existing website_owners membership remains the authority mapping for Elias; this PR does not add another public approver or modify the owner list.
 
@@ -98,7 +98,7 @@ One explicit confirmation then:
 2. Finalizes server audit/issue times only; the approved payload hash and all approved fields remain unchanged.
 3. Runs Phase 1 release/manifest/transition validation, including authoritative historical rollback targets.
 4. Calls one commit RPC which locks the singleton catalog, owned work and evaluates the immutable preview.
-5. Checks expiry, full current work equality, no active work, exact manifest baseline, preview consumption and idempotency.
+5. Checks expiry, full current work equality, no active work for Publish/Replace, authoritative article lineage, exact manifest baseline, preview consumption and idempotency.
 6. Rechecks the entire approved payload and retained candidate export. Only final timestamps and their dependent selected-release reference hash may differ from the stored proposal.
 7. Inserts decision, new release (if applicable), next manifest, event and held outbox, and advances desired manifest in the **same transaction**.
 
@@ -113,11 +113,15 @@ Any exception rolls back all commit effects. A failed response can be retried us
 | Withdraw | Owned active exact target; explicit action | No new article snapshot; tombstone/event; removed from desired active set |
 | Rollback | Owned known historical snapshot and current/latest lineage | New approval/release ID and next sequence restoring exact old content/presentation hashes |
 
-Withdraw does not require the current working draft to pass review: an owner must be able to withdraw even when a revision is incomplete. Rollback uses a previously approved immutable snapshot, rather than promoting a rejected/current draft. Neither action transfers approval to another language.
+For Replace, the selected work must be the identity's originating work or a genuine descendant through authoritative private `state.revision_of: {id, version}` records, matching the existing server-only Nyra revision workflow. `nyra_publication_associated()` checks owner, article kind, language, existing parent draft index, cycles, missing parents and conflicts with another reserved article identity. The context derives associated IDs server-side; the preview and commit RPCs independently repeat the check under row locks. No browser relationship field is accepted. The originating identity stays immutable; decision/preview `work_id` records the actual selected descendant for accurate audit attribution. The existing editorial workflow is not modified.
+
+Withdraw/Rollback require that same article association and exact action target, but do not require an eligible or even present current draft, or idle editorial work. They retain the strict selected-work snapshot CAS between preview and authorization. Withdraw does not require the current working draft to pass review: an owner must be able to withdraw even when a revision is incomplete. Rollback uses a previously approved immutable snapshot, rather than promoting a rejected/current draft. Neither action transfers approval to another language.
 
 Changing any work field after preview invalidates confirmation by full-snapshot comparison. This is deliberately conservative and includes private work bookkeeping/settings, beyond only the approved public fields. Nothing writes approval/status fields into existing editorial JSON.
 
-After authorization, stale source snapshots are derived from decision→preview→current work. `preparedPublicationSet(ctx)` rejects active pending authorizations whose work changed. An explicit replacement or withdrawal can remove the stale pending release; an unrelated publication cannot silently retain it in a prepared export. Existing immutable decisions remain audit history, not transferable approvals. In Phase 2 all releases are pending: no verified-live state is synthesized.
+After authorization, an immutable snapshot remains valid even if its private source work changes, is busy, or has an unfinished revision. `nyra_publication_context()` returns authorized stored snapshots and the desired manifest, not a staleness verdict derived from editable work. `preparedPublicationSet(ctx)` validates those snapshots with the unchanged Phase 1 validator and requires the explicit Phase 2 `authorization_state: authorized_held` / null verified-live boundary. It never imports newer drafts. Retaining the same dataset for an ordinary rebuild does not require workspace equality. Private editing of one article cannot block another article's authorization. Replace, Withdraw and Rollback remain explicit owner actions; editing alone changes neither manifest nor authorization.
+
+`authorized_held` means an undelivered authorization, not publication. This phase still cannot record verified-live delivery. A future verified-live receipt and authoritative live manifest must be introduced separately; neither workspace equality nor an ordinary rebuild may be used as proof of publication. Immutable content validity does not waive deployment timing validation or authorize dispatch.
 
 Reactivating a withdrawn identity with Publish or Replace is rejected. Only an explicit new Rollback authorization can restore an approved historical payload. A new working draft never mutates an older release. Reference hashes, active generation and translation relationships are checked against Phase 1 throughout.
 
@@ -134,21 +138,38 @@ Phase 3 must review/host actual approved assets and integrate static rendering/p
 
 ## Security acceptance and limitations
 
-Synthetic Node 22/PGlite tests cover owner/MFA/origin/session negatives; exact revision/source/presentation and rights checks; imported/unfinished/superseded drafts; duplicate and competing actions; owner revocation and revision changes between confirmation and locked commit; SQL candidate tampering; invalidation after approval; GR/EN isolation and reciprocal identities; all four actions; failed transaction rollback and safe retry; strict table/RPC ACLs, immutable records and service-role execution; no private fields/canaries in preview/public snapshots; and escaped exact review rendering.
+Synthetic Node 22/PGlite tests cover owner/MFA/origin/session negatives; exact revision/source/presentation and rights checks; imported/unfinished/superseded drafts; duplicate and competing actions; owner revocation and revision changes between confirmation and locked commit; SQL candidate tampering; retention after private edits; GR/EN isolation and reciprocal identities; all four actions; failed transaction rollback and safe retry; strict table/RPC ACLs, immutable records and service-role execution; no private fields/canaries in preview/public snapshots; and escaped exact review rendering.
 
 PGlite executes real PostgreSQL DDL/functions/transactions and role grants locally. Promise interleavings verify logical single-winner behavior, but this is not a native multi-connection PostgreSQL stress test. That check, actual Supabase JWT/MFA integration and full real-browser single-click acceptance remain gates before a future production rollout. The UI component is not mounted; SSR tests do not claim a complete browser E2E test.
 
 No local test calls the OpenAI API. Authentication/providing mocks are synthetic; the service injects a provider-call guard. The existing editorial/model/budget code is imported for local validation and its established GET auth gate only, and is not changed.
 
+## Native Supabase acceptance required before migration approval
+
+The prepared `grant select(id,user_id,aal,not_after) on auth.sessions to service_role` is unchanged. Local PGlite is not a substitute for the following staging/native gates:
+
+- Inspect native `auth.sessions` column types, schema USAGE, column-level SELECT and effective ACLs for the actual service role; run each invoker RPC using the actual PostgREST service role. Confirm no broader auth-table SELECT or browser EXECUTE/SELECT is introduced, all ten functions remain invoker with fixed search paths, and all nine tables retain RLS/no ordinary-client grants. Run native security advisors.
+- Use actual signed tokens: Auth.getUser exact-token rejection for invalid/expired/anonymous users; website_owners removal; AAL1 rejection; verified AAL2 success; MFA unenrollment/downgrade; session deletion/sign-out, wrong-user session, expired `not_after`, and refresh/revocation behavior between preview, confirmation and commit. JWT expiry and continued session existence must both be enforced.
+- Exercise independent native PostgreSQL connections for simultaneous preview/revision, ancestor lineage edits, duplicate authorization, competing manifest generations, owner/session revocation, failure rollback and retry. Verify row-lock order, deadlock rollback/retry behavior, function ACLs and atomic outbox/decision writes through the real API transaction boundary.
+- Verify Edge runtime/schema packaging, origin/CORS restrictions, browser credential exclusion, exact citation review and single-action retry with actual authentication in an explicitly approved staging integration. No endpoints or UI are mounted in this correction.
+
+These checks require a separately authorized native/staging environment. No production migration or privilege change has been applied.
+
 ## Recorded verification — 27 October 2026
 
 - Exact local runtime: **Node.js v22.22.0 / npm 11.9.0**. No repository dependency or workflow changes.
-- `node --test test/publication-authority.test.mjs`: **46/46 PASS**.
+- `node --test test/publication-authority.test.mjs`: **57/57 PASS** (11 additional correction regressions; updated immutable-lifecycle regression).
 - Additional isolated SQL-tampering and exact-review/image-rendering regressions: **PASS**.
-- `npm test`: **234/234 PASS** (188 baseline + 46 Phase 2).
+- `npm test`: **245/245 PASS** (188 baseline + 57 Phase 2).
 - `npm run build`: **PASS**, 131 modules transformed.
 - `git diff --check`: **PASS**.
-- Local PostgreSQL catalog audit: **9 RLS tables, 9 invoker helpers/RPCs, 0 ACL/RLS findings** for ordinary roles. No production Supabase advisors run or native local Supabase stack is claimed; the local audit/tests use PGlite.
+- Local PostgreSQL catalog audit: **9 RLS tables, 10 invoker helpers/RPCs, 0 ACL/RLS findings** for ordinary roles. No production Supabase advisors run or native local Supabase stack is claimed; the local audit/tests use PGlite.
 - New authority/status strings and private fixture canaries: absent from the production build.
 - Existing tracked files, Phase 1 contract, active Edge entrypoint, public adapter, prompts, budgets, authentication UI, workflow and public content remain unchanged; this PR adds seven isolated files only.
 - No OpenAI API calls, production migration, deployment, workflow dispatch or article publication.
+
+## PR #9 targeted corrections
+
+- F01: immutable authorized payloads survive later private work edits; strict preview-to-commit equality remains. Held desired state is explicitly distinct from verified live.
+- F02: private server-record revision ancestry is enforced at assembly, SQL preview and locked commit; unrelated/cyclic/cross-owner/cross-language/conflicting identities fail closed. Administrative actions require association, not a reviewed current draft.
+- F03: exact approved block text and each paragraph/quote/list-item citation are visible together; labels resolve against approved public sources, links are HTTPS-only and React-escaped. Full SEO/presentation JSON stays inspectable. No new publication capability.

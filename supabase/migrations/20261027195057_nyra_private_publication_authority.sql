@@ -70,6 +70,36 @@ end $$;
 create function public.nyra_publication_time() returns text language sql volatile security invoker set search_path=pg_catalog as $$
  select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 $$;
+-- Follow only private server-owned revision_of records. Lock the chain so a
+-- relationship cannot change during preview/commit. Reject cycles, foreign roots,
+-- cross-language parents and malformed/missing parent versions.
+create function public.nyra_publication_associated(p_owner uuid,p_work uuid,p_article uuid)
+returns boolean language plpgsql security invoker set search_path=pg_catalog,public as $$
+declare a public.nyra_publication_articles; w public.nyra_work; parent public.nyra_work;
+ cursor_id uuid=p_work; seen uuid[]='{}'; relation jsonb;
+begin
+ select * into a from public.nyra_publication_articles where article_id=p_article and owner_id=p_owner;
+ if not found then return false; end if;
+ loop
+  if cursor_id=any(seen) then return false; end if;
+  seen=array_append(seen,cursor_id);
+  select * into w from public.nyra_work where id=cursor_id and owner_id=p_owner for update;
+  if not found or w.kind<>'article' then return false; end if;
+  -- A reserved identity belonging to another article cannot be grafted onto this one.
+  if exists(select 1 from public.nyra_publication_articles where work_id=w.id and article_id<>a.article_id) then return false; end if;
+  if w.id=a.work_id then return true; end if;
+  if (case w.state->'assignment'->>'language' when 'gr' then 'el' when 'en' then 'en' end) is distinct from a.locale then return false; end if;
+  relation=w.state->'revision_of';
+  if jsonb_typeof(relation) is distinct from 'object' or
+     coalesce(relation->>'id','') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' or
+     jsonb_typeof(relation->'version') is distinct from 'number' or
+     coalesce(relation->>'version','') !~ '^(0|[1-9][0-9]{0,8})$' then return false; end if;
+  select * into parent from public.nyra_work where id=(relation->>'id')::uuid and owner_id=p_owner for update;
+  if not found or parent.kind<>'article' or jsonb_typeof(parent.state->'drafts') is distinct from 'array' then return false; end if;
+  if (relation->>'version')::int>=jsonb_array_length(parent.state->'drafts') or parent.state->'assignment'->>'language' is distinct from w.state->'assignment'->>'language' then return false; end if;
+  cursor_id=parent.id;
+ end loop;
+end $$;
 create function public.nyra_publication_context(p_owner uuid,p_session uuid,p_expires timestamptz,p_work uuid)
 returns jsonb language plpgsql security invoker set search_path=pg_catalog,public as $$
 declare w public.nyra_work; c public.nyra_publication_catalog; m jsonb; clock text;
@@ -87,7 +117,8 @@ begin
  'articles',coalesce((select jsonb_agg(to_jsonb(a)-'owner_id') from public.nyra_publication_articles a where owner_id=p_owner),'[]'::jsonb),
  'assets',coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'cover',a.cover)) from public.nyra_publication_assets a where owner_id=p_owner),'[]'::jsonb),
  'history',coalesce((select jsonb_agg(r.snapshot) from public.nyra_publication_releases r where owner_id=p_owner),'[]'::jsonb),
- 'stale_release_ids',coalesce((select jsonb_agg(r.id) from public.nyra_publication_releases r join public.nyra_publication_decisions d on d.id=r.decision_id join public.nyra_publication_previews p on p.id=d.preview_id join public.nyra_work sw on sw.id=p.work_id where r.owner_id=p_owner and (to_jsonb(sw)<>p.source_work or sw.active_seq is not null)),'[]'::jsonb),
+ 'authorization_state','authorized_held','verified_live_manifest',c.verified_live_manifest,
+ 'associated_article_ids',coalesce((select jsonb_agg(a.article_id) from public.nyra_publication_articles a where a.owner_id=p_owner and public.nyra_publication_associated(p_owner,p_work,a.article_id)),'[]'::jsonb),
  'active',coalesce((select jsonb_agg(r.snapshot) from public.nyra_publication_releases r where owner_id=p_owner and exists(select 1 from jsonb_array_elements(c.desired_manifest->'active_releases') x where x->>'release_id'=r.id::text)),'[]'::jsonb));
 end $$;
 create function public.nyra_publication_asset(p_owner uuid,p_session uuid,p_expires timestamptz,p_cover jsonb,p_note text)
@@ -130,8 +161,8 @@ begin
  if c.owner_id is distinct from p_owner then raise exception 'PUB_FORBIDDEN'; end if;
  select * into w from public.nyra_work where id=p_work and owner_id=p_owner for update;
  if not found then raise exception 'PUB_NOT_FOUND'; end if;
- if to_jsonb(w)<>p_expected or p_preview->'source_work'<>p_expected or w.active_seq is not null then raise exception 'PUB_STALE_WORK'; end if;
- if p_version<0 or p_version>=jsonb_array_length(w.state->'drafts') or (p_preview->>'version')::int<>p_version then raise exception 'PUB_INVALID_VERSION'; end if;
+ if to_jsonb(w)<>p_expected or p_preview->'source_work'<>p_expected or (p_preview->>'action' in ('publish','replace') and w.active_seq is not null) then raise exception 'PUB_STALE_WORK'; end if;
+ if p_version<0 or (p_preview->>'action' in ('publish','replace') and p_version>=jsonb_array_length(w.state->'drafts')) or (p_preview->>'version')::int<>p_version then raise exception 'PUB_INVALID_VERSION'; end if;
  if c.desired_manifest<>p_preview->'before'->'manifest' then raise exception 'PUB_STALE_MANIFEST'; end if;
  if p_preview->>'action' in ('publish','replace') then
   d=w.state->'drafts'->p_version;
@@ -143,6 +174,7 @@ begin
   values((a->>'article_id')::uuid,(a->>'variant_id')::uuid,p_owner,p_work,a->>'locale',a->>'slug',a->>'canonical_url',(a->>'translation_group_id')::uuid);
  end if;
  if not exists(select 1 from public.nyra_publication_articles where article_id=(p_preview->'event'->>'article_id')::uuid and owner_id=p_owner) then raise exception 'PUB_UNKNOWN_ARTICLE'; end if;
+ if not public.nyra_publication_associated(p_owner,p_work,(p_preview->'event'->>'article_id')::uuid) then raise exception 'PUB_ARTICLE_LINEAGE_REQUIRED'; end if;
  insert into public.nyra_publication_previews(owner_id,session_id,work_id,version,source_work,preview)
  values(p_owner,p_session,p_work,p_version,p_expected,p_preview) returning * into p;
  return jsonb_build_object('id',p.id,'expires_at',p.expires_at);
@@ -182,7 +214,8 @@ begin
  if exists(select 1 from public.nyra_publication_decisions where preview_id=p_preview) then raise exception 'PUB_PREVIEW_CONSUMED'; end if;
  select * into w from public.nyra_work where id=p.work_id and owner_id=p_owner for update;
  if not found then raise exception 'PUB_NOT_FOUND'; end if;
- if to_jsonb(w)<>p.source_work or w.active_seq is not null then raise exception 'PUB_STALE_WORK'; end if;
+ if to_jsonb(w)<>p.source_work or (p.preview->>'action' in ('publish','replace') and w.active_seq is not null) then raise exception 'PUB_STALE_WORK'; end if;
+ if not public.nyra_publication_associated(p_owner,p.work_id,(p.preview->'event'->>'article_id')::uuid) then raise exception 'PUB_ARTICLE_LINEAGE_REQUIRED'; end if;
  if c.desired_manifest<>p.preview->'before'->'manifest' then raise exception 'PUB_STALE_MANIFEST'; end if;
  -- Every approved field must be byte-equivalent as JSON to the stored preview.
  -- The verified server may only finalize audit/issue times and their dependent reference hashes.
