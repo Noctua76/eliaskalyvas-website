@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "ajv": "8.17.1",
     "vite": "^7.1.7"
   }
 }

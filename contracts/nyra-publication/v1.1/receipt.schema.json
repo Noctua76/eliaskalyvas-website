@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/receipt.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "attempt_id",
+    "manifest_id",
+    "generation",
+    "manifest_sha256",
+    "code_sha",
+    "github_run_id",
+    "github_run_attempt",
+    "github_deployment_id",
+    "status",
+    "deployment_requested_at",
+    "deployment_completed_at",
+    "verified_live_at",
+    "observed_manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "nyra.publication.receipt.v1.1"
+    },
+    "id": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+    },
+    "attempt_id": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+    },
+    "manifest_id": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/uuid"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "manifest_sha256": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/hash"
+    },
+    "code_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "github_run_id": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "maxLength": 30
+    },
+    "github_run_attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "github_deployment_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 30
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "released_verified",
+        "release_failed",
+        "delivery_unknown",
+        "timing_exception"
+      ]
+    },
+    "deployment_requested_at": {
+      "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/date"
+    },
+    "deployment_completed_at": {
+      "anyOf": [
+        {
+          "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "verified_live_at": {
+      "anyOf": [
+        {
+          "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "observed_manifest_sha256": {
+      "anyOf": [
+        {
+          "$ref": "https://eliaskalyvas.gr/contracts/nyra-publication/v1.1/shared.schema.json#/$defs/hash"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
