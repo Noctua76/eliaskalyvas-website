@@ -2,25 +2,12 @@ import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 import { legalStaticMarkup } from './src/legal/static-markup.js';
 import { signalsEntryPaths } from './src/signals/entries.mjs';
-import { signalsMetadata } from './src/signals/metadata.mjs';
-import { getPublicArticles } from './src/signals/adapter.mjs';
+import { signalsStaticPlugin } from './lib/signals/static-build.mjs';
 
 export default defineConfig({
   server: { allowedHosts: ['terminal.local'] },
   base: process.env.GITHUB_PAGES_BASE || '/',
-  plugins: [{
-    name: 'signals-public-metadata',
-    transformIndexHtml: {
-      order: 'pre',
-      handler(html, context) {
-        const route = context.filename.replaceAll('\\', '/').match(/\/(gr|en)\/signals\/(?:([a-z0-9-]+)\/)?index\.html$/);
-        if (!route) return html;
-        const lang = route[1] === 'gr' ? 'el' : 'en';
-        const article = getPublicArticles({lang}).find(a => a.slug === route[2]);
-        return html.replace('<!-- SIGNALS_META -->', signalsMetadata({lang, article}));
-      },
-    },
-  },{
+  plugins: [signalsStaticPlugin(),{
     name: 'public-legal-text',
     transformIndexHtml: {
       order: 'pre',
