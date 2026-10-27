@@ -67,18 +67,43 @@
   #areas,#selected-work,#about,#contact{scroll-margin-top:84px}
 }
 
-/* Desktop copy follows the visible B at x=233 in the approved 1536x540
-   scene. With cover sizing, its offset from the scene centre is
-   (768 - 233) * max(100vw / 1536, 476px / 540). Keep cropped narrow
-   desktop copy inside the shell; tablet/mobile retain their existing rules. */
+/* Keep the approved scene geometry through 1600px, then centre that same
+   composition in the extra background. Scene, portrait and copy anchors share
+   this reference; cover sizing still has the existing 476 / 540 floor. */
 @media(min-width:901px){
-  .hero{--hero-copy-left:calc(50% - max(34.8307291667vw,471.592592593px))}
+  .hero{
+    --hero-scene-width:min(100vw,1600px);
+    --hero-scene-shell-width:min(calc(var(--hero-scene-width) * .866),1330px);
+    --hero-copy-offset:min(calc(var(--hero-scene-shell-width) * .5),max(calc(var(--hero-scene-width) * .348307291667),471.592592593px));
+    --hero-copy-left:calc(50% - var(--hero-copy-offset));
+    --hero-aside-offset:calc(max(calc(var(--hero-scene-width) * .158854166667),215.081481481px) + 8px);
+  }
+  .hero>.hero-scene{width:var(--hero-scene-width)}
+  .hero>.portrait{
+    right:calc(50% - var(--hero-scene-shell-width) * .61);
+    width:min(calc(var(--hero-scene-shell-width) * .45),500px);
+  }
+  .hero>.portrait-halo{
+    right:calc(50% - var(--hero-scene-shell-width) * .5);
+    width:calc(var(--hero-scene-shell-width) * .48);
+  }
   .hero>.eyebrow,.hero>.hero-statement,.hero>.story-button{left:var(--hero-copy-left)}
+  .hero>.hero-aside{top:260px;right:auto;left:calc(50% + var(--hero-aside-offset))}
 }
-@media(min-width:901px) and (max-width:1200px){
-  .hero{--hero-copy-left:max(0px,calc(50% - max(34.8307291667vw,471.592592593px)))}
+@media(min-width:901px) and (max-width:1220px){
+  .hero{--hero-scene-shell-width:min(calc(var(--hero-scene-width) * .92),1330px)}
 }
-/* Leave the narrow desktop taxonomy placement unchanged. */
-@media(min-width:1201px){
-  .hero>.hero-aside{top:260px;right:auto;left:calc(50% + max(15.8854166667vw,215.081481481px) + 8px)}
+/* Reserve the taxonomy boundary: 26px statement inset plus 24px clear space.
+   Only the longer Greek subline needs wrapping below the approved baseline. */
+@media(min-width:901px) and (max-width:1535px){
+  html[lang=el] .hero>.hero-statement>.subline{
+    max-width:calc(var(--hero-copy-offset) + var(--hero-aside-offset) - 50px);
+  }
+  /* Keep copy at 300px and the single-line CTA at 394px. The middle row
+     grows with wrapped text, reserving 12px before the CTA without offsets. */
+  html[lang=el] .hero{display:grid;grid-template-rows:300px minmax(82px,max-content) max-content}
+  html[lang=el] .hero>.hero-statement,
+  html[lang=el] .hero>.story-button{position:relative;top:auto;align-self:start;justify-self:start}
+  html[lang=el] .hero>.hero-statement{grid-row:2}
+  html[lang=el] .hero>.story-button{grid-row:3;margin-top:12px}
 }
