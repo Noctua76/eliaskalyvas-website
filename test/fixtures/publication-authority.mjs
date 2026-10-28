@@ -5,8 +5,8 @@ import {createPublicationAuthorityHandler} from '../../lib/publication/authority
 
 export const MIGRATION='20261027195057_nyra_private_publication_authority.sql';
 export const OWNER=uid(900),OTHER=uid(901),SESSION=uid(902),ORIGIN='https://eliaskalyvas.gr';
-export async function authorityFixture(){
- const f=await fixture();
+export async function authorityFixture({backend=fixture}={}){
+ const f=await backend();
  await f.pg.exec(`create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),aal text,not_after timestamptz);grant usage on schema auth to service_role;grant select(id,user_id,aal,not_after) on auth.sessions to service_role;`);
  for(const file of ['20261022073258_nyra_persistent_editorial_workspace.sql','20261022082003_nyra_article_presentation.sql',MIGRATION])await f.pg.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
  await f.pg.query('insert into auth.users(id) values($1),($2)',[OWNER,OTHER]);

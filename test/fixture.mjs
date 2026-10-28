@@ -1,7 +1,8 @@
 import {PGlite} from '@electric-sql/pglite';
 import {readFile} from 'node:fs/promises';
-export async function fixture(){
- const pg=new PGlite();await pg.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create function auth.jwt() returns jsonb language sql as $$ select '{}'::jsonb $$;create function auth.uid() returns uuid language sql as $$ select null::uuid $$;`);await pg.exec(await readFile(new URL('../supabase/migrations/202610040001_website_operations.sql',import.meta.url),'utf8'));
+export async function fixture(){return databaseFixture(new PGlite());}
+export async function databaseFixture(pg){
+ await pg.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create function auth.jwt() returns jsonb language sql as $$ select '{}'::jsonb $$;create function auth.uid() returns uuid language sql as $$ select null::uuid $$;`);await pg.exec(await readFile(new URL('../supabase/migrations/202610040001_website_operations.sql',import.meta.url),'utf8'));
 await pg.exec(await readFile(new URL('../supabase/migrations/20261004195605_protect_owner_lookup.sql',import.meta.url),'utf8'));
 await pg.exec(await readFile(new URL('../supabase/migrations/20261005043726_google_meet_links.sql',import.meta.url),'utf8'));
  class Query {
