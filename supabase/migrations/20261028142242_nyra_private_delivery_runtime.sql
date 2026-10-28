@@ -23,7 +23,7 @@ create table nyra_delivery.attempts(
 create table nyra_delivery.candidates(
  id uuid primary key, attempt_id uuid not null unique references nyra_delivery.attempts(id), fence bigint not null,
  source_generation bigint not null, manifest_sha256 text not null check(manifest_sha256~'^[a-f0-9]{64}$'),
- candidate jsonb not null, intent_ids uuid[] not null, created_at timestamptz not null default clock_timestamp()
+ candidate jsonb not null, transition_sha256 text not null check(transition_sha256~'^[a-f0-9]{64}$'), intent_ids uuid[] not null, created_at timestamptz not null default clock_timestamp()
 );
 create table nyra_delivery.replays(
  jti text primary key, attempt_id uuid not null references nyra_delivery.attempts(id), expires_at timestamptz not null,
@@ -109,16 +109,18 @@ begin
 end $$;
 create function public.nyra_delivery_claim(p_id uuid,p_seconds integer default 120)
 returns jsonb language plpgsql security invoker set search_path=pg_catalog,public,nyra_delivery as $$
-declare c nyra_delivery.control; a nyra_delivery.attempts; pending jsonb;
+declare c nyra_delivery.control; a nyra_delivery.attempts; pending jsonb; private_history jsonb;
 begin
  if p_seconds is null or p_seconds<1 or p_seconds>300 then raise exception 'DELIVERY_LEASE'; end if;
  perform public.nyra_delivery_enqueue();
  select * into strict c from nyra_delivery.control where singleton for update;
  select * into strict a from nyra_delivery.attempts where id=p_id for update;
  if c.blocked then raise exception 'DELIVERY_RECONCILIATION_REQUIRED'; end if;
+ -- Completed owner decisions remain private evidence even when never delivered.
+ select coalesce(jsonb_agg(i.intent order by i.source_generation),'[]'::jsonb) into private_history from nyra_delivery.intents i where exists(select 1 from nyra_delivery.completed_intents d where d.decision_id=i.decision_id);
  if c.lease_attempt=p_id and c.lease_until>clock_timestamp() and a.state in('leased','materialized','exported','permitted') then
   select coalesce(jsonb_agg(i.intent order by i.source_generation),'[]'::jsonb) into pending from nyra_delivery.intents i where not exists(select 1 from nyra_delivery.completed_intents d where d.decision_id=i.decision_id);
-  return jsonb_build_object('fence',c.fence,'existing',(select candidate from nyra_delivery.candidates where attempt_id=p_id),'baseline',c.baseline,'history',c.history,'heldMappings',c.mappings,'intents',pending,'source_generation',c.source_generation);
+  return jsonb_build_object('fence',c.fence,'existing',(select candidate from nyra_delivery.candidates where attempt_id=p_id),'baseline',c.baseline,'history',c.history,'heldMappings',c.mappings,'intentHistory',private_history,'intents',pending,'source_generation',c.source_generation);
  end if;
  if a.state<>'registered' then raise exception 'DELIVERY_ATTEMPT_STATE'; end if;
  if c.lease_attempt is not null then
@@ -130,9 +132,9 @@ begin
  update nyra_delivery.control set fence=fence+1,lease_attempt=p_id,lease_until=clock_timestamp()+make_interval(secs=>p_seconds) where singleton returning * into c;
  update nyra_delivery.attempts set state='leased',fence=c.fence where id=p_id;
  select coalesce(jsonb_agg(i.intent order by i.source_generation),'[]'::jsonb) into pending from nyra_delivery.intents i where not exists(select 1 from nyra_delivery.completed_intents d where d.decision_id=i.decision_id);
- return jsonb_build_object('fence',c.fence,'baseline',c.baseline,'history',c.history,'heldMappings',c.mappings,'intents',pending,'source_generation',c.source_generation);
+ return jsonb_build_object('fence',c.fence,'baseline',c.baseline,'history',c.history,'heldMappings',c.mappings,'intentHistory',private_history,'intents',pending,'source_generation',c.source_generation);
 end $$;
-create function public.nyra_delivery_materialized(p_attempt uuid,p_fence bigint,p_id uuid,p_source bigint,p_candidate jsonb,p_sha text,p_intents uuid[])
+create function public.nyra_delivery_materialized(p_attempt uuid,p_fence bigint,p_id uuid,p_source bigint,p_candidate jsonb,p_sha text,p_transition_sha text,p_intents uuid[])
 returns void language plpgsql security invoker set search_path=pg_catalog,nyra_delivery as $$
 declare c nyra_delivery.control; a nyra_delivery.attempts; expected uuid[];
 begin
@@ -141,7 +143,7 @@ begin
  if c.blocked or c.lease_attempt is distinct from p_attempt or c.fence is distinct from p_fence or a.fence is distinct from p_fence or c.lease_until<=clock_timestamp() or a.state<>'leased' or c.source_generation is distinct from p_source then raise exception 'DELIVERY_STALE'; end if;
  select coalesce(array_agg(i.decision_id order by i.source_generation),'{}') into expected from nyra_delivery.intents i where not exists(select 1 from nyra_delivery.completed_intents d where d.decision_id=i.decision_id);
  if p_intents is distinct from expected or p_candidate#>'{transition,previous}' is distinct from c.baseline then raise exception 'DELIVERY_SCOPE'; end if;
- insert into nyra_delivery.candidates values(p_id,p_attempt,p_fence,p_source,p_sha,p_candidate,p_intents,clock_timestamp());
+ insert into nyra_delivery.candidates values(p_id,p_attempt,p_fence,p_source,p_sha,p_candidate,p_transition_sha,p_intents,clock_timestamp());
  update nyra_delivery.attempts set state='materialized',candidate_id=p_id where id=p_attempt;
 end $$;
 
@@ -211,12 +213,14 @@ declare c nyra_delivery.control; a nyra_delivery.attempts; candidate nyra_delive
 begin
  select * into strict c from nyra_delivery.control where singleton for update;
  select * into strict a from nyra_delivery.attempts where id=p_attempt for update;
- if exists(select 1 from nyra_delivery.receipts where attempt_id=a.id and id=p_id and receipt=p_receipt and transition_sha256=p_transition_sha) then return; end if;
- select * into strict candidate from nyra_delivery.candidates where id=a.candidate_id;
+ select * into strict candidate from nyra_delivery.candidates where id=a.candidate_id and attempt_id=a.id and fence=a.fence;
+ -- Bound at validated server-side materialization, never established by receipt JSON.
+ if p_transition_sha is distinct from candidate.transition_sha256 then raise exception 'DELIVERY_TRANSITION_BINDING'; end if;
+ if exists(select 1 from nyra_delivery.receipts where attempt_id=a.id and candidate_id=candidate.id and id=p_id and receipt=p_receipt and transition_sha256=candidate.transition_sha256) then return; end if;
  if c.lease_attempt is distinct from a.id or c.fence is distinct from a.fence or a.state not in('permitted','deploying','unknown') then raise exception 'DELIVERY_RECEIPT_STATE'; end if;
  if p_receipt->>'attempt_id' is distinct from a.id::text or p_receipt->>'id' is distinct from p_id::text or p_receipt->>'manifest_id' is distinct from candidate.candidate#>>'{dataset,manifest,manifest_id}' or p_receipt->>'generation' is distinct from candidate.candidate#>>'{dataset,manifest,generation}' or p_receipt->>'status' is distinct from 'released_verified' or p_receipt->>'observed_manifest_sha256' is distinct from candidate.manifest_sha256 or p_receipt->>'manifest_sha256' is distinct from candidate.manifest_sha256 or p_receipt->>'code_sha' is distinct from a.code_sha or p_receipt->>'github_run_id' is distinct from a.run_id or p_receipt->>'github_run_attempt' is distinct from a.run_attempt then raise exception 'DELIVERY_RECEIPT_BINDING'; end if;
  insert into nyra_delivery.observations values(gen_random_uuid(),a.id,'verified_live',p_evidence,clock_timestamp());
- insert into nyra_delivery.receipts values(p_id,candidate.id,a.id,p_receipt,p_transition_sha,clock_timestamp());
+ insert into nyra_delivery.receipts values(p_id,candidate.id,a.id,p_receipt,candidate.transition_sha256,clock_timestamp());
  insert into nyra_delivery.completed_intents select unnest(candidate.intent_ids),p_id;
  update nyra_delivery.attempts set state='verified' where id=a.id;
  update nyra_delivery.control set baseline=candidate.candidate->'dataset',history=candidate.candidate->'history',mappings=candidate.candidate->'mappings',verified_candidate=candidate.id,observed_candidate=candidate.id,lease_attempt=null,lease_until=null,blocked=false where singleton;

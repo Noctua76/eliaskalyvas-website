@@ -4,7 +4,7 @@ import {createOIDCVerifier,githubKeySource} from '../lib/publication/runtime/oid
 import {materializeQueued,validateCandidateStart,validateLiveReceipt} from '../lib/publication/runtime/materialize.mjs';
 import {createMachineRuntime} from '../lib/publication/runtime/machine.mjs';
 import {observationVerifier,receiptRecorder,privateAssetStorage,byteHash} from '../lib/publication/runtime/adapters.mjs';
-import {canonicalize,hashJSON,validatePublicationSet} from '../lib/publication/contract.mjs';
+import {canonicalize,hashJSON,validatePublicationSet,approvalPayload} from '../lib/publication/contract.mjs';
 import {queuedFixture,receiptFor,signedOIDC,policy,CLOCK} from './fixtures/phase4b.mjs';
 import {replacement,eventFixture,uid} from './fixtures/publication-v1.1.mjs';
 const signed=await signedOIDC();
@@ -90,4 +90,71 @@ test('P4B deployment permit is bound to current dataset, artifact, attempt, fenc
  const permit={...capability,code_sha:'a'.repeat(40),manifest_sha256:hashJSON(candidate.dataset.manifest),artifact_sha256:'b'.repeat(64),expires_at:'2026-10-27T12:01:00.000Z'};
  const machine=createMachineRuntime({verifier:verifier(),clock:()=>CLOCK,store:{consumeCurrentPermit:async()=>({candidate,capability,permit})}});const token=await signed.sign();assert.equal(await machine.permit({token}),permit);permit.code_sha='b'.repeat(40);await assert.rejects(machine.permit({token}),/INVALID_DEPLOYMENT_PERMIT/);
  const f=queuedFixture();assert.throws(()=>materializeQueued({...f,ids:()=>f.intents[0].release.release.id}),/MATERIALIZATION_ID_REUSE/);
+});
+
+// F01: private decisions are replayed fully, public history advances only to
+// the final approved state relative to the actual verified-live baseline.
+const intentFor=(release,event,n,target_snapshot=null)=>({decision_id:uid(n),decision_authorization_id:event.authorization_id,approved_payload_sha256:release?.authorization.approved_payload_sha256||hashJSON(target_snapshot),human_approved_at:release?.authorization.human_approved_at||event.authorized_at,publication_authorized_at:event.authorized_at,event,release,target_snapshot});
+function pendingLifecycle(){
+ const f=queuedFixture(),first=f.intents[0].release;
+ const newer=replacement(first,{n:31000});newer.content.title='ONLY_FINAL_APPROVED_TITLE';
+ // The exact final content is itself approved, not an automatic draft update.
+ newer.content_revision.sha256=hashJSON(newer.content);newer.authorization.approved_payload_sha256=hashJSON(approvalPayload(newer));
+ const replace=intentFor(newer,eventFixture('replace',f.baseline,{fresh:newer,target:first,n:31100}),31200);
+ const withdraw=intentFor(null,eventFixture('withdraw',f.baseline,{target:first,n:31300}),31400,first);
+ const restored=replacement(first,{rollback:first,n:31500});
+ const rollback=intentFor(restored,eventFixture('rollback',f.baseline,{fresh:restored,target:first,restore:first,n:31600}),31700);
+ return {f,first,newer,replace,withdraw,rollback};
+}
+test('F01 Publish then Withdraw before first live leaves no public release, tombstone or history',()=>{
+ const {f,withdraw}=pendingLifecycle(),input={...f,intents:[...f.intents,withdraw]},before=canonicalize(input),c=materializeQueued(input);
+ assert.equal(canonicalize(input),before);assert.deepEqual(c.dataset,f.baseline);assert.deepEqual(c.history,[]);assert.deepEqual(c.transition.steps,[]);assert.deepEqual(c.intentIds,input.intents.map(i=>i.decision_id));assert.equal(c.mappings.length,0);validateLiveReceipt(c,receiptFor(c),CLOCK);
+});
+test('F01 Publish then Replace before first live publishes only final approval with a fresh first date',()=>{
+ const {f,first,newer,replace}=pendingLifecycle(),c=materializeQueued({...f,intents:[...f.intents,replace]});
+ const r=c.dataset.releases[0];assert.equal(r.content.title,newer.content.title);assert.equal(r.authorization.approved_payload_sha256,replace.approved_payload_sha256);assert.equal(r.authorization.human_approved_at,replace.human_approved_at);assert.equal(r.authorization.action,'publish');assert.equal(r.release.first_published_at,CLOCK);assert.equal(r.release.sequence,1);assert.equal(r.release.replaces_release_id,null);assert.notEqual(r.release.first_published_at,first.release.first_published_at);assert.deepEqual(c.history,[]);assert.equal(c.transition.steps.length,1);assert.equal(c.dataset.manifest.generation,f.baseline.manifest.generation+1);assert(!c.mappings.some(m=>m.held===first.release.id));validateLiveReceipt(c,receiptFor(c),CLOCK);
+});
+test('F01 Publish Withdraw Rollback before first live is first publication, never historical rollback',()=>{
+ const {f,first,withdraw,rollback}=pendingLifecycle(),c=materializeQueued({...f,intents:[...f.intents,withdraw,rollback]});
+ const r=c.dataset.releases[0];assert.equal(r.authorization.action,'publish');assert.equal(r.content_revision.sha256,first.content_revision.sha256);assert.equal(r.release.restores_release_id,null);assert.equal(r.release.first_published_at,CLOCK);assert.equal(r.release.sequence,1);assert.deepEqual(c.history,[]);assert.equal(c.intentIds.length,3);assert.equal(c.transition.steps[0].events[0].action,'publish');validateLiveReceipt(c,receiptFor(c),CLOCK);
+});
+test('F01 completed never-live decisions remain private evidence for a later first-publication rollback',()=>{
+ const {f,first,withdraw,rollback}=pendingLifecycle(),completed=[...f.intents,withdraw],a=materializeQueued({...f,intents:completed});
+ const now='2026-10-27T13:00:00.000Z',b=materializeQueued({baseline:a.dataset,history:a.history,heldMappings:a.mappings,intentHistory:completed,intents:[rollback],now});
+ assert.equal(b.dataset.releases[0].release.first_published_at,now);assert.equal(b.dataset.releases[0].release.restores_release_id,null);assert.equal(b.dataset.releases[0].content_revision.sha256,first.content_revision.sha256);assert.deepEqual(b.history,[]);validateLiveReceipt(b,receiptFor(b,{now}),now);
+});
+for(const operation of ['replace','withdraw','rollback'])test('F01 pending GR '+operation+' cannot alter live EN or fabricate GR history',async()=>{
+ const {releaseFixture}=await import('./fixtures/publication-v1.1.mjs'),{f,replace,withdraw,rollback}=pendingLifecycle();
+ const en=releaseFixture({locale:'en',offset:33000}),enEvent=eventFixture('publish',f.baseline,{fresh:en,n:33100});
+ const live=materializeQueued({...f,intents:[intentFor(en,enEvent,33200)]});
+ const intents=operation==='replace'?[...f.intents,replace]:operation==='withdraw'?[...f.intents,withdraw]:[...f.intents,withdraw,rollback];
+ const now='2026-10-27T13:00:00.000Z',c=materializeQueued({baseline:live.dataset,history:live.history,heldMappings:live.mappings,intents,now});
+ assert.equal(canonicalize(c.dataset.releases.find(r=>r.locale==='en')),canonicalize(live.dataset.releases[0]));assert(c.history.every(r=>r.locale==='en'));
+ const gr=c.dataset.releases.find(r=>r.locale==='el');if(gr)assert.equal(gr.release.first_published_at,now);else assert(!c.dataset.manifest.withdrawn_variants.length);validateLiveReceipt(c,receiptFor(c,{now}),now);
+});
+test('F01 multiple pending replacements of a verified release advance public sequence only once',()=>{
+ const {f,first}=pendingLifecycle(),live=materializeQueued(f),b=replacement(first,{n:34000}),c=replacement(b,{n:34100});
+ const intents=[intentFor(b,eventFixture('replace',f.baseline,{fresh:b,target:first,n:34200}),34300),intentFor(c,eventFixture('replace',f.baseline,{fresh:c,target:b,n:34400}),34500)];
+ const now='2026-10-27T13:00:00.000Z',result=materializeQueued({baseline:live.dataset,history:live.history,heldMappings:live.mappings,intents,now});
+ assert.equal(result.dataset.releases[0].release.sequence,2);assert.equal(result.dataset.releases[0].release.first_published_at,live.dataset.releases[0].release.first_published_at);assert.deepEqual(result.history,[live.dataset.releases[0]]);assert(!result.mappings.some(m=>m.held===b.release.id));validateLiveReceipt(result,receiptFor(result,{now}),now);
+});
+test('F01 corrupted superseded approval is rejected before net public projection',()=>{
+ const {f,replace}=pendingLifecycle();f.intents[0].release.content.title='unapproved superseded data';assert.throws(()=>materializeQueued({...f,intents:[...f.intents,replace]}),/APPROVED_PAYLOAD_MISMATCH/);
+});
+test('F02 candidate adapter validates evidence before persisting authoritative transition digest',async()=>{
+ const {supabaseDeliveryStore}=await import('../lib/publication/runtime/adapters.mjs');const c=materializeQueued(queuedFixture()),calls=[];
+ const store=supabaseDeliveryStore({rpc:async(name,args)=>{calls.push({name,args});return {data:null}}},{clock:()=>CLOCK});
+ await store.save({attemptId:uid(35000),fence:1,sourceGeneration:2,id:uid(35001),candidate:c});assert.equal(calls[0].args.p_transition_sha,hashJSON(c.transition));
+ const bad=structuredClone(c);bad.transition.steps=[];await assert.rejects(store.save({attemptId:uid(35000),fence:1,sourceGeneration:2,id:uid(35001),candidate:bad}));assert.equal(calls.length,1);
+});
+test('F01 withdrawn verified lineage cannot invent a historical rollback target from never-live content',()=>{
+ const {f,first,newer,replace}=pendingLifecycle(),live=materializeQueued(f);
+ const withdraw=intentFor(null,eventFixture('withdraw',f.baseline,{target:newer,n:36000}),36100,newer);
+ const hidden=materializeQueued({baseline:live.dataset,history:live.history,heldMappings:live.mappings,intents:[replace,withdraw],now:'2026-10-27T13:00:00.000Z'});
+ const rollback=replacement(newer,{rollback:newer,n:36200}),r=intentFor(rollback,eventFixture('rollback',f.baseline,{fresh:rollback,target:newer,restore:newer,n:36300}),36400);
+ assert.throws(()=>materializeQueued({baseline:hidden.dataset,history:hidden.history,heldMappings:hidden.mappings,intentHistory:[...f.intents,replace,withdraw],intents:[r],now:'2026-10-27T14:00:00.000Z'}),/UNVERIFIED_ROLLBACK_TARGET/);
+ // A real verified target remains restorable, including across the same withdrawal.
+ const real=replacement(newer,{rollback:first,n:36500}),ri=intentFor(real,eventFixture('rollback',f.baseline,{fresh:real,target:newer,restore:first,n:36600}),36700);
+ const restored=materializeQueued({baseline:hidden.dataset,history:hidden.history,heldMappings:hidden.mappings,intentHistory:[...f.intents,replace,withdraw],intents:[ri],now:'2026-10-27T14:00:00.000Z'});
+ assert.equal(restored.dataset.releases[0].release.restores_release_id,live.dataset.releases[0].release.id);assert.equal(restored.dataset.releases[0].release.first_published_at,live.dataset.releases[0].release.first_published_at);validateLiveReceipt(restored,receiptFor(restored,{now:'2026-10-27T14:00:00.000Z'}),'2026-10-27T14:00:00.000Z');
 });

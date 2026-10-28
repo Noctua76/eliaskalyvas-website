@@ -19,7 +19,7 @@ export function deliveryCalls(f){
  };
 
  async function register(id,run='100',attempt='1',check='300'){return call('nyra_delivery_register',{p_id:id,p_run:run,p_attempt:attempt,p_check:check,p_sha:'a'.repeat(40)})}
- async function candidate(id){const ctx=await call('nyra_delivery_claim',{p_id:id,p_seconds:300});const candidate=materializeQueued({...ctx,now:new Date().toISOString()}),candidateId=crypto.randomUUID();await call('nyra_delivery_materialized',{p_attempt:id,p_fence:ctx.fence,p_id:candidateId,p_source:ctx.source_generation,p_candidate:candidate,p_sha:hashJSON(candidate.dataset.manifest),p_intents:candidate.intentIds});return {candidate,id:candidateId,context:ctx};}
+ async function candidate(id){const ctx=await call('nyra_delivery_claim',{p_id:id,p_seconds:300});const candidate=materializeQueued({...ctx,now:new Date().toISOString()}),candidateId=crypto.randomUUID();await call('nyra_delivery_materialized',{p_attempt:id,p_fence:ctx.fence,p_id:candidateId,p_source:ctx.source_generation,p_candidate:candidate,p_sha:hashJSON(candidate.dataset.manifest),p_transition_sha:hashJSON(candidate.transition),p_intents:candidate.intentIds});return {candidate,id:candidateId,context:ctx};}
  const machine=(operation,jti='synthetic-replay-001',run='100',attempt='1',check='300')=>call('nyra_delivery_machine',{p_run:run,p_attempt:attempt,p_check:check,p_sha:'a'.repeat(40),p_jti:jti,p_expires:new Date(Date.now()+240000).toISOString(),p_operation:operation});
  return {call,register,candidate,machine};
 }
