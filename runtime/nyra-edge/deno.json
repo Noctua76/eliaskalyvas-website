@@ -1,0 +1,6 @@
+{
+  "nodeModulesDir": "manual",
+  "imports": {
+    "ajv/dist/2020.js": "../../node_modules/ajv/dist/2020.js"
+  }
+}

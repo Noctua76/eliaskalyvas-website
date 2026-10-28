@@ -19,7 +19,7 @@ test('Signals featured selection is independent of chronology and never duplicat
 });
 test('Signals explicit routes cover all translations, direct entry and BASE_URL prefixes',async()=>{
  for(const base of ['/','/eliaskalyvas-website/'])for(const a of demoArticles){
-  const path=signalPath(base,a.lang,a.slug,true);assert(path.endsWith('?preview=1'));assert.deepEqual(routeFromPath(path.split('?')[0],base),{lang:a.lang,slug:a.slug});
+  const path=signalPath(base,a.lang,a.slug,true);assert(path.includes('/signals-preview/')); assert.deepEqual(routeFromPath(path.split('?')[0],base),{lang:a.lang,slug:a.slug,preview:true});
   for(const [lang,slug] of Object.entries(a.translations))assert(demoArticles.some(t=>t.lang===lang&&t.slug===slug));
  }
  assert.equal(signalsEntryPaths.length,8);for(const p of signalsEntryPaths)await access(new URL('../'+p,import.meta.url));

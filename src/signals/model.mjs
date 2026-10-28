@@ -7,7 +7,7 @@ export const topics = {
  technology:{el:'Τεχνολογία',en:'Technology'},startups:{el:'Startups',en:'Startups'},
  politics:{el:'Πολιτική',en:'Politics'},innovation:{el:'Καινοτομία',en:'Innovation'},business:{el:'Επιχειρηματικότητα',en:'Entrepreneurship'},
 };
-export const signalPath=(base,lang,slug='',preview=false)=>`${base}${lang==='el'?'gr':'en'}/signals/${slug?slug+'/':''}${preview?'?preview=1':''}`;
+export const signalPath=(base,lang,slug='',preview=false)=>`${base}${lang==='el'?'gr':'en'}/${preview?'signals-preview':'signals'}/${slug?slug+'/':''}`;
 export function filterArticles(articles,topic='all'){return articles.filter(a=>topic==='all'||a.topics.includes(topic)).sort((a,b)=>(b.publishedAt||'').localeCompare(a.publishedAt||''));}
 export function selectStories(articles,topic='all'){
  const list=filterArticles(articles,topic);const featured=list.find(a=>a.featured)||list[0]||null;
@@ -19,7 +19,8 @@ export function publicShareUrl(article){
  try{const u=new URL(article.social.canonical);return u.protocol==='https:'?u.href:null;}catch{return null;}
 }
 export function routeFromPath(pathname,base){
- const path=pathname.startsWith(base)?pathname.slice(base.length):'';
- const match=path.match(/^(gr|en)\/signals\/(?:([a-z0-9-]+)\/)?$/);
- return match?{lang:match[1]==='gr'?'el':'en',slug:match[2]||''}:null;
+ let path=pathname.startsWith(base)?pathname.slice(base.length):'';
+ if(/^(gr|en)\/signals-preview\//.test(path))path=path.replace(/\/index\.html$/,'/');
+ const match=path.match(/^(gr|en)\/(signals|signals-preview)\/(?:([a-z0-9-]+)\/)?$/);
+ return match?{lang:match[1]==='gr'?'el':'en',slug:match[3]||'',...(match[2]==='signals-preview'?{preview:true}:{})}:null;
 }

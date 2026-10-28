@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 import { legalStaticMarkup } from './src/legal/static-markup.js';
-import { signalsEntryPaths } from './src/signals/entries.mjs';
+import { signalsEntryPaths, signalsPreviewEntryPaths } from './src/signals/entries.mjs';
 import { signalsStaticPlugin } from './lib/signals/static-build.mjs';
 
 export default defineConfig({
@@ -21,7 +21,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        ...Object.fromEntries(signalsEntryPaths.map((path, i) => [`signals${i}`, resolve(import.meta.dirname, path)])),
+        ...Object.fromEntries([...signalsEntryPaths,...signalsPreviewEntryPaths].map((path, i) => [`signals${i}`, resolve(import.meta.dirname, path)])),
         index: resolve(import.meta.dirname, 'index.html'),
         en: resolve(import.meta.dirname, 'en/index.html'),
         gr: resolve(import.meta.dirname, 'gr/index.html'),
