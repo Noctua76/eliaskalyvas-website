@@ -35,7 +35,7 @@ jobs:
         env:
           NYRA_NATIVE_CI: '1'
           NYRA_TEST_SHA: ${{ github.event.pull_request.head.sha }}
-        run: node ops/native-acceptance/run.mjs
+        run: node ops/native-acceptance/edge-diagnostic.mjs
       - name: Sanitized native evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
