@@ -19,6 +19,7 @@ const images=JSON.parse(readFileSync(new URL('images.lock.json',import.meta.url)
 for(const x of Object.values(images))assert(/^[a-z0-9/.-]+@sha256:[a-f0-9]{64}$/.test(x.image));
 event('docker','PASS',{version:cmd('docker',['version','--format','{{.Server.Version}}']).trim(),node:process.version});
 for(const x of Object.values(images))cmd('docker',['pull',x.image]);
+results.images=Object.fromEntries(Object.entries(images).map(([k,v])=>[k,{...v,actual:JSON.parse(cmd('docker',['image','inspect',v.image]))[0].RepoDigests}]));writeFileSync(join(out,'images.json'),JSON.stringify(results.images,null,2));
 let failed=false;const catalogs=[];
 for(const letter of ['a','b']){
  const project=`nyra5a-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}-${letter}`,root=mkdtempSync(join(tmpdir(),'nyra5a-')),network=project+'-isolated';
@@ -45,12 +46,15 @@ for(const letter of ['a','b']){
   dc('up','-d','db');
   for(let i=0;;i++){try{dc('exec','-T','db','pg_isready','-h','127.0.0.1','-U','postgres');break;}catch{if(i===45)throw Error('DB_HEALTH_TIMEOUT');await new Promise(r=>setTimeout(r,1000));}}
   dc('up','-d','auth','rest');
-  for(let i=0;;i++){try{const r=await fetch(`http://127.0.0.1:${ports.auth}/health`);assert(r.ok);break;}catch{if(i===60)throw Error('AUTH_HEALTH_TIMEOUT');await new Promise(r=>setTimeout(r,1000));}}
-  const state=JSON.parse(dc('ps','--format','json').trim().split('\n').map(x=>x.trim()).filter(Boolean).join(',').replace(/^/,'[').replace(/$/,']'));
+  let lastHealth;
+  for(let i=0;;i++){try{const r=await fetch(`http://127.0.0.1:${ports.auth}/health`);if(!r.ok)lastHealth={status:r.status,body:(await r.text()).slice(0,200)};assert(r.ok);break;}catch(e){lastHealth=lastHealth||{message:e.message,code:e.cause?.code};if(i===30)throw Error('AUTH_HEALTH_TIMEOUT:'+JSON.stringify(lastHealth));await new Promise(r=>setTimeout(r,1000));}}
+  const raw=dc('ps','--format','json').trim();let state;try{state=JSON.parse(raw);if(!Array.isArray(state))state=[state];}catch{state=raw.split('\n').filter(Boolean).map(x=>JSON.parse(x));}
   for(const s of state){const ins=JSON.parse(cmd('docker',['inspect',s.ID]))[0];assert.equal(ins.HostConfig.Privileged,false);for(const binds of Object.values(ins.HostConfig.PortBindings||{}))for(const b of binds||[])assert.equal(b.HostIp,'127.0.0.1');}
   const actual=Object.fromEntries(['db','auth','rest'].map(k=>[k,JSON.parse(cmd('docker',['image','inspect',images[k].image]))[0].RepoDigests]));results.stacks.push({project,images:actual});
   const catalog=await runNative({ports,password,anon,service,dc,event,prefix:letter,out});catalogs.push(catalog);
- }catch(e){failed=true;event(letter+':execution','FAIL',{name:e.name,code:e.code||null,message:String(e.message).replaceAll(password,'[redacted]').replaceAll(secret,'[redacted]').slice(0,650)});}
+ }catch(e){failed=true;
+  try{const log=dc('logs','--no-color','--tail','35','auth','db').replaceAll(password,'[redacted]').replaceAll(secret,'[redacted]').replaceAll(service,'[redacted]').replaceAll(anon,'[redacted]').replace(/eyJ[A-Za-z0-9_.-]+/g,'[jwt-redacted]');writeFileSync(join(out,letter+'-bootstrap.log'),log);console.log(log.slice(-9000));}catch{}
+  event(letter+':execution','FAIL',{name:e.name,code:e.code||null,message:String(e.message).replaceAll(password,'[redacted]').replaceAll(secret,'[redacted]').slice(0,650),location:e.stack?.split('\n').slice(1,4).join('\n')});}
  finally{
   try{dc('down','--volumes','--remove-orphans');}catch{event(letter+':cleanup','FAIL','container cleanup failed');failed=true;}
   try{const n=JSON.parse(cmd('docker',['network','inspect',network]))[0],b='br-'+n.Id.slice(0,12);cmd('sudo',['iptables','-D','INPUT','-i',b,'-m','conntrack','--ctstate','NEW','-j','DROP']);cmd('sudo',['iptables','-D','DOCKER-USER','-i',b,'!','-o',b,'-j','DROP']);cmd('docker',['network','rm',network]);}catch{event(letter+':cleanup-network','FAIL','network cleanup failed');failed=true;}
@@ -60,5 +64,5 @@ for(const letter of ['a','b']){
  if(failed)break;
 }
 if(catalogs.length===2){assert.deepEqual(catalogs[0],catalogs[1]);event('two-clean-stacks','PASS','Normalized catalogs identical');}
-for(const id of ['C01','C02','C03','C04','C05','C06','C07','C08','C09','C10','C11','C12','C13','C14','Edge','Storage'])if(!results.results.some(x=>x.id.endsWith(':'+id)))event(id,'NOT VERIFIED','Not reached or not implemented; no synthetic result substituted');
+for(const id of ['C01','C02','C03','C04','C05','C06','C07','C08','C09','C10','C11','C12','C13','C14','Auth:expired','Auth:revocation','Auth:anonymous-user','Edge','Storage'])if(!results.results.some(x=>x.id.endsWith(':'+id)))event(id,'NOT VERIFIED','Not reached or not implemented; no synthetic result substituted');
 writeFileSync(join(out,'results.json'),JSON.stringify(results,null,2));if(failed)process.exitCode=1;
