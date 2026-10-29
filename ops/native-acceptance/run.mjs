@@ -58,6 +58,7 @@ for(const letter of ['a','b']){
   const args=['run','--rm','--name',project+'-driver','--network',network,'--user',process.getuid()+':'+process.getgid(),'--security-opt','no-new-privileges:true','--cap-drop','ALL','--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=32m','-v',resolve('.')+':/work:ro','-v',out+':/evidence:rw','-v',join(root,'driver.json')+':/native-config.json:ro','-w','/work','-e','NYRA_NATIVE_CONTAINER=1',images.driver.image,'node','ops/native-acceptance/execute.mjs'];
   let nativeOutput,nativeError;try{nativeOutput=cmd('docker',args,{timeout:300000});}catch(e){nativeOutput=e.stdout||'';nativeError=e;}
   for(const line of nativeOutput.split('\n'))if(line.startsWith('NATIVE:')){const r=JSON.parse(line.slice(7));event(r.id,r.status,r.detail);}
+  for(const name of ['edge','storage']){try{const log=dc('logs','--no-color','--tail','30',name).replaceAll(password,'[redacted]').replaceAll(secret,'[redacted]').replaceAll(service,'[redacted]').replaceAll(anon,'[redacted]').replace(/eyJ[A-Za-z0-9_.-]+/g,'[jwt-redacted]');writeFileSync(join(out,letter+'-'+name+'-boot.log'),log);console.log(log.slice(-6000));}catch{}}
   if(nativeError)throw Error('NATIVE_SUITE_FAILED');
   catalogs.push(JSON.parse(readFileSync(join(out,letter+'-catalog.json'))));
  }catch(e){failed=true;

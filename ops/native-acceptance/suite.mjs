@@ -18,11 +18,11 @@ export async function runNative({ports,password,anon,service,dbHost,authHost,res
  const admin=await connect(),q=admin.query.bind(admin),pass=(id,detail)=>event(prefix+':'+id,'PASS',detail);
  let server;
  try{
-  for(let i=0;;i++){try{assert((await fetch(`http://${authHost}:${ports.auth}/health`)).ok);assert((await fetch(`http://${restHost}:${ports.rest}/`)).status<500);break;}catch{if(i===60)throw Error('LOCAL_SERVICES_NOT_READY');await new Promise(r=>setTimeout(r,1000));}}
+  for(let i=0;;i++){try{assert((await fetch(`http://${authHost}:${ports.auth}/health`)).ok);assert((await fetch(`http://${restHost}:${ports.rest}/`)).status<500);assert((await fetch('http://storage:5000/status')).ok);break;}catch{if(i===60)throw Error('LOCAL_SERVICES_NOT_READY');await new Promise(r=>setTimeout(r,1000));}}
   const version=(await q('show server_version_num')).rows[0].server_version_num;assert(Number(version)>=170000&&Number(version)<180000);pass('PG17',{version,backend:(await q('select pg_backend_pid() pid')).rows[0].pid});
   const inputs=[];
   for(const f of readdirSync('supabase/migrations').filter(x=>x.endsWith('.sql')).sort()){
-   const sql=readFileSync('supabase/migrations/'+f,'utf8');try{await q(sql);}catch(e){event(prefix+':migration:'+f,'FAIL',{sqlstate:e.code,message:e.message});throw Error('MIGRATION_FAILED:'+f);}
+   const sql=readFileSync('supabase/migrations/'+f,'utf8');try{await q(sql);}catch(e){event(prefix+':migration:'+f,'FAIL',{sqlstate:e.code,message:e.message,detail:e.detail||null,where:e.where||null,position:e.position||null});throw Error('MIGRATION_FAILED:'+f);}
    inputs.push({file:f,sha256:await import('node:crypto').then(m=>m.createHash('sha256').update(sql).digest('hex'))});pass('migration:'+f,'committed');
   }
   assert.equal(inputs.length,11);writeFileSync(out+'/'+prefix+'-migrations.json',JSON.stringify(inputs,null,2));
