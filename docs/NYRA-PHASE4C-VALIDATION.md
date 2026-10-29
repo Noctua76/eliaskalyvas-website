@@ -10,17 +10,17 @@ Node **v22.22.0**, npm **11.9.0**. No OpenAI requests.
 
 | Check | Result |
 |---|---|
-| `npm test` | **387/387 PASS**, zero failed/skipped; 51 new Phase 4C tests over the 336 baseline |
-| `node --test test/phase4c-*.test.mjs` | **51/51 PASS** |
+| `npm test` | **414/414 PASS**, zero failed/skipped; 78 Phase 4C tests over the 336 baseline |
+| `node --test test/phase4c-*.test.mjs` | **78/78 PASS** |
 | Final immutable-action pin checks | **10/10 PASS** (dispatch/workflow test file) |
 | Six new RPC ACL/transaction checks and nudge claims | **7/7 PASS** (storage test file; PGlite only) |
 | Clean `npm run build -- --outDir /tmp/nyra-p4c-final-dist --emptyOutDir` | **PASS**, 139 modules |
 | `git diff --check` | **PASS** |
 | Normal-build isolation scan | **42** HTML/JS/JSON/XML/text files; no private/synthetic/runtime/witness markers |
-| Local native Chromium **153.0.8010.0** | **28 no-JS cases + 12 JS cases PASS** |
+| Local native Chromium **153.0.8010.0** | Reviewed-head result: **28 no-JS cases + 12 JS cases PASS**; not rerun for F01/F02 |
 | Actual native CSS viewports | **1440×1000**, **390×844**; no simulated iframe/resizing; preview overflow assertions PASS |
-| Read-only production HTTP smoke | **33 URLs**, actual 404s; **7** referenced client bundles scanned; **5** static assets byte-identical |
-| Production browser smoke | GR/EN homepage, Booking calendars/forms, Admin sign-in, privacy/terms, cookie dialogs, Signals waiting/listings, legacy preview navigation and refresh PASS |
+| Read-only production HTTP smoke | Reviewed-head result: **33 URLs**, **7** bundles, **5** static assets byte-identical; not rerun for F01/F02 |
+| Production browser smoke | Reviewed-head result: GR/EN homepage, Booking, Admin, legal/cookie controls and previews PASS; not rerun for F01/F02 |
 | Local Deno **2.9.6** integration composition import | **PASS** using locked local dependencies; not native Supabase Edge evidence |
 
 Native browser tests explicitly create contexts with `javaScriptEnabled:false`. Initial preview HTML contains the sample content and `noindex` without canonical/JSON-LD. Legacy query URLs without JS retain protected ordinary initial HTML rather than injecting demo content. With JS they navigate into physical preview namespaces. All legacy demo slugs remain reserved. No real article was exported to production.
@@ -102,3 +102,35 @@ test/phase4c-storage.test.mjs
 ```
 
 STOP for external review. Draft PR only; no production activation.
+
+## F01/F02 correction verification
+
+Reviewed correction parent: `91b6c88a7047b967b59ef8b57ecf47fcb3e42986`.
+
+- **27/27** targeted named F01/F02 tests PASS: 15 public-path scope cases and 12 canonical tar cases (negative and positive acceptance).
+- **78/78** complete Phase 4C tests PASS; **414/414** full Node 22 suite PASS, zero failures/skips.
+- Clean normal build PASS, **139 modules**; all **115 files byte-identical** to the reviewed normal build, including every existing GR/EN entry, generated JS/CSS, image/media, sitemap, robots and favicon.
+- Normal-build private/synthetic/runtime/witness scan PASS; no production witness or publication loader activated.
+- `git diff --check` PASS. Node **v22.22.0**, npm **11.9.0**. Local Deno **2.9.6** composition import PASS; not native Supabase evidence.
+- No public rendering/route/SEO source changed. Browser/HTTP results above are explicitly retained as reviewed-head results, rather than claimed as newly executed tests. Byte-identical normal output and complete rendering regressions establish unchanged public behavior for this correction.
+
+The path tests reject extra GR and EN article HTML, innocuous unknown files under `assets/` and `gr/privacy/`, and a stale removed GR article after a valid withdrawal. They also reject absent, JSON/copied/wrong-code capabilities, wrong-code/configuration inventory records, misprepared baselines containing a real article/witness, and missing static files. Positive tests preserve every normal-build path, GR/EN feature entries, correct withdrawal retaining EN, independent language builds, and a no-publication rebuild.
+
+The tar tests reject altered file padding, unused username/trailer/name bytes with valid checksums, alternate mode/time/type/checksum representations, nonzero end padding, extra zero blocks, reordering, and unsupported metadata. A ZIP with a recomputed valid CRC and trusted ZIP digest still cannot legitimize hidden tar padding. Empty and 511/512/513-byte boundary files and the complete legitimate generated artifact pass. ZIP, tar and inventory digest meanings remain unchanged.
+
+Additional trusted evidence: the server must obtain `nyra.public.paths.v1` from independently approved normal-build provenance for its exact reviewed code/configuration, not the submitted artifact, caller HTTP input, or a runner-uploaded path list. The injected server loader must verify that provenance; raw JSON is never a path capability. Production provisioning/native acceptance of that source remains **NOT VERIFIED** and blocks activation. See the architecture correction section for the exact trust boundary. No new database, credential, endpoint or inventory-registration API was introduced.
+
+Exactly eight correction files:
+
+```text
+docs/NYRA-PHASE4C-INTEGRATION.md
+docs/NYRA-PHASE4C-VALIDATION.md
+lib/publication/integration/archive.mjs
+lib/publication/integration/build.mjs
+lib/publication/integration/observer.mjs
+runtime/nyra-edge/integration.mjs
+runtime/nyra-edge/stage.mjs
+test/phase4c-integration.test.mjs
+```
+
+All original native Auth/JWT/MFA/revocation/PostgREST/RLS/ACL, multi-connection PostgreSQL, actual Edge/Storage/inspector, protected real GitHub OIDC/Pages/artifact acceptance and production protection gates remain **NOT VERIFIED**. No baseline migration, Contract v1.1, Phase 2 authority, active workflow or public source changed. No merge/deployment, production migration, credential creation, real publication or OpenAI API request occurred. Keep PR #12 OPEN/Draft and STOP for final external review.

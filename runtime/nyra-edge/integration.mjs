@@ -10,10 +10,10 @@ export function protectedVerifiers({policy,pagesAudience,getJSON,keySource,now=D
  const jobFacts=currentMainJobFacts({getJSON,repository:policy.repository,environment:policy.environment});
  return {verifier:createOIDCVerifier({policy,keySource,jobFacts,now}),pagesVerifier:createOIDCVerifier({policy:{...policy,audience:pagesAudience},keySource,jobFacts,now})};
 }
-export function composePrivateDelivery({db,verifier,pagesVerifier,storage,github,publicReader,repository,baseSitemap,fetcher=fetch,clock=()=>new Date().toISOString(),enabled=false}){
+export function composePrivateDelivery({db,verifier,pagesVerifier,storage,github,publicReader,repository,baseSitemap,pathScopeAuthority,fetcher=fetch,clock=()=>new Date().toISOString(),enabled=false}){
  if(typeof globalThis.Buffer==='undefined')globalThis.Buffer=Buffer;
- const journal=supabaseDispatchJournal(db),provenance=artifactProvenanceVerifier({github,validateFiles:(files,ctx)=>validatePublicFiles(files,{...ctx,baseSitemap,now:clock()})});
- const observe=independentObserver({github,publicReader,provenance,baseSitemap,clock});
+ const journal=supabaseDispatchJournal(db),provenance=artifactProvenanceVerifier({github,validateFiles:async(files,ctx)=>{const pathScope=await pathScopeAuthority.forAttempt(ctx.attempt);return validatePublicFiles(files,{...ctx,baseSitemap,pathScope,now:clock()});}});
+ const observe=independentObserver({github,publicReader,provenance,baseSitemap,pathScopeAuthority,clock});
  const dispatcher=createPagesDispatcher({repository,journal,pagesVerifier,fetcher});
  const service=createPrivateDeliveryService({db,verifier,storage,provenance,observe,dispatcher,clock});
  return {handler:createPrivateDeliveryHandler({service,enabled}),service};
