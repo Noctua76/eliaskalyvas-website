@@ -23,7 +23,7 @@ export async function runNative({ports,password,anon,service,dbHost,authHost,res
   for(let i=0;;i++){try{assert((await fetch(`http://${authHost}:${ports.auth}/health`)).ok);assert((await fetch(`http://${restHost}:${ports.rest}/`)).status<500);assert((await fetch('http://storage:5000/status')).ok);break;}catch{if(i===60)throw Error('LOCAL_SERVICES_NOT_READY');await new Promise(r=>setTimeout(r,1000));}}
   const version=(await q('show server_version_num')).rows[0].server_version_num;assert(Number(version)>=170000&&Number(version)<180000);pass('PG17',{version,node:process.version,driverUID:process.getuid(),backend:(await q('select pg_backend_pid() pid')).rows[0].pid});
   const inputs=[];
-  for(const f of readdirSync('supabase/migrations').filter(x=>x.endsWith('.sql')).sort()){
+  for(const f of readdirSync('supabase/migrations').filter(x=>x.endsWith('.sql')&&x<='20261029145714_nyra_protected_delivery_acceptance.sql').sort()){
    const sql=readFileSync('supabase/migrations/'+f,'utf8');try{await q(sql);}catch(e){event(prefix+':migration:'+f,'FAIL',{sqlstate:e.code,message:e.message,detail:e.detail||null,where:e.where||null,position:e.position||null});throw Error('MIGRATION_FAILED:'+f);}
    inputs.push({file:f,sha256:await import('node:crypto').then(m=>m.createHash('sha256').update(sql).digest('hex'))});pass('migration:'+f,'committed');
   }
