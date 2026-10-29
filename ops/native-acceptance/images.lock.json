@@ -22,5 +22,9 @@
   "probe": {
     "tag": "curlimages/curl:8.16.0",
     "image": "curlimages/curl@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6"
+  },
+  "driver": {
+    "tag": "node:22.22.0-bookworm-slim",
+    "image": "library/node@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94"
   }
 }
