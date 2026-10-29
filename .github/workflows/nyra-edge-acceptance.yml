@@ -1,0 +1,64 @@
+name: Nyra isolated Edge acceptance
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/nyra-edge-acceptance.yml'
+      - 'ops/edge-acceptance/**'
+      - 'docs/NYRA-PHASE5B-ACCEPTANCE.md'
+permissions:
+  contents: read
+concurrency:
+  group: nyra-edge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  native-edge:
+    if: github.event.pull_request.head.ref == 'test/nyra-phase5b-edge-acceptance' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Bounded native Edge acceptance
+        env:
+          NYRA_EDGE_CI: '1'
+          NYRA_TEST_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node ops/edge-acceptance/run.mjs
+      - name: Sanitized Edge acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nyra-edge-${{ github.run_id }}-${{ github.run_attempt }}
+          path: native-results/
+          retention-days: 7
+  regression:
+    if: github.event.pull_request.head.ref == 'test/nyra-phase5b-edge-acceptance' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Normal build isolation
+        run: |
+          node --input-type=module <<'NODE'
+          import {readdirSync,readFileSync,existsSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const files=readdirSync('dist',{recursive:true,withFileTypes:true}).filter(x=>x.isFile()).map(x=>x.parentPath+'/'+x.name);
+          assert.equal(files.length,115);assert(!existsSync('dist/.well-known/nyra-release.json'));
+          for(const f of files)assert(!/PRIVATE_NATIVE_|SYNTHETIC_PHASE3_PUBLIC_TEST|P5B_PRIVATE_CANARY|PRIVATE_PROBE_STACK_SENTINEL|EDGE_SHUTDOWN|native-results/.test(readFileSync(f).toString()),f);
+          console.log(JSON.stringify({files:files.length,witness:false,fixtureOrRuntimeLeak:false}));
+          NODE
