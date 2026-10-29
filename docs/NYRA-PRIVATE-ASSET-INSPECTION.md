@@ -122,3 +122,10 @@ The old Sharp/Edge probe remains documented and retained as historical source;
 it is no longer executed or packaged as a supported path. Resource-only CI emits
 UNSUPPORTED for that capability, never PASS as native image inspection. The new
 native-inspection job is the required positive acceptance target.
+
+The worker marks only a confirmed image/rights inspection rejection as failed.
+Read/transport/unknown-completion errors retain the lease or immutable receipt
+for explicit retry/reconciliation; they are never recast as a definitive failed
+transaction. Exact completed-result retry verifies accepted bytes even after
+quarantine cleanup. Hosted credentials/process isolation and operational rollover
+of pinned inspector code still require Phase 5C integration acceptance.
