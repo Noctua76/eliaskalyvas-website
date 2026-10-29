@@ -98,3 +98,70 @@ Existing suite remains 414 tests; completed cited runs have 414 PASS, zero faile
 No existing source/migration was corrected. No production Supabase migration/grant, Edge deployment, bucket/credential, endpoint/exporter/worker mount, protected publication dispatch, real article or paid API execution occurred. Native local Auth/SQL/Storage acceptance applies to the recorded versions, not uninspected production configuration.
 
 Hard blockers remain: native Edge packaging fix/retest and supported image inspector/resource acceptance; protected GitHub OIDC identity/exact reusable workflow SHA; branch/environment protections; independently trusted normal-build inventory provenance; production credential lifecycle and least privileges; real artifact/Pages/permit/witness/receipt end-to-end acceptance; approval of deployment_completed_at semantics and uncertain/late recovery; complete publish/replace/withdraw/rollback and ordinary rebuild/safe code rollback against actual delivery. No gate is waived by this branch. STOP for external review.
+
+## P5A-E01: native Edge static packaging correction
+
+The focused diagnostic at head `4dcb99bf093803491c19c60d0907ddd7c243a3a1`
+(run `40932440114`) tested the actual v1.77.4 `EdgeRuntime.userWorkers.create`
+execution path before changing any loader. The original test instead ran the
+application as the runtime's main service. Its bundled module URL was
+`file:///var/tmp/sb-compile-edge-runtime/nyra-delivery/lib/publication/bundle.mjs`;
+Node attempted to open
+`/var/tmp/sb-compile-edge-runtime/nyra-delivery/contracts/nyra-publication/v1.1/shared.schema.json`
+and failed ENOENT. Mounting more files at that compiler path is not the solution.
+
+In the real user worker, supported `staticPatterns` package the six files into
+its virtual filesystem. The official pinned runtime example's
+`context: {useReadSyncFileAPI:true}` is required for repeated Node synchronous
+static-file reads. This is a supported API option, not a host permission grant,
+filesystem remount or disabled authorization check. The diagnostic with that
+option false retained its PermissionDenied outcome; no bypass was introduced.
+Raw module URL:
+`file:///var/tmp/sb-compile-edge-runtime/raw-sync/native-entry.ts`.
+Independent bundle URL:
+`file:///var/tmp/sb-compile-edge-runtime/bundle-sync/lib/publication/probe-bundle.mjs`.
+All six hashes matched via Node and Deno, relative and module-URL reads, in both
+variants. Missing shared.schema.json rejected the module import. Appending a
+newline produced a different hash but previously still loaded valid JSON.
+
+No change to `lib/publication/contract.mjs`, any JSON schema, Ajv configuration,
+canonicalization, hashes of approved publication payloads, approval authority or
+migration is needed or made. The narrowly scoped packaging correction is:
+
+- `stage.mjs` retains the normal pinned npm import-map mode and adds an explicit
+  offline-dependency mode for isolated CI. It vendors unbundled dependency files
+  from locked npm-ci packages, verifies Ajv/parse5 versions, and preserves every
+  application module and schema byte. No registry/network access is required
+  inside the isolated stack. The original npm-import mode was attempted in the
+  first diagnostic and was blocked by the deliberately absent registry egress;
+  that infrastructure outcome is not presented as a successful native npm-mode
+  boot. The final native raw test uses the actual offline stage output.
+- `schema-assets.mjs` fixes the six approved file-byte SHA-256 values as a private
+  Edge package inventory. The generated factory entry calls this guard before
+  dynamically importing the unchanged application. Missing files throw; even a
+  valid-JSON whitespace alteration throws `EDGE_SCHEMA_INTEGRITY`. There are no
+  embedded/fallback schemas, caller-selected hashes or replacement validators.
+- `edge-package.mjs` stages the raw package first; a separate copy is bundled
+  afterwards. Neither variant rewrites application code or schema contents.
+  Deliberately missing/altered copies exist only as negative test inputs.
+- The test-only main gateway selects an exact fixed variant and creates a real
+  user worker with static files. It passes no credentials or environment values.
+  Only the standard read-only source package is mounted, not the compiler path.
+- Assertions independently hash all six static files using WebCrypto, require
+  the guarded factory plus six Ajv schema imports, test default-disabled 503,
+  and test enabled-handler denials for missing/invalid tokens, browser Origin
+  and anonymous GET. A deliberately rejecting machine verifier cannot grant
+  access; private DB/fetch call counters must stay zero. These denial tests do
+  not establish positive real GitHub OIDC acceptance.
+- Every schema is removed and altered individually in native raw workers; the
+  independent bundle also exercises both negative cases. A diagnostic listener
+  returning 200 is never counted as application boot when coreLoaded is false.
+
+The final exact-head workflow runs the focused assertions and then the complete
+native suite in **two fresh independent environments**, followed by the separate
+Node 22 full regression/build job. Final run results and exact-head evidence are
+reported in PR #13. Earlier accepted passes are historical context, not evidence
+for modified source. Native Edge resource-limit acceptance and native Edge image
+inspection remain **NOT VERIFIED**; Node/Sharp Storage inspection does not waive
+these gates. Production Pages, public entrypoints, migrations and credentials
+remain unchanged and inactive. No merge or deployment is authorized.

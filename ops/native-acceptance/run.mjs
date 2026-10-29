@@ -1,11 +1,11 @@
 // Explicit opt-in CI only. No production variables, project linking or deployment.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,rmSync,cpSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {randomBytes,createHmac} from 'node:crypto';
-import {build as bundle} from 'esbuild';
+import {prepareEdgeAcceptance} from './edge-package.mjs';
 const out=resolve('native-results');mkdirSync(out,{recursive:true});
 const source=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();assert(/^[a-f0-9]{40}$/.test(source)&&source===process.env.NYRA_TEST_SHA,'Exact checked-out PR head required');
 execFileSync('git',['diff','--exit-code'],{stdio:'pipe'});
@@ -29,12 +29,10 @@ for(const letter of ['a','b']){
  // GitHub masking before any failure can surface a value.
  for(const value of [secret,password,anon,service])console.log('::add-mask::'+value);
  const ports={db:5432,auth:9999,rest:3000,storage:5000};
- const edgeRoot=join(root,'edge');mkdirSync(join(edgeRoot,'lib/publication'),{recursive:true});cpSync(resolve('contracts'),join(edgeRoot,'contracts'),{recursive:true});
- await bundle({entryPoints:['ops/native-acceptance/edge-entry.mjs'],outfile:join(edgeRoot,'lib/publication/bundle.mjs'),bundle:true,platform:'node',format:'esm',packages:'bundle',external:['node:*'],banner:{js:'import {createRequire as nativeCreateRequire} from "node:module"; const require=nativeCreateRequire(import.meta.url);'}});
- writeFileSync(join(edgeRoot,'index.ts'),"import './lib/publication/bundle.mjs';\n");
+ const edgeRoot=join(root,'edge');const edgePackage=await prepareEdgeAcceptance(edgeRoot);
  const compose={services:{db:{image:images.db.image,environment:{POSTGRES_PASSWORD:password,POSTGRES_DB:'postgres',JWT_SECRET:secret,JWT_EXP:'3600'},volumes:[`${root}/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro`],security_opt:['no-new-privileges:true']},auth:{image:images.auth.image,environment:{GOTRUE_API_HOST:'0.0.0.0',GOTRUE_API_PORT:'9999',API_EXTERNAL_URL:`http://127.0.0.1:${ports.auth}`,GOTRUE_DB_DRIVER:'postgres',GOTRUE_DB_DATABASE_URL:`postgres://supabase_auth_admin:${password}@db:5432/postgres`,GOTRUE_SITE_URL:'http://127.0.0.1:55111',GOTRUE_JWT_SECRET:secret,GOTRUE_JWT_AUD:'authenticated',GOTRUE_JWT_ADMIN_ROLES:'service_role',GOTRUE_JWT_DEFAULT_GROUP_NAME:'authenticated',GOTRUE_JWT_EXP:'60',GOTRUE_EXTERNAL_EMAIL_ENABLED:'true',GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED:'true',GOTRUE_MAILER_AUTOCONFIRM:'true',GOTRUE_MFA_TOTP_ENROLL_ENABLED:'true',GOTRUE_MFA_TOTP_VERIFY_ENABLED:'true',GOTRUE_EXTERNAL_PHONE_ENABLED:'false',GOTRUE_RATE_LIMIT_TOKEN_REFRESH:'10000'},security_opt:['no-new-privileges:true']},rest:{image:images.rest.image,environment:{PGRST_DB_URI:`postgres://authenticator:${password}@db:5432/postgres`,PGRST_DB_SCHEMAS:'public',PGRST_DB_ANON_ROLE:'anon',PGRST_JWT_SECRET:secret},security_opt:['no-new-privileges:true']}},networks:{default:{external:true,name:network}}};
  compose.services.storage={image:images.storage.image,environment:{ANON_KEY:anon,SERVICE_KEY:service,POSTGREST_URL:'http://rest:3000',AUTH_JWT_SECRET:secret,DATABASE_URL:`postgres://supabase_storage_admin:${password}@db:5432/postgres`,STORAGE_PUBLIC_URL:'http://127.0.0.1:5000',FILE_SIZE_LIMIT:'10485760',STORAGE_BACKEND:'file',GLOBAL_S3_BUCKET:'native',FILE_STORAGE_BACKEND_PATH:'/var/lib/storage',TENANT_ID:project,REGION:'local',ENABLE_IMAGE_TRANSFORMATION:'false',S3_PROTOCOL_ACCESS_KEY_ID:password,S3_PROTOCOL_ACCESS_KEY_SECRET:secret},tmpfs:['/var/lib/storage'],security_opt:['no-new-privileges:true']};
- compose.services.edge={image:images.edge.image,command:['start','--main-service','/native/nyra-delivery','--static','./contracts/**/*.json'],working_dir:'/native/nyra-delivery',volumes:[edgeRoot+':/native/nyra-delivery:ro'],environment:{DENO_DIR:'/tmp/deno'},tmpfs:['/tmp'],security_opt:['no-new-privileges:true'],mem_limit:'256m',cpus:1};
+ compose.services.edge={image:images.edge.image,command:['start','--main-service','/native/gateway'],working_dir:'/native',volumes:[edgeRoot+':/native:ro'],environment:{DENO_DIR:'/tmp/deno'},tmpfs:['/tmp'],security_opt:['no-new-privileges:true'],mem_limit:'1g',cpus:1};
  writeFileSync(join(root,'compose.json'),JSON.stringify(compose),{mode:0o600});
  // Same native bootstrap used by upstream Supabase docker/volumes/db/roles.sql.
  writeFileSync(join(root,'roles.sql'),`ALTER USER authenticator WITH PASSWORD '${password}'; ALTER USER supabase_auth_admin WITH PASSWORD '${password}'; ALTER USER supabase_storage_admin WITH PASSWORD '${password}';`);
@@ -57,7 +55,7 @@ for(const letter of ['a','b']){
   const raw=dc('ps','--format','json').trim();let state;try{state=JSON.parse(raw);if(!Array.isArray(state))state=[state];}catch{state=raw.split('\n').filter(Boolean).map(x=>JSON.parse(x));}
   for(const s of state){const ins=JSON.parse(cmd('docker',['inspect',s.ID]))[0];assert.equal(ins.HostConfig.Privileged,false);for(const binds of Object.values(ins.HostConfig.PortBindings||{}))for(const b of binds||[])assert.equal(b.HostIp,'127.0.0.1');}
   const actual=Object.fromEntries(['db','auth','rest','storage','edge'].map(k=>[k,JSON.parse(cmd('docker',['image','inspect',images[k].image]))[0].RepoDigests]));results.stacks.push({project,images:actual});
-  writeFileSync(join(root,'driver.json'),JSON.stringify({ports,password,anon,service,prefix:letter,dbHost:'db',authHost:'auth',restHost:'rest'}),{mode:0o600});
+  writeFileSync(join(root,'driver.json'),JSON.stringify({ports,password,anon,service,prefix:letter,dbHost:'db',authHost:'auth',restHost:'rest',edgeSchemaHashes:edgePackage.expected}),{mode:0o600});
   const args=['run','--rm','--name',project+'-driver','--network',network,'--user',process.getuid()+':'+process.getgid(),'--security-opt','no-new-privileges:true','--cap-drop','ALL','--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=32m','-v',resolve('.')+':/work:ro','-v',out+':/evidence:rw','-v',join(root,'driver.json')+':/native-config.json:ro','-w','/work','-e','NYRA_NATIVE_CONTAINER=1',images.driver.image,'node','ops/native-acceptance/execute.mjs'];
   let nativeOutput,nativeError;try{nativeOutput=cmd('docker',args,{timeout:300000});}catch(e){nativeOutput=e.stdout||'';nativeError=e;}
   for(const line of nativeOutput.split('\n'))if(line.startsWith('NATIVE:')){const r=JSON.parse(line.slice(7));event(r.id,r.status,r.detail);}
@@ -78,5 +76,5 @@ for(const letter of ['a','b']){
 }
 if(catalogs.length===2){assert.deepEqual(catalogs[0],catalogs[1]);event('two-clean-stacks','PASS','Normalized catalogs identical');}
 for(const prefix of ['a','b'])for(const id of ['C01','C02','C03','C04','C05','C06','C07','C08','C09','C10','C11','C12','C13','C14','Auth:expired','Auth:revocation','Auth:anonymous-user','Edge','Storage'])if(!results.results.some(x=>x.id===prefix+':'+id))event(prefix+':'+id,'NOT VERIFIED','Not reached; no other stack result substituted');
-for(const prefix of ['a','b'])for(const id of ['Edge-raw-stage','Edge-native-image-inspector','Edge-resource-acceptance'])event(prefix+':'+id,'NOT VERIFIED','Not established by disabled bundled worker or Node/Sharp inspection');
+for(const prefix of ['a','b'])for(const id of ['Edge-native-image-inspector','Edge-resource-acceptance'])event(prefix+':'+id,'NOT VERIFIED','Not established by boot/auth-denial assertions or Node/Sharp inspection');
 writeFileSync(join(out,'results.json'),JSON.stringify(results,null,2));if(failed||results.results.some(x=>x.status==='FAIL'))process.exitCode=1;

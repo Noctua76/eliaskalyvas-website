@@ -6,6 +6,7 @@ on:
       - '.github/workflows/nyra-native-acceptance.yml'
       - 'ops/native-acceptance/**'
       - 'lib/publication/**'
+      - 'runtime/nyra-edge/**'
       - 'supabase/migrations/**'
       - 'test/**'
       - 'package*.json'
@@ -31,11 +32,16 @@ jobs:
         run: npm ci
       - name: Install locked native test driver
         run: npm ci --ignore-scripts --prefix ops/native-acceptance
-      - name: Native isolated acceptance
+      - name: Focused raw-stage and bundled Edge acceptance
         env:
           NYRA_NATIVE_CI: '1'
           NYRA_TEST_SHA: ${{ github.event.pull_request.head.sha }}
         run: node ops/native-acceptance/edge-diagnostic.mjs
+      - name: Complete two-stack native acceptance
+        env:
+          NYRA_NATIVE_CI: '1'
+          NYRA_TEST_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node ops/native-acceptance/run.mjs
       - name: Sanitized native evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

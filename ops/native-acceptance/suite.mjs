@@ -1,3 +1,4 @@
+import {assertNativeEdge} from './edge-assertions.mjs';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import {lostCommitAcknowledgement} from './lost-ack.mjs';
@@ -14,7 +15,7 @@ import {createPrivateAssetRuntime} from '../../lib/publication/runtime/assets.mj
 import {inspectApprovedBytes} from '../../lib/publication/runtime/node-assets.mjs';
 import {nativeWork,cover} from './fixture.mjs';
 const totp=secret=>{const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const c of secret.replace(/=/g,''))bits+=alphabet.indexOf(c).toString(2).padStart(5,'0');const key=Buffer.from((bits.match(/.{8}/g)||[]).map(x=>parseInt(x,2))),counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));const h=createHmac('sha1',key).update(counter).digest(),at=h[19]&15;return ((h.readUInt32BE(at)&0x7fffffff)%1000000).toString().padStart(6,'0');};
-export async function runNative({ports,password,anon,service,dbHost,authHost,restHost,event,prefix,out}){
+export async function runNative({ports,password,anon,service,dbHost,authHost,restHost,edgeSchemaHashes,event,prefix,out}){
  const clients=[];const connect=async(role=null)=>{const c=new pg.Client({host:dbHost,port:ports.db,user:'postgres',password,database:'postgres',statement_timeout:15000,lock_timeout:10000});await c.connect();if(role)await c.query('set role '+role);clients.push(c);return c;};
  const admin=await connect(),q=admin.query.bind(admin),pass=(id,detail)=>event(prefix+':'+id,'PASS',detail);
  let server;
@@ -141,8 +142,13 @@ export async function runNative({ports,password,anon,service,dbHost,authHost,res
   await q('delete from auth.sessions where id=$1',[other.session]);
   const revoked=await call('/publication/assets',{cover,rights_note:'must deny deleted session'},other.token);assert(revoked.status>=400);assert(['UNAUTHORIZED','PUB_SESSION_INVALID'].includes(revoked.body.error));await assert.rejects(privateCall(svc,'nyra_publication_actor',{p_owner:other.user,p_session:other.session,p_expires:new Date(Date.now()+60000).toISOString()}),e=>e.code==='P0001'&&/PUB_SESSION_INVALID/.test(e.message));await q('delete from website_owners where user_id=$1',[other.user]);pass('Auth:revocation',{status:revoked.status,method:'native SQL session deletion; unexpired GoTrue-signed AAL2 JWT'});
   const assetSession=await owner.sdk.auth.refreshSession();assert(!assetSession.error,assetSession.error?.message);owner.token=assetSession.data.session.access_token;
-  // Preliminary real Edge boot: disabled composition only; no actual OIDC/Pages call.
-  try{let edge;for(let i=0;i<5;i++){try{edge=await fetch('http://edge:9000/',{signal:AbortSignal.timeout(1000)});break;}catch{await new Promise(r=>setTimeout(r,250));}}assert(edge);assert.equal(edge.status,503);assert.equal((await edge.json()).error,'PUBLICATION_DISABLED');pass('Edge',{boot:'Native Supabase Edge Runtime, bundled unchanged disabled composition',status:503,notVerified:'Enabled operations, raw staged package, resource limits and native image inspector'});}catch(e){event(prefix+':Edge','FAIL',{message:e.message,kind:'Executed native Edge bundle boot failed; inspect sanitized Edge boot log. Raw staged package and native image inspector remain NOT VERIFIED.'});}
+  // Actual supported raw-stage and independent bundled user-worker acceptance.
+  try{
+   const request=async(path,options={})=>{const r=await fetch('http://edge:9000'+path,{...options,signal:AbortSignal.timeout(40000)});return {status:r.status,headers:Object.fromEntries(r.headers),body:await r.text()};};
+   await assertNativeEdge({request,expected:edgeSchemaHashes,event:(id,status,detail)=>event(prefix+':'+id,status,detail)});
+   pass('Edge',{boot:'Native Supabase user workers, raw staged project and independent bundle',schemaBytes:'six exact approved hashes',disabled:503,unauthorized:409,privateCalls:0,notVerified:'Protected OIDC success, resource limits and native image inspector'});
+  }catch(e){event(prefix+':Edge','FAIL',{message:e.message,kind:'Native Edge assertion failed'});}
+
   let storageReady=false;
   try{
    let ready=false;for(let i=0;i<10;i++){try{ready=(await fetch('http://storage:5000/status',{signal:AbortSignal.timeout(1000)})).ok;if(ready)break;}catch{}await new Promise(r=>setTimeout(r,250));}assert(ready,'Storage health unavailable');storageReady=true;
