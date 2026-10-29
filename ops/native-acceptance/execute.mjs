@@ -9,4 +9,5 @@ assert(config.dbHost==='db'&&config.authHost==='auth'&&config.restHost==='rest')
 const event=(id,status,detail)=>console.log('NATIVE:'+JSON.stringify({id,status,detail}));
 try{
  const catalog=await (config.inspectionMode?runNativeInspection:runNative)({...config,event,out:'/evidence'});writeFileSync('/evidence/'+config.prefix+'-catalog.json',JSON.stringify(catalog));
+ if(config.protectedMode){assert(config.inspectionMode);await import('../protected-delivery/native.mjs').then(m=>m.nativeProtectedAcceptance({...config,event}));}
 }catch(e){event(config.prefix+':execution','FAIL',{name:e.name,code:e.code||null,message:e.message,location:e.stack?.split('\n').slice(1,4).join('\n')});process.exitCode=1;}
