@@ -1,5 +1,7 @@
 # Phase 5A — isolated native acceptance runbook
 
+> Historical host-preflight / preparation snapshot. Isolated GitHub-hosted execution is now authorized and implemented. See `NYRA-PHASE5A-CI-ACCEPTANCE.md` and the latest PR #13 native evidence artifact for actual execution results. No production activation is implied.
+
 **PLAN ONLY: not executed on this host.** Companion: `NYRA-PHASE5A-ACCEPTANCE.md`. Do not point these instructions at any cloud/project/production database. Preserve the approved main `7aa786268e3ad8a37a6f0148cf97891c8abc85f3` and all original migrations. This is not an instruction to deploy or enable publication.
 
 ## Environment and reproducibility gates

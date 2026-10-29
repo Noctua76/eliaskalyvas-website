@@ -1,5 +1,7 @@
 # Phase 5A — native security acceptance preflight
 
+> Historical host-preflight / preparation snapshot. Isolated GitHub-hosted execution is now authorized and implemented. See `NYRA-PHASE5A-CI-ACCEPTANCE.md` and the latest PR #13 native evidence artifact for actual execution results. No production activation is implied.
+
 Date: 2026-10-29 (Europe/Athens). Verdict: **NOT READY for native security sign-off or activation**. Native execution is blocked by this host, not established to fail in the application.
 
 ## Baseline and scope

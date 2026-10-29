@@ -60,3 +60,13 @@ jobs:
         run: npm test
       - name: Clean normal production build
         run: npm run build
+      - name: Normal build publication isolation
+        run: |
+          node --input-type=module <<'NODE'
+          import {readdirSync,readFileSync,existsSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const files=readdirSync('dist',{recursive:true,withFileTypes:true}).filter(x=>x.isFile()).map(x=>x.parentPath+'/'+x.name);
+          assert(!existsSync('dist/.well-known/nyra-release.json'));
+          for(const file of files)assert(!/PRIVATE_NATIVE_|SYNTHETIC_PHASE3_PUBLIC_TEST|nyra_delivery_receipt|native-results/.test(readFileSync(file).toString()),file);
+          console.log(JSON.stringify({normalFiles:files.length,publicationWitness:false,fixtureLeak:false}));
+          NODE
