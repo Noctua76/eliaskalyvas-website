@@ -5,10 +5,12 @@ import {artifactProvenanceVerifier} from '../../lib/publication/integration/arch
 import {validatePublicFiles,independentObserver} from '../../lib/publication/integration/observer.mjs';
 import {supabaseDispatchJournal,createPagesDispatcher} from '../../lib/publication/integration/dispatch.mjs';
 import {createOIDCVerifier} from '../../lib/publication/runtime/oidc.mjs';
-import {currentMainJobFacts} from '../../lib/publication/integration/github.mjs';
-export function protectedVerifiers({policy,pagesAudience,getJSON,keySource,now=Date.now}){
- const jobFacts=currentMainJobFacts({getJSON,repository:policy.repository,environment:policy.environment});
- return {verifier:createOIDCVerifier({policy,keySource,jobFacts,now}),pagesVerifier:createOIDCVerifier({policy:{...policy,audience:pagesAudience},keySource,jobFacts,now})};
+import {createProtectedOIDCVerifier,registeredGithubJobFacts} from '../../lib/publication/runtime/protected-identity.mjs';
+export function protectedVerifiers({policy,pagesAudience,getJSON,keySource,store,requiredChecks,now=Date.now}){
+ const jobFacts=registeredGithubJobFacts({getJSON,store,policy,privilege:'publication',requiredChecks,now});
+ // Broker requests consume fresh jtis. The separately addressed Pages token
+ // stays behind the existing one-shot, server-journaled dispatch boundary.
+ return {verifier:createProtectedOIDCVerifier({policy,privilege:'publication',store,getJSON,requiredChecks,keySource,now}),pagesVerifier:createOIDCVerifier({policy:{...policy,audience:pagesAudience},keySource,jobFacts,now})};
 }
 export function composePrivateDelivery({db,verifier,pagesVerifier,storage,github,publicReader,repository,baseSitemap,pathScopeAuthority,fetcher=fetch,clock=()=>new Date().toISOString(),enabled=false}){
  if(typeof globalThis.Buffer==='undefined')globalThis.Buffer=Buffer;
