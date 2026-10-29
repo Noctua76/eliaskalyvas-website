@@ -1,0 +1,26 @@
+# INERT REVIEW TEMPLATE. Not an installed GitHub workflow.
+name: Website and authorized Signals delivery
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: echo 'Delivery requests current server-authorized state; no caller dataset or release selector.'
+  delivery:
+    needs: orchestrate
+    # Replace only after separate review with the actual immutable reusable SHA.
+    uses: Noctua76/eliaskalyvas-website/.github/workflows/pages-delivery.yml@REVIEW_REQUIRED_IMMUTABLE_SHA
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      deployments: write
+      id-token: write

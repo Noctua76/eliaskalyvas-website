@@ -1,0 +1,60 @@
+# INERT REVIEW TEMPLATE. Must REPLACE, never run alongside, current pages.yml.
+name: Protected Nyra delivery
+on:
+  workflow_call:
+permissions: {}
+jobs:
+  protected:
+    if: github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: github-pages
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      deployments: write
+      id-token: write
+    env:
+      NYRA_DELIVERY_ENABLED: ${{ vars.NYRA_DELIVERY_ENABLED }}
+      NYRA_TRUSTED_DELIVERY_URL: ${{ vars.NYRA_TRUSTED_DELIVERY_URL }}
+      NYRA_OIDC_AUDIENCE: ${{ vars.NYRA_OIDC_AUDIENCE }}
+      NYRA_PAGES_OIDC_AUDIENCE: ${{ vars.NYRA_PAGES_OIDC_AUDIENCE }}
+      GITHUB_PAGES_BASE: /
+      VITE_OPERATIONS_API_URL: ${{ vars.VITE_OPERATIONS_API_URL }}
+      VITE_ADMIN_API_URL: ${{ vars.VITE_ADMIN_API_URL }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+      VITE_MY_MENTOR_WEBSITE_URL: ${{ vars.VITE_MY_MENTOR_WEBSITE_URL }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Acquire current authorization and build
+        run: node lib/publication/integration/runner.mjs build
+      - name: Upload only sealed Pages tar
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/nyra-${{ github.run_id }}-${{ github.run_attempt }}/artifact.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+      - name: Inspect actual GitHub archive and acquire permit
+        run: node lib/publication/integration/runner.mjs permit
+      - name: Dispatch exact permitted artifact once
+        run: node lib/publication/integration/runner.mjs deploy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Independent live observation and receipt
+        # Initial caches may be uncertain: this must reconcile, NEVER redeploy.
+        run: node lib/publication/integration/runner.mjs observe
