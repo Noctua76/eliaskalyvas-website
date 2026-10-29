@@ -4,8 +4,9 @@ import {postgresIdentityStore} from '../../lib/publication/runtime/protected-ide
 import {registration,policy} from '../../test/fixtures/protected-delivery.mjs';
 import {hashJSON} from '../../lib/publication/contract.mjs';
 // Same assertions run locally in PGlite and in existing isolated native PG17.
-export async function acceptTrustStore({admin,broker,otherBroker=broker,registrar}){
+export async function acceptTrustStore({admin,broker,otherBroker=broker,registrar,afterSchema=async()=>{}}){
  await admin(await readFile(new URL('./schema.sql',import.meta.url),'utf8'));
+ await afterSchema();
  const expiresAt=new Date(Date.now()+240000).toISOString(),r={...registration(),expiresAt};
  const add=async(row=r)=>registrar('insert into nyra_trust.jobs(run_id,run_attempt,check_run_id,registration,policy_sha256,expires_at) values($1,$2,$3,$4,$5,$6)',[row.runId,row.runAttempt,row.checkRunId,JSON.stringify(row),hashJSON(policy),expiresAt]);
  await add();const a=postgresIdentityStore({query:broker}),b=postgresIdentityStore({query:otherBroker}),s={runId:'100',runAttempt:'1',checkRunId:'300'};

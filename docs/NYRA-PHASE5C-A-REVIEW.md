@@ -213,8 +213,12 @@ for this operator is not installed.
 
 The active acceptance workflow has no id-token, Pages, deployment or secret
 permissions. It checks out the exact PR head, runs regression/build/capture,
-then reuses the pinned 5B native runner with two clean isolated PG17/Auth/MFA/
-Storage/Node stacks and adds native trust-store concurrency/ACL assertions.
+then reuses the pinned 5B infrastructure with two clean isolated stacks for
+focused native PG17 trust-store concurrency/ACL assertions. It does not rerun
+the unrelated full 5B inspection suite. The first native run reached the new
+bootstrap after passing stack A inspection, then failed because PG17's postgres
+login lacked SET membership in the newly created test roles. A test-only grant
+fixes that harness issue; the proposed schema/production privileges are unchanged.
 Synthetic identities are explicitly labelled. No protected invocation is
 claimed. Exact-head run URL and final pass/fail counts belong in the PR body,
 not a self-referential commit that would change the tested head.
