@@ -1,0 +1,11 @@
+// Synthetic article data only; never imports mocked Auth/database fixture bootstrap.
+import {releaseFixture,uid} from '../../test/fixtures/publication-v1.1.mjs';
+export const cover=releaseFixture().presentation.cover;
+export async function nativeWork(q,owner,{language='gr',revisionOf=null}={}){
+ const assignment={topic:'Synthetic native acceptance',direction:'',language,format:'signal'};
+ const review={passed:true,approval:'human_required',needs_research:false,issues:[],revision_instructions:'',research_questions:'',checks:{clarity:true,coherence:true,editorial_contribution:true,counterargument:true,evidence:true,length:true,recorded_source_access:true}};
+ const presentation={tags:['AI','Work'],hashtags:['#AI','#Work','#Technology'],share_title:'Synthetic title',share_description:'Synthetic description',share_text:'Synthetic share text',image_brief:'PRIVATE_NATIVE_IMAGE',revision:1,cover:{image_url:cover.url,source_url:cover.attribution.source_url,creator:cover.attribution.creator,license_name:cover.attribution.license_name,license_url:'',alt:cover.alt,caption:cover.caption,rights_confirmed:true}};
+ const draft={assignment,article:{title:'Synthetic publication',summary:'Synthetic approved summary',thesis:'PRIVATE_NATIVE_THESIS',original_contribution:'PRIVATE_NATIVE_CONTRIBUTION',counterargument:'PRIVATE_NATIVE_COUNTERARGUMENT',uncertainties:[],editor_note:'PRIVATE_NATIVE_NOTE',paragraphs:[{text:Array(500).fill(language==='gr'?'δοκιμή':'synthetic').join(' '),source_urls:['https://www.oecd.org/'],evidence_ids:['receipt-1']}],checks:{length:true,citation_provenance:true},word_count:500,status:'pending_review'},presentation,automatic_review:review,run:{id:uid(700),prompt_version:'nyra-core-0.7'},sources:[{title:'Synthetic source',url:'https://www.oecd.org/'}],research:{report:'PRIVATE_NATIVE_REPORT',ticket:'PRIVATE_NATIVE_TICKET',source_records:[{source_url:'https://www.oecd.org/',status:'captured',excerpts:[{id:'receipt-1',text:'PRIVATE_NATIVE_EXCERPT'}]}]}};
+ const state={assignment,stage:'done',drafts:[draft],...(revisionOf?{revision_of:revisionOf}:{})};
+ return (await q("insert into nyra_work(owner_id,title,kind,model,budget,state) values($1,'Synthetic','article','gpt-6.1-sol',3,$2) returning *",[owner,JSON.stringify(state)])).rows[0];
+}
