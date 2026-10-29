@@ -1,5 +1,11 @@
 # Phase 5B — native Edge inspector and resource acceptance
 
+> Historical Edge-only evidence retained. The subsequent approved private
+> Node/Sharp correction is implemented and documented in
+> `NYRA-PRIVATE-ASSET-INSPECTION.md`. Sharp-in-Edge remains unsupported; it is not
+> re-run or relabeled as successful native Edge image inspection. Final supported
+> path acceptance belongs to the exact-head Node inspection CI linked in PR #14.
+
 Baseline: `2504091fc1dcd4bcb70ad65bd8ee3e833362e31f`. This branch contains only
 isolated acceptance harnesses, a test-only workflow and this report. No production
 source, migrations, Contract v1.1, owner/MFA logic or Pages workflow is changed.

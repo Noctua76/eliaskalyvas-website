@@ -5,6 +5,13 @@ on:
     paths:
       - '.github/workflows/nyra-edge-acceptance.yml'
       - 'ops/edge-acceptance/**'
+      - 'ops/native-acceptance/**'
+      - 'lib/publication/runtime/inspection.mjs'
+      - 'lib/publication/runtime/node-inspection.mjs'
+      - 'lib/publication/runtime/node-assets.mjs'
+      - 'supabase/migrations/20261029194516_nyra_private_asset_inspection.sql'
+      - 'test/inspection.test.mjs'
+      - 'docs/NYRA-PRIVATE-ASSET-INSPECTION.md'
       - 'docs/NYRA-PHASE5B-ACCEPTANCE.md'
 permissions:
   contents: read
@@ -35,6 +42,33 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: nyra-edge-${{ github.run_id }}-${{ github.run_attempt }}
+          path: native-results/
+          retention-days: 7
+  native-inspection:
+    if: github.event.pull_request.head.ref == 'test/nyra-phase5b-edge-acceptance' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm ci --ignore-scripts --prefix ops/native-acceptance
+      - name: Two fresh native Node inspection stacks
+        env:
+          NYRA_NATIVE_CI: '1'
+          NYRA_INSPECTION_CI: '1'
+          NYRA_TEST_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node ops/native-acceptance/run.mjs
+      - name: Native inspection evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nyra-inspection-${{ github.run_id }}-${{ github.run_attempt }}
           path: native-results/
           retention-days: 7
   regression:

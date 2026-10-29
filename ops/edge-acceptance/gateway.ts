@@ -1,6 +1,6 @@
 // Fixed disposable probe routes. No production URL, arbitrary worker path, caller
 // limits, credentials, public export or publication dispatch is supported.
-const modes=['healthy','memory','cpu','wall','deadline','concurrent','crash','network','sharp','guarded'];
+const modes=['healthy','memory','cpu','wall','deadline','concurrent','crash','network','guarded'];
 const cached=new Map();
 const reply=(error,status)=>Response.json({error},{status,headers:{'Cache-Control':'no-store'}});
 Deno.serve(async req=>{
@@ -15,7 +15,7 @@ Deno.serve(async req=>{
  const options={servicePath:'/native/'+mode,maybeEntrypoint:'file:///native/'+mode+'/index.ts',envVars:[],forceCreate:true,noModuleCache:true,
   memoryLimitMb:64,workerTimeoutMs:3000,cpuTimeSoftLimitMs:250,cpuTimeHardLimitMs:500,context:{useReadSyncFileAPI:true}};
  if(mode==='wall')options.workerTimeoutMs=1000;
- if(mode==='sharp'||mode==='guarded'){options.memoryLimitMb=150;options.workerTimeoutMs=10000;options.cpuTimeSoftLimitMs=1500;options.cpuTimeHardLimitMs=2000;options.staticPatterns=['/native/'+mode+'/**/*'];}
+ if(mode==='guarded'){options.memoryLimitMb=150;options.workerTimeoutMs=10000;options.cpuTimeSoftLimitMs=1500;options.cpuTimeHardLimitMs=2000;options.staticPatterns=['/native/'+mode+'/**/*'];}
  try{
   let pending=mode==='concurrent'?cached.get(mode):null;
   if(!pending){pending=EdgeRuntime.userWorkers.create(options);if(mode==='concurrent')cached.set(mode,pending);}
