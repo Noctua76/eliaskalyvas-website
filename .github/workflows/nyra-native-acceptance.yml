@@ -34,6 +34,7 @@ jobs:
       - name: Native isolated acceptance
         env:
           NYRA_NATIVE_CI: '1'
+          NYRA_TEST_SHA: ${{ github.event.pull_request.head.sha }}
         run: node ops/native-acceptance/run.mjs
       - name: Sanitized native evidence
         if: always()

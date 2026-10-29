@@ -10,7 +10,7 @@ Its tested source was `9aa829a6a6c99c648973dcafbb41aaf79ef06f1a`. Both clean nat
 
 This run also **reproduced native Edge bundle boot failure**. It must not be interpreted as full production readiness merely because the runner classified this preliminary gate NOT VERIFIED and therefore reported overall success. The final driver classifies that executed boot failure as **FAIL**. The latest PR #13 workflow logs/artifact are authoritative for the subsequently expanded wire-level C09, stale-operation C05 and queued-replacement C13 assertions. Do not substitute an earlier run if the final executable revision fails.
 
-Each run publishes `native-results/results.json`, image metadata, per-stack input migration SHA256s/catalogs and sanitized Edge/Storage boot logs. The artifact corresponds to the PR head actually checked out; the workflow's pull_request merge SHA can differ and is not the tested checkout. Inspect the exact checkout step/head SHA in logs. No local-host or PGlite outcome is scored as native evidence.
+Each run publishes `native-results/results.json`, image metadata, per-stack input migration SHA256s/catalogs and sanitized Edge/Storage boot logs. The artifact source is `git rev-parse HEAD`, asserted equal to the event's expected PR head, with a clean tracked tree. The pull_request merge SHA is recorded separately as eventSHA and can differ; it is not substituted for the tested checkout. Inspect the exact checkout step/head SHA in logs. No local-host or PGlite outcome is scored as native evidence.
 
 ## Native Edge finding — P5A-E01
 
