@@ -1,10 +1,11 @@
 // Explicit opt-in CI only. No production variables, project linking or deployment.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,rmSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,rmSync,cpSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {randomBytes,createHmac} from 'node:crypto';
+import {build as bundle} from 'esbuild';
 const out=resolve('native-results');mkdirSync(out,{recursive:true});
 const results={schema:'nyra.native.acceptance.v1',source:process.env.GITHUB_SHA,results:[],stacks:[]};
 const cmd=(c,args,options={})=>execFileSync(c,args,{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:120000,...options});
@@ -25,8 +26,12 @@ for(const letter of ['a','b']){
  const secret=randomBytes(40).toString('hex'),password=randomBytes(24).toString('hex'),anon=token('anon',secret),service=token('service_role',secret);
  // GitHub masking before any failure can surface a value.
  for(const value of [secret,password,anon,service])console.log('::add-mask::'+value);
- const ports={db:5432,auth:9999,rest:3000};
+ const ports={db:5432,auth:9999,rest:3000,storage:5000};
+ const edgeRoot=join(root,'edge');mkdirSync(join(edgeRoot,'lib/publication'),{recursive:true});cpSync(resolve('contracts'),join(edgeRoot,'contracts'),{recursive:true});
+ await bundle({entryPoints:['ops/native-acceptance/edge-entry.mjs'],outfile:join(edgeRoot,'lib/publication/index.ts'),bundle:true,platform:'node',format:'esm',packages:'bundle',external:['node:*'],banner:{js:'import {createRequire as nativeCreateRequire} from "node:module"; const require=nativeCreateRequire(import.meta.url);'}});
  const compose={services:{db:{image:images.db.image,environment:{POSTGRES_PASSWORD:password,POSTGRES_DB:'postgres',JWT_SECRET:secret,JWT_EXP:'3600'},volumes:[`${root}/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro`],security_opt:['no-new-privileges:true']},auth:{image:images.auth.image,environment:{GOTRUE_API_HOST:'0.0.0.0',GOTRUE_API_PORT:'9999',API_EXTERNAL_URL:`http://127.0.0.1:${ports.auth}`,GOTRUE_DB_DRIVER:'postgres',GOTRUE_DB_DATABASE_URL:`postgres://supabase_auth_admin:${password}@db:5432/postgres`,GOTRUE_SITE_URL:'http://127.0.0.1:55111',GOTRUE_JWT_SECRET:secret,GOTRUE_JWT_AUD:'authenticated',GOTRUE_JWT_ADMIN_ROLES:'service_role',GOTRUE_JWT_DEFAULT_GROUP_NAME:'authenticated',GOTRUE_JWT_EXP:'60',GOTRUE_EXTERNAL_EMAIL_ENABLED:'true',GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED:'true',GOTRUE_MAILER_AUTOCONFIRM:'true',GOTRUE_MFA_TOTP_ENROLL_ENABLED:'true',GOTRUE_MFA_TOTP_VERIFY_ENABLED:'true',GOTRUE_EXTERNAL_PHONE_ENABLED:'false',GOTRUE_RATE_LIMIT_TOKEN_REFRESH:'10000'},security_opt:['no-new-privileges:true']},rest:{image:images.rest.image,environment:{PGRST_DB_URI:`postgres://authenticator:${password}@db:5432/postgres`,PGRST_DB_SCHEMAS:'public',PGRST_DB_ANON_ROLE:'anon',PGRST_JWT_SECRET:secret},security_opt:['no-new-privileges:true']}},networks:{default:{external:true,name:network}}};
+ compose.services.storage={image:images.storage.image,environment:{ANON_KEY:anon,SERVICE_KEY:service,POSTGREST_URL:'http://rest:3000',AUTH_JWT_SECRET:secret,DATABASE_URL:`postgres://supabase_storage_admin:${password}@db:5432/postgres`,STORAGE_PUBLIC_URL:'http://127.0.0.1:5000',FILE_SIZE_LIMIT:'10485760',STORAGE_BACKEND:'file',GLOBAL_S3_BUCKET:'native',FILE_STORAGE_BACKEND_PATH:'/var/lib/storage',TENANT_ID:project,REGION:'local',ENABLE_IMAGE_TRANSFORMATION:'false',S3_PROTOCOL_ACCESS_KEY_ID:password,S3_PROTOCOL_ACCESS_KEY_SECRET:secret},tmpfs:['/var/lib/storage'],security_opt:['no-new-privileges:true']};
+ compose.services.edge={image:images.edge.image,command:['start','--main-service','/native/lib/publication'],volumes:[edgeRoot+':/native:ro'],environment:{DENO_DIR:'/tmp/deno'},tmpfs:['/tmp'],security_opt:['no-new-privileges:true'],mem_limit:'256m',cpus:1};
  writeFileSync(join(root,'compose.json'),JSON.stringify(compose),{mode:0o600});
  // Same native bootstrap used by upstream Supabase docker/volumes/db/roles.sql.
  writeFileSync(join(root,'roles.sql'),`ALTER USER authenticator WITH PASSWORD '${password}'; ALTER USER supabase_auth_admin WITH PASSWORD '${password}'; ALTER USER supabase_storage_admin WITH PASSWORD '${password}';`);
@@ -44,12 +49,13 @@ for(const letter of ['a','b']){
   event(letter+':isolation','PASS',{internal:n.Internal,iptables:true,blockedExternalAndMetadata:true});
   dc('up','-d','db');
   for(let i=0;;i++){try{dc('exec','-T','db','pg_isready','-h','127.0.0.1','-U','postgres');break;}catch{if(i===45)throw Error('DB_HEALTH_TIMEOUT');await new Promise(r=>setTimeout(r,1000));}}
-  dc('up','-d','auth','rest');
+  dc('up','-d','auth','rest','storage','edge');
+  const pgStatus=dc('exec','-T','db','cat','/proc/1/status'),uid=Number(pgStatus.match(/^Uid:\s+(\d+)/m)?.[1]);assert(uid>0);event(letter+':postgres-user','PASS',{uid});
   const raw=dc('ps','--format','json').trim();let state;try{state=JSON.parse(raw);if(!Array.isArray(state))state=[state];}catch{state=raw.split('\n').filter(Boolean).map(x=>JSON.parse(x));}
   for(const s of state){const ins=JSON.parse(cmd('docker',['inspect',s.ID]))[0];assert.equal(ins.HostConfig.Privileged,false);for(const binds of Object.values(ins.HostConfig.PortBindings||{}))for(const b of binds||[])assert.equal(b.HostIp,'127.0.0.1');}
-  const actual=Object.fromEntries(['db','auth','rest'].map(k=>[k,JSON.parse(cmd('docker',['image','inspect',images[k].image]))[0].RepoDigests]));results.stacks.push({project,images:actual});
+  const actual=Object.fromEntries(['db','auth','rest','storage','edge'].map(k=>[k,JSON.parse(cmd('docker',['image','inspect',images[k].image]))[0].RepoDigests]));results.stacks.push({project,images:actual});
   writeFileSync(join(root,'driver.json'),JSON.stringify({ports,password,anon,service,prefix:letter,dbHost:'db',authHost:'auth',restHost:'rest'}),{mode:0o600});
-  const args=['run','--rm','--network',network,'--user',process.getuid()+':'+process.getgid(),'--security-opt','no-new-privileges:true','--cap-drop','ALL','--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=32m','-v',resolve('.')+':/work:ro','-v',out+':/evidence:rw','-v',join(root,'driver.json')+':/native-config.json:ro','-w','/work','-e','NYRA_NATIVE_CONTAINER=1',images.driver.image,'node','ops/native-acceptance/execute.mjs'];
+  const args=['run','--rm','--name',project+'-driver','--network',network,'--user',process.getuid()+':'+process.getgid(),'--security-opt','no-new-privileges:true','--cap-drop','ALL','--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=32m','-v',resolve('.')+':/work:ro','-v',out+':/evidence:rw','-v',join(root,'driver.json')+':/native-config.json:ro','-w','/work','-e','NYRA_NATIVE_CONTAINER=1',images.driver.image,'node','ops/native-acceptance/execute.mjs'];
   let nativeOutput,nativeError;try{nativeOutput=cmd('docker',args,{timeout:300000});}catch(e){nativeOutput=e.stdout||'';nativeError=e;}
   for(const line of nativeOutput.split('\n'))if(line.startsWith('NATIVE:')){const r=JSON.parse(line.slice(7));event(r.id,r.status,r.detail);}
   if(nativeError)throw Error('NATIVE_SUITE_FAILED');
@@ -58,6 +64,7 @@ for(const letter of ['a','b']){
   try{if(e.message==='NATIVE_SUITE_FAILED')throw Error('case-records-only');const log=dc('logs','--no-color','--tail','35','auth','db').replaceAll(password,'[redacted]').replaceAll(secret,'[redacted]').replaceAll(service,'[redacted]').replaceAll(anon,'[redacted]').replace(/eyJ[A-Za-z0-9_.-]+/g,'[jwt-redacted]');writeFileSync(join(out,letter+'-bootstrap.log'),log);console.log(log.slice(-9000));}catch{}
   event(letter+':execution','FAIL',{name:e.name,code:e.code||null,message:String(e.message).replaceAll(password,'[redacted]').replaceAll(secret,'[redacted]').slice(0,650),location:e.stack?.split('\n').slice(1,4).join('\n')});}
  finally{
+  try{cmd('docker',['rm','-f',project+'-driver']);}catch{}
   try{dc('down','--volumes','--remove-orphans');}catch{event(letter+':cleanup','FAIL','container cleanup failed');failed=true;}
   try{const n=JSON.parse(cmd('docker',['network','inspect',network]))[0],b='br-'+n.Id.slice(0,12);cmd('sudo',['iptables','-D','INPUT','-i',b,'-m','conntrack','--ctstate','NEW','-j','DROP']);cmd('sudo',['iptables','-D','DOCKER-USER','-i',b,'!','-o',b,'-j','DROP']);cmd('docker',['network','rm',network]);}catch{event(letter+':cleanup-network','FAIL','network cleanup failed');failed=true;}
   rmSync(root,{recursive:true,force:true});
@@ -67,4 +74,4 @@ for(const letter of ['a','b']){
 }
 if(catalogs.length===2){assert.deepEqual(catalogs[0],catalogs[1]);event('two-clean-stacks','PASS','Normalized catalogs identical');}
 for(const id of ['C01','C02','C03','C04','C05','C06','C07','C08','C09','C10','C11','C12','C13','C14','Auth:expired','Auth:revocation','Auth:anonymous-user','Edge','Storage'])if(!results.results.some(x=>x.id.endsWith(':'+id)))event(id,'NOT VERIFIED','Not reached or not implemented; no synthetic result substituted');
-writeFileSync(join(out,'results.json'),JSON.stringify(results,null,2));if(failed)process.exitCode=1;
+writeFileSync(join(out,'results.json'),JSON.stringify(results,null,2));if(failed||results.results.some(x=>x.status==='FAIL'))process.exitCode=1;
