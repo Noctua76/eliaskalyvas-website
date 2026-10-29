@@ -74,5 +74,6 @@ for(const letter of ['a','b']){
  if(failed)break;
 }
 if(catalogs.length===2){assert.deepEqual(catalogs[0],catalogs[1]);event('two-clean-stacks','PASS','Normalized catalogs identical');}
-for(const id of ['C01','C02','C03','C04','C05','C06','C07','C08','C09','C10','C11','C12','C13','C14','Auth:expired','Auth:revocation','Auth:anonymous-user','Edge','Storage'])if(!results.results.some(x=>x.id.endsWith(':'+id)))event(id,'NOT VERIFIED','Not reached or not implemented; no synthetic result substituted');
+for(const prefix of ['a','b'])for(const id of ['C01','C02','C03','C04','C05','C06','C07','C08','C09','C10','C11','C12','C13','C14','Auth:expired','Auth:revocation','Auth:anonymous-user','Edge','Storage'])if(!results.results.some(x=>x.id===prefix+':'+id))event(prefix+':'+id,'NOT VERIFIED','Not reached; no other stack result substituted');
+for(const prefix of ['a','b'])for(const id of ['Edge-raw-stage','Edge-native-image-inspector','Edge-resource-acceptance'])event(prefix+':'+id,'NOT VERIFIED','Not established by disabled bundled worker or Node/Sharp inspection');
 writeFileSync(join(out,'results.json'),JSON.stringify(results,null,2));if(failed||results.results.some(x=>x.status==='FAIL'))process.exitCode=1;
