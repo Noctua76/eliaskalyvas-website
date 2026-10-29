@@ -23,6 +23,7 @@ Deno.serve(async req=>{
   const request=new Request(req.url,{method:'GET'}); // no caller header or body relay
   EdgeRuntime.applySupabaseTag(req,request); // supported native request correlation; no user authorization is granted
   const response=mode==='deadline'?await Promise.race([worker.fetch(request),new Promise(resolve=>setTimeout(()=>resolve(reply('EXECUTION_DEADLINE',504)),400))]):await worker.fetch(request);
+  if(mode==='deadline'&&response.status===504)return response; // preserve only our fixed deadline response
   if(response.status>=500&&mode!=='guarded')return reply('WORKER_UNAVAILABLE',503);
   return response;
  }catch{return reply('WORKER_UNAVAILABLE',503);}

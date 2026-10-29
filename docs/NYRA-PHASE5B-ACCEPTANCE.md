@@ -69,6 +69,15 @@ shutdown events are collected with the pinned runtime's supported EventManager,
 correlated by exact service path. HTTP 503 alone is never treated as proof that a
 specific resource limit fired. Whole-container OOM/exit is infrastructure failure.
 
+The pinned per-worker supervisor arms its timer with the soft threshold and the
+hard interval (`strategy_per_worker.rs`, timer.reset(soft, hard)); a continuously
+busy loop can therefore receive its terminating second alarm around 250+500 ms.
+Do not describe the configured hard=500 value as a demonstrated strict 500 ms
+aggregate cap. The report includes actual cpu_time_used and elapsed time. Memory
+sampling/callbacks can similarly overshoot 64 MiB by an allocation chunk; retain
+the measured total/external/heap values and do not claim an exact byte ceiling.
+Reference: https://github.com/supabase/edge-runtime/blob/v1.77.4/crates/base/src/worker/supervisor/strategy_per_worker.rs
+
 These budgets demonstrate pinned **local native runtime mechanics**, not actual
 hosted production plan/hardware limits or a production upload admission boundary.
 The 64 KiB gateway is test-only; no production endpoint gained a body limiter.
