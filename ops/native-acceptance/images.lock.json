@@ -1,0 +1,30 @@
+{
+  "db": {
+    "tag": "supabase/postgres:17.6.1.136",
+    "image": "supabase/postgres@sha256:f371b5f3f2ac0a05703f33d6e6134515fb2498cab708fb948a0aeb7481467c00"
+  },
+  "auth": {
+    "tag": "supabase/gotrue:v2.197.0",
+    "image": "supabase/gotrue@sha256:1736a63078f5922b198c4cbe50f80ab9a2d3b54fe8b7b6cfb2e9dc5dbbc12c6b"
+  },
+  "rest": {
+    "tag": "postgrest/postgrest:v14.18",
+    "image": "postgrest/postgrest@sha256:c7cd7e265a85b05248abf53f4473fcec7e327c282d0bd0cf60f1551996d09fcf"
+  },
+  "storage": {
+    "tag": "supabase/storage-api:v1.81.0",
+    "image": "supabase/storage-api@sha256:98ffec5d0678803783c30e404c27f4ec65e97efbe014088f2a86b4b8b54b9f54"
+  },
+  "edge": {
+    "tag": "supabase/edge-runtime:v1.77.4",
+    "image": "supabase/edge-runtime@sha256:ad45164b7548bf5820ed7be714789c17ac2865edce79a09cfb4c3756c3d365a8"
+  },
+  "probe": {
+    "tag": "curlimages/curl:8.16.0",
+    "image": "curlimages/curl@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6"
+  },
+  "driver": {
+    "tag": "node:22.22.0-bookworm-slim",
+    "image": "library/node@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94"
+  }
+}
