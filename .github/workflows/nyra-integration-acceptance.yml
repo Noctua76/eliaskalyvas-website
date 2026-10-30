@@ -1,0 +1,30 @@
+name: Nyra protected integration acceptance
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+concurrency:
+  group: nyra-b2-trust-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  native-trust:
+    name: nyra-b2-native-trust
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm ci --ignore-scripts --prefix ops/native-acceptance
+      - name: Native isolated trust-store and protected integration acceptance
+        env:
+          NYRA_TRUST_CI: '1'
+          NYRA_TEST_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node ops/protected-delivery/trust-only.mjs

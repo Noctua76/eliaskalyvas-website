@@ -1,0 +1,20 @@
+# INERT TEMPLATE: not an installed workflow, dispatch or activation permission.
+# Review these immutable pins and provision protected Environments FIRST.
+name: Nyra protected delivery caller
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  build:
+    name: build
+    uses: Noctua76/eliaskalyvas-website/.github/workflows/nyra-build.yml@64d848bed447a5d873eb961185a9c7a27610161d
+  inspection:
+    name: inspection
+    needs: build
+    uses: Noctua76/eliaskalyvas-website/.github/workflows/nyra-inspection.yml@64d848bed447a5d873eb961185a9c7a27610161d
+  publication:
+    name: publication
+    needs: inspection
+    uses: Noctua76/eliaskalyvas-website/.github/workflows/nyra-publication.yml@64d848bed447a5d873eb961185a9c7a27610161d
