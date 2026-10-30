@@ -1,0 +1,71 @@
+name: Nyra required CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nyra-required-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  regression:
+    name: nyra-required-regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Record tested PR merge identity
+        run: node -e 'console.log(JSON.stringify({event:process.env.GITHUB_EVENT_NAME,ref:process.env.GITHUB_REF,testedSHA:process.env.GITHUB_SHA}))'
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Essential regression suite
+        run: npm test
+
+  production-build:
+    name: nyra-required-production-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Record tested PR merge identity
+        run: node -e 'console.log(JSON.stringify({event:process.env.GITHUB_EVENT_NAME,ref:process.env.GITHUB_REF,testedSHA:process.env.GITHUB_SHA}))'
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Normal production build
+        run: npm run build
+        env:
+          GITHUB_PAGES_BASE: /
+      - name: Verify normal public build isolation
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readdirSync,readFileSync,existsSync} from 'node:fs';
+          const files=readdirSync('dist',{recursive:true,withFileTypes:true})
+            .filter(e=>e.isFile()).map(e=>e.parentPath+'/'+e.name);
+          for(const p of ['gr/index.html','en/index.html','gr/signals/index.html','en/signals/index.html'])
+            assert(existsSync('dist/'+p),'Missing normal public entry: '+p);
+          assert(!existsSync('dist/.well-known/nyra-release.json'),'Publication witness forbidden');
+          for(const file of files){
+            const path=file.slice('dist/'.length);
+            assert(!/^(lib|runtime|ops|test|supabase|contracts|native-results)\/|(?:^|\/)\.env|\.map$/.test(path),path);
+            assert(!/PRIVATE_NATIVE_|SYNTHETIC_PHASE3_PUBLIC_TEST|P5B_PRIVATE_CANARY|PRIVATE_PROBE_STACK_SENTINEL|synthetic-token-001|nyra_trust|nyra_inspection_|nyra\.normal\.provenance\.v1|nyra\.inspection\.v1|quarantined_private|sb_secret_[A-Za-z0-9_-]+|sk-proj-[A-Za-z0-9_-]+|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(readFileSync(file).toString()),path);
+          }
+          console.log(JSON.stringify({files:files.length,publicEntries:true,publicationWitness:false,privateLeak:false}));
+          NODE
