@@ -11,7 +11,7 @@ No administration, production policy, service, caller or publication is activate
 | Control | SINGLE_OWNER — intended current model | OWNER_WITH_REVIEWERS — future only |
 | --- | --- | --- |
 | Configuration | Explicit trusted governance manifest; never inferred | Same architecture, explicit reviewed owner-authorized transition |
-| Repository administration | Exact numeric repository owner, no other admin/maintain grants | Same exclusive owner administration; deliberately scoped reviewers |
+| Repository administration | Exact numeric repository owner, no non-owner push/maintain/admin grants | Same exclusive owner administration; deliberately scoped reviewers |
 | Main PR gate | Non-null required_pull_request_reviews object, explicit approval count 0 | At least 1 required approval, stale approvals dismissed, latest-push approval |
 | Code-owner / last-push / stale-review flags | Explicit false; no hidden second-person requirement | Reviewed independent-review settings |
 | CI | Strict, both exact required contexts, App15368, latest actual run/attempt successful | Same |
@@ -20,6 +20,14 @@ No administration, production policy, service, caller or publication is activate
 | Deployment scope | Exactly main branch, zero tags/wildcards, no admin bypass | Same |
 | Environment secrets | Exact empty metadata list, no secret values read | Same |
 | Editorial publication | Existing exact owner/MFA authority and single owner action | Same; technical review grants no editorial authority |
+
+SINGLE_OWNER requires explicit false push, maintain and admin permission bits for
+every non-owner collaborator; missing/unknown write-permission evidence fails
+closed. Read-only access cannot switch modes. The collaborator API does not
+enumerate every write-capable GitHub App/integration: their installations,
+effective write permissions, Actions tokens, deploy keys and bypass grants must
+be independently reviewed at the actual administrative activation gate. A clean
+collaborator list alone is not proof of exclusive write authority.
 
 No implicit default mode exists. Missing/wrong mode or configuration fails closed.
 Collaborator count cannot switch modes. The GitHub numeric owner ID identifies
@@ -70,13 +78,13 @@ through workflow input or gain final editorial authority from these factories.
 
 - Existing 537 tests retained; their assertions remain, with explicit governance
   fixtures/state and the two required contexts replacing legacy generic fixtures.
-- 58 additional governance tests cover both modes; missing/ambiguous PR evidence;
+- 59 additional governance tests cover both modes; missing/ambiguous PR evidence;
   missing/pending/skipped/neutral/failed/wrong-source CI; latest attempt/suite;
   main/admin/force/delete/conversation gates; exact Environment ID/branches/secrets;
   reviewer eligibility/separation; collaborator-count non-transition; version/
   owner-evidence/predecessor validation; input/claim substitution; old registrations,
   grants, Pages capabilities and inventory rejection across policy retirement.
-- Targeted suite: 145 passed locally, including existing identity/composition/SQL
+- Targeted suite: 146 passed locally, including existing identity/composition/SQL
   tests. Final full exact-head CI and targeted native trust results are reported
   with the Draft PR, without a self-referential evidence commit. The first full
   run found one missing raw-stage dependency (594/595); the package allowlist

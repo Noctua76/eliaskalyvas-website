@@ -75,7 +75,8 @@ for(const [name,mutate]of Object.entries({
  'unaccepted reviewer access':f=>f.data['/collaborators?affiliation=all&per_page=100']=[]
 }))test('Governance future reviewer mode denies '+name,async()=>{const f=fFor('OWNER_WITH_REVIEWERS');mutate(f);await assert.rejects(verify(f));});
 test('Governance does not change with collaborator count; both modes require explicit policy',async()=>{
- const f=fFor();f.data['/collaborators?affiliation=all&per_page=100'].push({id:77,type:'User',permissions:{admin:false,maintain:false,push:true,pull:true}});assert.equal((await verify(f)).governanceMode,'SINGLE_OWNER');
+ const f=fFor();f.data['/collaborators?affiliation=all&per_page=100'].push({id:77,type:'User',permissions:{admin:false,maintain:false,push:true,pull:true}});await assert.rejects(verify(f),/SINGLE_OWNER_WRITE_ACCESS/);
+ assert.equal(f.policy.governance.mode,'SINGLE_OWNER');assert.equal(f.configuration.governance.mode,'SINGLE_OWNER');
  const c=structuredClone(f.configuration);delete c.governance;assert.throws(()=>reviewedDeliveryPolicy(c,'build'));
  c.governance={...f.configuration.governance,mode:'AUTO'};assert.throws(()=>reviewedDeliveryPolicy(c,'build'));
 });
@@ -127,4 +128,15 @@ test('Governance inventory authority rejects cross-mode records and in-flight re
  const broker=composeIdentityBroker({configuration:f.configuration,privilege:'publication',getJSON:f.getJSON,readPolicyState:()=>state,brokerQuery:async()=>{if(retire)state={...state,policyVersion:2};return {rows:[{record,digest:hashJSON(record)}]};}}),authority=broker.inventoryAuthority('b'.repeat(64));
  assert.equal((await authority.forAttempt({codeSHA:'a'.repeat(40)})).codeSHA,'a'.repeat(40));record={...record,builder:{...record.builder,governance:governance('217035723')}};
  await assert.rejects(authority.forAttempt({codeSHA:'a'.repeat(40)}),/INVENTORY_GOVERNANCE/);record.builder.governance=f.policy.governance;retire=true;await assert.rejects(authority.forAttempt({codeSHA:'a'.repeat(40)}),/POLICY_RETIRED/);
+});
+
+test('Governance SINGLE_OWNER accepts read-only evidence and rejects every unknown or write-capable permission set',async()=>{
+ const list='/collaborators?affiliation=all&per_page=100',f=fFor();
+ assert.equal((await verify(f)).governanceMode,'SINGLE_OWNER'); // zero non-owner writers
+ f.data[list]=[{id:77,type:'User',permissions:{admin:false,maintain:false,push:false,pull:true,triage:false}}];
+ assert.equal((await verify(f)).governanceMode,'SINGLE_OWNER');
+ for(const permissions of [undefined,null,{}, {admin:false,maintain:false}, {admin:false,push:false}, {maintain:false,push:false}, {admin:false,maintain:false,push:null}, {admin:false,maintain:false,push:'false'}, {admin:false,maintain:false,push:true}, {admin:false,maintain:true,push:false}, {admin:true,maintain:false,push:false}]){
+  f.data[list]=[{id:77,type:'User',permissions}];await assert.rejects(verify(f));assert.equal(f.policy.governance.mode,'SINGLE_OWNER');
+ }
+ assert.equal((await verify(fFor('OWNER_WITH_REVIEWERS'))).governanceMode,'OWNER_WITH_REVIEWERS');
 });
