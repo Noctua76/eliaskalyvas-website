@@ -90,3 +90,9 @@ test('Bootstrap cleanup dry-run/apply are exact-label scoped and reject substitu
  assert.equal(cleanupPlan(c,{execute}).resources[0].removed,false);assert(!calls.some(x=>x[0]==='rm'));assert.equal(cleanupPlan(c,{execute,apply:true}).resources[0].removed,true);assert(calls.some(x=>x[0]==='rm'));
  assert.throws(()=>cleanupPlan(c,{apply:true,execute:args=>args.includes('inspect')?'[{"Config":{"Labels":{}}}]':args[0]==='ps'?'other-container':''}),/SCOPE/);
 });
+
+test('Bootstrap retirement during async signing wins before any receipt is returned',async()=>{
+ const f=await fixture(),d=await f.approve();let active=await f.journal.current();
+ const source=createOwnerRiskSource({...f.args,authenticateOwner:async()=>({contract:'existing-owner-mfa',ownerId:'217035723',authUserId:user,sessionDigest:hashJSON(session),expiresAt:clock()+300000}),journal:{append:async()=>{},current:async()=>structuredClone(active)},signReceipt:async record=>{const receipt=await f.sign(record);active={...active,state:'retired'};return receipt;}});
+ await assert.rejects(source.receipt({decisionId:d.decisionId,challenge:crypto.randomUUID()}),/CHANGED/);
+});
