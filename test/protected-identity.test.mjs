@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {signedOIDC} from './fixtures/phase4b.mjs';
-import {policy,registration,apiFixture,now} from './fixtures/protected-delivery.mjs';
+import {policy,registration,apiFixture,now,readState} from './fixtures/protected-delivery.mjs';
 import {createProtectedOIDCVerifier} from '../lib/publication/runtime/protected-identity.mjs';
 const signed=await signedOIDC();
 function fixture(){const api=apiFixture(),r=registration(),seen=new Set();let revoked=false;
  const store={load:async()=>({...r,revokedAt:revoked?'revoked':null}),consume:async c=>{if(revoked||seen.has(c.jti))return false;seen.add(c.jti);return true;}};
- const v=createProtectedOIDCVerifier({policy,privilege:'inspection',store,getJSON:api.getJSON,requiredChecks:['regression'],keySource:async()=>({keys:[signed.jwk]}),now});
+ const v=createProtectedOIDCVerifier({policy,privilege:'inspection',store,getJSON:api.getJSON,readPolicyState:readState(policy),requiredChecks:['nyra-required-regression','nyra-required-production-build'],keySource:async()=>({keys:[signed.jwk]}),now});
  const token=(patch={})=>signed.sign({aud:policy.audience,sub:policy.subject,environment:policy.environment,workflow_ref:policy.workflowRef,workflow_sha:r.workflowSHA,job_workflow_ref:policy.jobWorkflowRef,job_workflow_sha:policy.jobWorkflowSHA,...patch});
  return {v,r,...api,store,token,revoke:()=>{revoked=true;}};
 }

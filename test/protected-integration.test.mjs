@@ -1,3 +1,4 @@
+import {readState} from './fixtures/protected-delivery.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
@@ -11,10 +12,10 @@ import {hashJSON} from '../lib/publication/contract.mjs';
 const signed=await signedOIDC();
 for(const privilege of ['build','inspection','publication'])test('B2 synthetic immutable exact subject, independent registrar and broker: '+privilege,async()=>{
  const f=integrationAPI(privilege),records=new Map(),used=new Set();let insert=0;
- const registrar=createJobRegistrar({policy:f.policy,privilege,getJSON:f.getJSON,requiredChecks:REQUIRED_CHECKS,now,query:async(sql,args)=>{insert++;records.set(args[2],JSON.parse(args[3]));}});
+ const registrar=createJobRegistrar({policy:f.policy,readPolicyState:f.readPolicyState,privilege,getJSON:f.getJSON,requiredChecks:REQUIRED_CHECKS,now,query:async(sql,args)=>{insert++;records.set(args[2],JSON.parse(args[3]));}});
  assert.deepEqual(await registrar.register({runId:'100',runAttempt:'1'}),{runId:'100',runAttempt:'1',checkRunId:'300'});assert.equal(insert,1);
  const query=async(sql,args)=>sql.startsWith('select registration')?{rows:[{registration:records.get(args[2]),revoked_at:null,expires_at:new Date(now()+300000)}]}:{rows:used.has(args[0])?[]:(used.add(args[0]),[{jti:args[0]}])};
- const broker=composeIdentityBroker({configuration:f.configuration,privilege,getJSON:f.getJSON,brokerQuery:query,keySource:async()=>({keys:[signed.jwk]}),now});
+ const broker=composeIdentityBroker({configuration:f.configuration,readPolicyState:f.readPolicyState,privilege,getJSON:f.getJSON,brokerQuery:query,keySource:async()=>({keys:[signed.jwk]}),now});
  const token=await signed.sign(claims(f.policy)),grant=await broker.authorize(token);assert.equal(grant.privilege,privilege);await broker.revalidate(grant);await assert.rejects(broker.revalidate({...grant}));await assert.rejects(broker.authorize(token),/REPLAYED/);
  for(const patch of [{sub:'repo:Noctua76/eliaskalyvas-website:environment:nyra-'+privilege},{environment:'github-pages'},{aud:'urn:nyra:other'},{workflow_sha:'d'.repeat(40)},{run_attempt:'2'},{check_run_id:'301'},{job_workflow_sha:'d'.repeat(40)}])await assert.rejects(broker.authorize(await signed.sign({...claims(f.policy),jti:crypto.randomUUID(),...patch})));
  for(const other of ['build','inspection','publication'].filter(x=>x!==privilege))await assert.rejects(broker.authorize(await signed.sign({...claims(f.configuration.identities[other]),jti:crypto.randomUUID()})));
@@ -34,7 +35,7 @@ const badRegistration={
  'wrong Environment':f=>f.data['/environments/nyra-build'].name='github-pages',
  'outage':f=>delete f.data['/branches/main/protection']
 };
-for(const [name,mutate] of Object.entries(badRegistration))test('B2 registrar makes zero writes on '+name,async()=>{const f=integrationAPI();mutate(f);let writes=0;const r=createJobRegistrar({policy:f.policy,privilege:'build',getJSON:f.getJSON,requiredChecks:REQUIRED_CHECKS,now,query:async()=>writes++});await assert.rejects(r.register({runId:'100',runAttempt:'1'}));assert.equal(writes,0);});
+for(const [name,mutate] of Object.entries(badRegistration))test('B2 registrar makes zero writes on '+name,async()=>{const f=integrationAPI();mutate(f);let writes=0;const r=createJobRegistrar({policy:f.policy,readPolicyState:f.readPolicyState,privilege:'build',getJSON:f.getJSON,requiredChecks:REQUIRED_CHECKS,now,query:async()=>writes++});await assert.rejects(r.register({runId:'100',runAttempt:'1'}));assert.equal(writes,0);});
 for(const [name,mutate] of Object.entries({
  'unverified real OIDC':c=>c.acceptance.genuineProtectedOIDC=false,
  'old subject':c=>c.identities.build.subject='repo:Noctua76/eliaskalyvas-website:environment:nyra-build',
@@ -44,9 +45,9 @@ for(const [name,mutate] of Object.entries({
  'wrong privilege audience':c=>c.identities.build.audience='urn:nyra:publication',
  'unpinned caller':c=>c.identities.build.callerSHA='main'
 }))test('B2 reviewed configuration denies '+name,()=>{const c=configuration();mutate(c);assert.throws(()=>reviewedDeliveryPolicy(c,'build'));});
-const recordFor=r=>({schema_version:'nyra.normal.provenance.v1',inventory:{schema_version:'nyra.public.paths.v1',codeSHA:r.codeSHA,configurationSHA256:'f'.repeat(64),paths:['index.html']},builder:{...Object.fromEntries(['privilege','codeSHA','workflowSHA','jobWorkflowSHA','runId','runAttempt','checkRunId'].map(k=>[k,r[k]])),assurance:'unprotected_ci'},files:[{path:'index.html',sha256:'e'.repeat(64),bytes:12}]});
+const recordFor=r=>({schema_version:'nyra.normal.provenance.v1',inventory:{schema_version:'nyra.public.paths.v1',codeSHA:r.codeSHA,configurationSHA256:'f'.repeat(64),paths:['index.html']},builder:{...Object.fromEntries(['privilege','codeSHA','workflowSHA','jobWorkflowSHA','runId','runAttempt','checkRunId','governance','policySHA256'].map(k=>[k,r[k]])),assurance:'unprotected_ci'},files:[{path:'index.html',sha256:'e'.repeat(64),bytes:12}]});
 test('B2 protected inventory rebuild uses registered pins and rejects interrupted, revoked or substituted work',async()=>{
- const r={privilege:'build',codeSHA:'a'.repeat(40),workflowSHA:'a'.repeat(40),jobWorkflowSHA:'b'.repeat(40),runId:'100',runAttempt:'1',checkRunId:'300'},cap={...r,registration:r,policySHA256:'d'.repeat(64),expiresAt:new Date(now()+10000).toISOString()};let rows=[],active=true;
+ const r={governance:configuration().governance,policySHA256:'d'.repeat(64),privilege:'build',codeSHA:'a'.repeat(40),workflowSHA:'a'.repeat(40),jobWorkflowSHA:'b'.repeat(40),runId:'100',runAttempt:'1',checkRunId:'300'},cap={...r,governanceMode:r.governance.mode,policyVersion:r.governance.policyVersion,registration:r,policySHA256:'d'.repeat(64),expiresAt:new Date(now()+10000).toISOString()};let rows=[],active=true;
  const capture=({mutate=()=>{},query=async(sql,args)=>{rows=args;return {rows:[{digest:args[6]}]};}}={})=>createProtectedInventoryRegistrar({authorizeBuild:async()=>cap,revalidateBuild:async()=>{assert(active,'revoked/stale');},rebuild:async options=>{assert.equal(options.codeSHA,r.codeSHA);const record=recordFor(r);mutate(record);return {record,digest:hashJSON(record)};},registrarQuery:query});
  const result=await capture().capture('opaque');assert.equal(JSON.parse(rows[7]).builder.assurance,'protected_oidc');assert.equal(result.digest,hashJSON(JSON.parse(rows[7])));assert.equal(rows[8],cap.expiresAt);
  for(const mutate of [record=>record.builder.assurance='protected_oidc',record=>record.builder.workflowSHA='c'.repeat(40),record=>record.inventory.paths=['.well-known/nyra-release.json'],record=>record.files[0].sha256='bad'])await assert.rejects(capture({mutate}).capture('opaque'));
@@ -78,8 +79,8 @@ test('B2 runner scopes the token audience and transmits no job facts, inventorie
 
 test('B2 broker key rollover, registration revocation and capability expiry remain fail closed',async()=>{
  const f=integrationAPI(),next=await signedOIDC();let key=signed.jwk,revoked=false,time=now(),row;
- await createJobRegistrar({policy:f.policy,privilege:'build',getJSON:f.getJSON,requiredChecks:REQUIRED_CHECKS,now,query:async(sql,args)=>{row=JSON.parse(args[3]);}}).register({runId:'100',runAttempt:'1'});
- const broker=composeIdentityBroker({configuration:f.configuration,privilege:'build',getJSON:f.getJSON,keySource:async()=>({keys:[key]}),now:()=>time,brokerQuery:async(sql,args)=>sql.startsWith('select registration')?{rows:[{registration:row,revoked_at:revoked?new Date():null,expires_at:new Date(now()+300000)}]}:{rows:[{jti:args[0]}]}});
+ await createJobRegistrar({policy:f.policy,readPolicyState:f.readPolicyState,privilege:'build',getJSON:f.getJSON,requiredChecks:REQUIRED_CHECKS,now,query:async(sql,args)=>{row=JSON.parse(args[3]);}}).register({runId:'100',runAttempt:'1'});
+ const broker=composeIdentityBroker({configuration:f.configuration,readPolicyState:f.readPolicyState,privilege:'build',getJSON:f.getJSON,keySource:async()=>({keys:[key]}),now:()=>time,brokerQuery:async(sql,args)=>sql.startsWith('select registration')?{rows:[{registration:row,revoked_at:revoked?new Date():null,expires_at:new Date(now()+300000)}]}:{rows:[{jti:args[0]}]}});
  const old=await signed.sign(claims(f.policy));key=next.jwk;await assert.rejects(broker.authorize(old),/SIGNATURE/);
  const token=await next.sign({...claims(f.policy),jti:'synthetic-rotated-001'}),grant=await broker.authorize(token);await broker.revalidate(grant);
  revoked=true;await assert.rejects(broker.revalidate(grant),/INACTIVE/);revoked=false;time+=301000;await assert.rejects(broker.revalidate(grant),/UNVERIFIED/);
