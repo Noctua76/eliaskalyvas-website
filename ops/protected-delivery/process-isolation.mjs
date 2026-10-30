@@ -10,13 +10,19 @@ import {authenticatedFrames} from '../../lib/publication/runtime/acceptance-ipc.
 import {isolatedFixture} from './isolated-fixture.mjs';
 import {signedOIDC} from '../../test/fixtures/phase4b.mjs';
 import {claims} from '../../test/fixtures/protected-integration.mjs';
+export function bootstrapAcceptanceLogins(command,container,secrets){
+ if(Object.keys(secrets).sort().join(',')!=='broker,registrar'||!['registrar','broker'].every(role=>/^[a-f0-9]{48}$/.test(secrets[role])))throw Error('LOGIN_SECRET_FORMAT');
+ const sql=Object.entries(secrets).map(([role,password])=>`create role nyra_accept_${role} login inherit password '${password}' in role nyra_trust_${role};`).join('\n')+'\ngrant connect on database postgres to nyra_accept_registrar,nyra_accept_broker;';
+ // execFileSync ignores input when stdio[0] is ignore. Explicitly pipe SQL;
+ // no password is passed in argv or printed. These are isolated test logins.
+ return command('docker',['exec','-i',container,'psql','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1'],{input:sql,stdio:['pipe','pipe','pipe']});
+}
 export async function acceptProcessIsolation({command,images,network,name,root,head}){
  const fixture=isolatedFixture(head,'build'),signed=await signedOIDC(),children=[];
  const receiptKeys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']),receiptPublic=await crypto.subtle.exportKey('jwk',receiptKeys.publicKey),receiptPrivate=await crypto.subtle.exportKey('jwk',receiptKeys.privateKey);
  const secrets={registrar:randomBytes(24).toString('hex'),broker:randomBytes(24).toString('hex')};
  for(const secret of Object.values(secrets))console.log('::add-mask::'+secret);
- const sql=Object.entries(secrets).map(([role,password])=>`create role nyra_accept_${role} login inherit password '${password}' in role nyra_trust_${role};`).join('\n');
- command('docker',['exec','-i',name+'-db','psql','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1'],{input:sql});
+ bootstrapAcceptanceLogins(command,name+'-db',secrets);
  const dir=join(root,'normal');mkdirSync(dir);const builderPath=join(root,'builder.json');
   assert.equal(command('git',['rev-parse','HEAD']).trim(),head);assert.equal(command('git',['status','--porcelain','--untracked-files=all']).trim(),'');
  const sourceManifest=Object.fromEntries(command('git',['ls-files','-z']).split('\0').filter(Boolean).map(path=>[path,createHash('sha256').update(readFileSync(path)).digest('hex')]));
@@ -30,7 +36,9 @@ export async function acceptProcessIsolation({command,images,network,name,root,h
   const child=spawn('docker',['run','--rm','-i','--name',name+'-'+role,'--network',network,...common,'-v',path+':/worker.json:ro',...(role==='registrar'?['-v',dir+':/rebuild:ro']:[]),images.driver.image,'node','ops/protected-delivery/isolated-worker.mjs'],{stdio:['pipe','pipe','pipe']});children.push({child,role});
   const requests=authenticatedFrames({key,role,direction:'request'}),responses=authenticatedFrames({key,role,direction:'response'});let waiting,pending=Promise.resolve();
   createInterface({input:child.stdout,crlfDelay:Infinity}).on('line',line=>{try{const value=responses.decode(JSON.parse(line));waiting?.resolve(value);}catch{waiting?.reject(Error('IPC_RESPONSE_DENIED'));}});
-  child.stderr.resume();child.on('exit',()=>waiting?.reject(Error('WORKER_EXIT')));
+  let diagnostic='',oversized=false;const privateValues=[...Object.values(secrets),key.toString('hex'),receiptPrivate.d];
+  child.stderr.on('data',b=>{if(oversized)return;if(diagnostic.length+b.length>16000){oversized=true;diagnostic='';}else diagnostic+=String(b);});
+  child.on('exit',()=>{let safe=oversized?'STARTUP_DIAGNOSTIC_TOO_LARGE':diagnostic;for(const value of privateValues)if(value)safe=safe.replaceAll(value,'[redacted]');waiting?.reject(Error('WORKER_EXIT '+role+' '+safe.replace(/eyJ[A-Za-z0-9_.-]+/g,'[jwt-redacted]').slice(-1600)));});
   return body=>{const task=pending.then(()=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('IPC_TIMEOUT')),30000);waiting={resolve:v=>{clearTimeout(timer);waiting=null;resolve(v);},reject:e=>{clearTimeout(timer);waiting=null;reject(e);}};child.stdin.write(JSON.stringify(requests.encode(body))+'\n');}));pending=task.catch(()=>{});return task;};
  };
  try{

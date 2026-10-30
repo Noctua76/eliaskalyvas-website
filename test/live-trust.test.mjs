@@ -103,3 +103,8 @@ test('Live administration gate binds fresh main/Environment/App evidence to an e
  const gate=administrationGate({readEvidence:async()=>({record,digest:hashJSON(record)}),acceptedApplicationsSHA256:hashJSON(record.applications.apps),ownerRiskDecisionSHA:'e'.repeat(40),now});await gate(p);
  record.applications.apps[0].permissions.contents='read';await assert.rejects(gate(p),/ADMIN_GATE_CHANGED/);assert.throws(()=>administrationGate({readEvidence:async()=>{},acceptedApplicationsSHA256:'a'.repeat(64)}));
 });
+test('Live isolated login bootstrap actually pipes SQL to stdin instead of silently ignoring it',async()=>{
+ const {bootstrapAcceptanceLogins}=await import('../ops/protected-delivery/process-isolation.mjs'),{execFileSync}=await import('node:child_process');
+ const output=bootstrapAcceptanceLogins((name,args,options)=>{assert.equal(name,'docker');assert(args.includes('ON_ERROR_STOP=1'));return execFileSync(process.execPath,['-e',"let text='';process.stdin.on('data',b=>text+=b);process.stdin.on('end',()=>process.stdout.write(JSON.stringify({commands:text.split('\\n').length,registrar:text.includes('create role nyra_accept_registrar'),broker:text.includes('create role nyra_accept_broker'),connect:text.includes('grant connect on database postgres')})))"],{encoding:'utf8',...options});},'isolated-db',{registrar:'a'.repeat(48),broker:'b'.repeat(48)});
+ assert.deepEqual(JSON.parse(output),{commands:3,registrar:true,broker:true,connect:true});
+});

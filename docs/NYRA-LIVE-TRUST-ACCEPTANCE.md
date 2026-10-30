@@ -207,6 +207,12 @@ pinned subjects/state; no synthetic key or fixture can authorize live publicatio
 | Expiry/replay/revocation/stale/interrupted/policy/version rollover | Existing baseline and targeted acceptance retained | NOT VERIFIED operational live rollover |
 | Normal public build isolation | Final general CI, no private paths/witness | No publication activation |
 
+The first extended native attempt reached worker startup but exposed that the
+existing command wrapper ignored SQL stdin. Role bootstrap now explicitly pipes
+its SQL and grants only database CONNECT to the two acceptance logins; a real
+subprocess stdin test prevents recurrence. Startup diagnostics are bounded and
+redacted before reporting. This does not alter production permissions or schema.
+
 Targeted local identity/governance/registrar tests pass; Docker is unavailable in
 this workspace, so native evidence must be taken from exact-head CI, not invented.
 Final run/head counts and complete file list are in the delivery report/PR checks.
