@@ -78,7 +78,10 @@ through workflow input or gain final editorial authority from these factories.
   grants, Pages capabilities and inventory rejection across policy retirement.
 - Targeted suite: 145 passed locally, including existing identity/composition/SQL
   tests. Final full exact-head CI and targeted native trust results are reported
-  with the Draft PR, without a self-referential evidence commit.
+  with the Draft PR, without a self-referential evidence commit. The first full
+  run found one missing raw-stage dependency (594/595); the package allowlist
+  now explicitly includes governance.mjs. All 15 existing Edge packaging tests
+  passed locally after this targeted correction; no deployment was performed.
 - Real authenticated metadata for main `90cff7...` / merged PR17 / latest general
   CI `41091055864`, check suite `111389111254`, checks `124184727237` and
   `124184726919` was correlated successfully by verifyMergedChecks using captured
