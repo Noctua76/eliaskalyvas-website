@@ -97,11 +97,42 @@ test('Live probe waits for independent registration before requesting a JWT and 
  const r=await probeIdentity({privilege:'build',plan,env,fetcher:async(url,options)=>{requests.push({url:String(url),options});if(requests.length===1)return Response.json({ready:true});if(requests.length===2)return Response.json({value:'private-jwt'});return Response.json({accepted:true,digest:'a'.repeat(64),keyId:plan.publicEvidenceKeyId});}});
  assert.match(requests[0].url,/ready\/build\/100\/1$/);assert(!requests[0].options.headers.Authorization);assert.equal(requests[2].options.headers.Authorization,'Bearer private-jwt');assert.equal(r.authorization,false);assert(!JSON.stringify(r).includes('private-jwt'));
 });
-test('Live administration gate binds fresh main/Environment/App evidence to an explicit owner risk decision',async()=>{
- const {administrationGate}=await import('../lib/publication/runtime/administration-evidence.mjs');const {hashJSON}=await import('../lib/publication/contract.mjs');
+// Trusted test control-plane signer only; no live owner authorization is claimed.
+const {administrationGate}=await import('../lib/publication/runtime/administration-evidence.mjs');
+const {hashJSON}=await import('../lib/publication/contract.mjs');
+const ownerKeys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+const signOwner=evidenceSigner({privateKey:ownerKeys.privateKey,publicKeyId:'pinned-owner-control-plane'});
+function ownerRiskFixture(){
  const p=integrationAPI().policy,record={schema:'nyra.administration.observation.v1',observedAt:new Date(now()).toISOString(),mainSHA:p.callerSHA,applications:{apps:[{appId:'1',permissions:{contents:'write'}}]},environments:Object.entries(ENVIRONMENT_IDS).map(([environment,environmentId])=>({environment,environmentId,mainSHA:p.callerSHA,governanceMode:'SINGLE_OWNER',policyVersion:1}))};
- const gate=administrationGate({readEvidence:async()=>({record,digest:hashJSON(record)}),acceptedApplicationsSHA256:hashJSON(record.applications.apps),ownerRiskDecisionSHA:'e'.repeat(40),now});await gate(p);
- record.applications.apps[0].permissions.contents='read';await assert.rejects(gate(p),/ADMIN_GATE_CHANGED/);assert.throws(()=>administrationGate({readEvidence:async()=>{},acceptedApplicationsSHA256:'a'.repeat(64)}));
+ const digest=hashJSON(record.applications.apps),decision={schema:'nyra.owner-risk-decision.receipt.v1',decisionId:'owner-risk-test-1',state:'active',supersededBy:null,repository:p.repository,repositoryId:p.repositoryId,ownerId:p.ownerId,governanceMode:'SINGLE_OWNER',policyVersion:p.governance.policyVersion,applicationsSHA256:digest,riskAcknowledgment:{write:true,merge:true,workflow:true},ownerAuthorization:{contract:'existing-owner-mfa',verified:true,ownerId:p.ownerId,evidenceId:'private-existing-owner-mfa-record'},issuedAt:new Date(now()).toISOString(),expiresAt:new Date(now()+30000).toISOString()};
+ const args={readEvidence:async()=>({record,digest:hashJSON(record)}),acceptedApplicationsSHA256:digest,ownerRiskDecisionId:decision.decisionId,readOwnerRiskDecision:async({challenge})=>signOwner({...decision,challenge}),ownerDecisionPublicKey:ownerKeys.publicKey,ownerDecisionKeyId:'pinned-owner-control-plane',now};
+ return {p,record,decision,args};
+}
+test('Live administration gate accepts independently signed active owner decision and denies changed App inventory',async()=>{
+ const f=ownerRiskFixture();assert.equal(await administrationGate(f.args)(f.p),f.record);
+ f.record.applications.apps[0].permissions.contents='read';await assert.rejects(administrationGate(f.args)(f.p),/ADMIN_GATE_CHANGED/);
+});
+test('Live owner risk gate denies arbitrary SHA, absent source and caller approval JSON',async()=>{
+ const f=ownerRiskFixture();assert.throws(()=>administrationGate({readEvidence:f.args.readEvidence,acceptedApplicationsSHA256:f.args.acceptedApplicationsSHA256,ownerRiskDecisionSHA:'e'.repeat(40)}),/OWNER_RISK_SOURCE_REQUIRED/);
+ await assert.rejects(administrationGate({...f.args,ownerRiskDecisionId:'e'.repeat(40)})(f.p),/OWNER_RISK_DECISION/);
+ await assert.rejects(administrationGate({...f.args,readOwnerRiskDecision:async()=>({...f.decision,approved:true})})(f.p),/OWNER_RISK_SOURCE_UNVERIFIED/);
+});
+for(const [name,patch]of Object.entries({missing:null,repository:{repository:'other/repository'},repositoryId:{repositoryId:'1'},owner:{ownerId:'1'},inventory:{applicationsSHA256:'f'.repeat(64)},mode:{governanceMode:'OWNER_WITH_REVIEWERS'},version:{policyVersion:2},retired:{state:'retired'},superseded:{supersededBy:'next-decision'},acknowledgment:{riskAcknowledgment:{write:true,merge:true}},authorization:{ownerAuthorization:{contract:'existing-owner-mfa',verified:false}},nonOwnerAuthorization:{ownerAuthorization:{contract:'existing-owner-mfa',verified:true,ownerId:'1',evidenceId:'other'}},expired:{expiresAt:new Date(now()).toISOString()},future:{issuedAt:new Date(now()+1000).toISOString()}}))test('Live owner risk decision rejects '+name,async()=>{
+ const f=ownerRiskFixture();f.args.readOwnerRiskDecision=async({challenge})=>signOwner(patch===null?null:{...f.decision,...patch,challenge});await assert.rejects(administrationGate(f.args)(f.p),/OWNER_RISK_/);
+});
+test('Live owner risk gate denies unavailable source, wrong signer, tampering and receipt replay',async()=>{
+ const f=ownerRiskFixture();let envelope;
+ f.args.readOwnerRiskDecision=async()=>{throw Error('private-control-plane-credential');};await assert.rejects(administrationGate(f.args)(f.p),e=>/OWNER_RISK_SOURCE_UNVERIFIED/.test(e)&&!String(e).includes('private-control-plane-credential'));
+ const other=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);await assert.rejects(administrationGate({...f.args,readOwnerRiskDecision:ownerRiskFixture().args.readOwnerRiskDecision,ownerDecisionPublicKey:other.publicKey})(f.p),/SOURCE_UNVERIFIED/);
+ f.args.readOwnerRiskDecision=async({challenge})=>{envelope=await signOwner({...f.decision,challenge});return envelope;};await administrationGate(f.args)(f.p);
+ await assert.rejects(administrationGate({...f.args,readOwnerRiskDecision:async()=>envelope})(f.p),/OWNER_RISK_DECISION/);
+ envelope.record.riskAcknowledgment.merge=false;await assert.rejects(administrationGate({...f.args,readOwnerRiskDecision:async()=>envelope})(f.p),/SOURCE_UNVERIFIED/);
+});
+test('Live owner risk authorization is re-read after retirement and rejects policy substitution',async()=>{
+ const f=ownerRiskFixture(),gate=administrationGate(f.args);await gate(f.p);
+ f.decision.state='retired';await assert.rejects(gate(f.p),/OWNER_RISK_DECISION/);
+ for(const governance of [{...f.p.governance,policyVersion:2},{...f.p.governance,mode:'OWNER_WITH_REVIEWERS',reviewerIds:['9']}])await assert.rejects(gate({...f.p,governance}));
+ assert.throws(()=>administrationGate({...f.args,ownerDecisionPublicKey:undefined}),/OWNER_RISK_SOURCE_REQUIRED/);
 });
 test('Live isolated login bootstrap actually pipes SQL to stdin instead of silently ignoring it',async()=>{
  const {bootstrapAcceptanceLogins}=await import('../ops/protected-delivery/process-isolation.mjs'),{execFileSync}=await import('node:child_process');

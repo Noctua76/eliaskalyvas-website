@@ -74,8 +74,9 @@ attempted. The existing App is neither removed nor narrowed here.
 The App assessor never turns a write-capable App into a reviewer or evidence of
 exclusive technical control. Any write permission is an explicit owner risk
 decision; even a read-only App list does not alone prove exclusive technical owner
-control. administrationGate pins the complete App permission digest and owner risk
-decision; fresh changed/missing evidence rejects further acceptance. Real-profile
+control. administrationGate pins the complete App permission digest and verifies a live
+owner-risk decision receipt from an independently authenticated control-plane
+source; fresh changed/missing evidence rejects further acceptance. Real-profile
 registrar/broker/observation bindings require that gate, independently registered
 facts and authenticated owner dispatch metadata. Editorial owner/MFA authority
 remains a separate unchanged requirement; development App status grants none.
@@ -226,3 +227,35 @@ Official sources:
 - https://docs.github.com/en/rest/actions/workflow-runs
 - https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request
 - https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app
+
+## NYRA-19-01 — independently authenticated owner risk decision
+
+The old syntactic ownerRiskDecisionSHA check is removed. A Git commit SHA,
+caller approval JSON or valid-looking identifier is never owner authorization.
+The trusted host must provision readOwnerRiskDecision plus a separately pinned
+Ed25519 control-plane public key/key ID and the reviewed decision identifier.
+No source, key or genuine decision is provisioned by this correction.
+
+Every gate invocation requires a fresh random challenge-bound, signed receipt.
+The source must authenticate the owner through the existing owner/MFA contract
+and read the current authoritative decision state before signing. This adapter
+does not install a new owner authorization endpoint, alter editorial authority,
+or implement that still-unprovisioned control-plane service. The receipt attests
+the existing authorization evidence ID; it never contains tokens or credentials.
+A signing key or source supplied by a workflow/API caller is forbidden.
+
+The verified receipt binds repository name/immutable ID, owner numeric ID,
+SINGLE_OWNER, policy version, decision ID, App inventory digest, explicit residual
+write/merge/workflow acknowledgments, verified existing-owner-MFA evidence, active
+state and explicit absence of a superseding decision. Receipt lifetime is at most
+60 seconds and its signature/challenge/time are checked on every invocation.
+Retirement, substitution, missing evidence, unavailable source, forged signature,
+tampering and replay deny authorization. Source errors are sanitized.
+
+Targeted tests use a separately pinned TEST control-plane signer and exercise
+positive verified receipts plus the required negative cases. This proves adapter
+verification only. Genuine live owner-risk authorization remains **NOT VERIFIED**
+until the owner separately authorizes/provisions the source and its key, the
+existing owner/MFA evidence binding is independently accepted, and the real
+current decision is read back. Genuine protected OIDC and trusted provenance
+also remain **NOT VERIFIED**. No collector, credential or service is activated.
