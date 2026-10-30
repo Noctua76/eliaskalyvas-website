@@ -1,0 +1,63 @@
+# Only a SHA-pinned, separately reviewed manual acceptance caller may invoke this.
+name: Nyra live identity probes
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  build:
+    name: identity-build
+    if: github.actor_id == '217035723' && github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/main' && github.ref_protected && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    environment: nyra-build
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: node ops/protected-delivery/live-probe.mjs build
+  inspection:
+    name: identity-inspection
+    needs: build
+    if: github.actor_id == '217035723' && github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/main' && github.ref_protected && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    environment: nyra-inspection
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: node ops/protected-delivery/live-probe.mjs inspection
+  publication:
+    name: identity-publication
+    needs: inspection
+    if: github.actor_id == '217035723' && github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/main' && github.ref_protected && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    environment: nyra-publication
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: node ops/protected-delivery/live-probe.mjs publication
