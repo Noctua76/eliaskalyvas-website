@@ -1,0 +1,65 @@
+name: Nyra Phase 5C isolated acceptance
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+concurrency:
+  group: nyra-5c-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  regression:
+    name: nyra-5c-regression
+    if: github.event.pull_request.head.ref == 'test/nyra-phase5c-protected-delivery' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Capture independent normal-build provenance at exact checkout
+        env:
+          NYRA_TEST_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node ops/protected-delivery/capture-normal.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nyra-5c-normal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: native-results/normal-provenance.json
+          if-no-files-found: error
+          retention-days: 7
+  native-trust:
+    name: nyra-5c-native-trust
+    if: github.event.pull_request.head.ref == 'test/nyra-phase5c-protected-delivery' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm ci --ignore-scripts --prefix ops/native-acceptance
+      - name: Reuse two isolated Phase 5B stacks with native trust-store acceptance
+        env:
+          NYRA_NATIVE_CI: '1'
+          NYRA_INSPECTION_CI: '1'
+          NYRA_PROTECTED_CI: '1'
+          NYRA_TEST_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node ops/native-acceptance/run.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: nyra-5c-native-${{ github.run_id }}-${{ github.run_attempt }}
+          path: native-results/
+          if-no-files-found: error
+          retention-days: 7
