@@ -1,0 +1,18 @@
+# EXECUTION REQUIRES SEPARATE OWNER AUTHORIZATION after exact-head review.
+# No accepted public plan/collector is installed; no automatic trigger exists.
+name: Nyra live trust acceptance
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nyra-live-trust-acceptance
+  cancel-in-progress: false
+jobs:
+  acceptance:
+    name: acceptance
+    if: github.actor_id == '217035723' && github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/main' && github.ref_protected
+    permissions:
+      contents: read
+      id-token: write
+    uses: Noctua76/eliaskalyvas-website/.github/workflows/nyra-live-trust-probe.yml@cefd1a402dcffd0b00f05f7d7539ba381120641e

@@ -6,7 +6,7 @@ import {readFileSync,writeFileSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {randomBytes} from 'node:crypto';
-const command=(name,args)=>execFileSync(name,args,{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:120000});
+const command=(name,args,options={})=>execFileSync(name,args,{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:120000,...options});
 if(process.env.NYRA_TRUST_CONTAINER==='1'){
  const {nativeProtectedAcceptance}=await import('./native.mjs');
  const {acceptProtectedIntegration}=await import('./integration-acceptance.mjs');
@@ -36,6 +36,8 @@ if(process.env.NYRA_TRUST_CONTAINER==='1'){
   for(let i=0;;i++){try{command('docker',['exec',name+'-db','pg_isready','-h','127.0.0.1','-U','postgres']);break;}catch{if(i===45)throw Error('DB_TIMEOUT');await new Promise(r=>setTimeout(r,1000));}}
   const args=['run','--rm','--name',name+'-driver','--network',network,'--user',String(process.getuid())+':'+String(process.getgid()),'--cap-drop','ALL','--security-opt','no-new-privileges:true','--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=32m','-v',resolve('.')+':/work:ro','-v',join(root,'config.json')+':/trust-config.json:ro','-w','/work','-e','NYRA_TRUST_CONTAINER=1',images.driver.image,'node','ops/protected-delivery/trust-only.mjs'];
   const output=command('docker',args);console.log(output);
+  const {acceptProcessIsolation}=await import('./process-isolation.mjs');
+  console.log(JSON.stringify({id:'live-trust-process-isolation',status:'PASS',detail:await acceptProcessIsolation({command,images,network,name,root,head})}));
   console.log(JSON.stringify({id:'B2-exact-head-native-trust',status:'PASS',head,internalNetwork:true,hostAndExternalDenied:true,images:{db:images.db.image,driver:images.driver.image},realProtectedOIDC:'NOT VERIFIED'}));
  }catch(error){
   const safe=String(error.stderr||error.message).replaceAll(password,'[redacted]').replace(/eyJ[A-Za-z0-9_.-]+/g,'[jwt-redacted]');
