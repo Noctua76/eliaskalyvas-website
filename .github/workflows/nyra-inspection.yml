@@ -1,0 +1,25 @@
+# Inert without a caller. Must be invoked by a separately reviewed SHA pin.
+name: Nyra protected inspection
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  trusted:
+    name: trusted-inspection
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: nyra-inspection
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Require reviewed protected configuration and broker authorization
+        run: node ops/protected-delivery/workflow-request.mjs inspection
