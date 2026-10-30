@@ -2,10 +2,12 @@
 // subject allowlist, production policy or private evidence is stored in the job.
 import {readFile} from 'node:fs/promises';
 const need=v=>{if(!v)throw Error('ACCEPTANCE_DENIED');};
-export async function probeIdentity({privilege,plan,env=process.env,fetcher=fetch}){
+export async function probeIdentity({privilege,plan,env=process.env,fetcher=fetch,wait=ms=>new Promise(r=>setTimeout(r,ms))}){
  need(['build','inspection','publication'].includes(privilege)&&plan?.purpose==='isolated-live-trust-acceptance'&&plan.publicEvidenceKeyId&&plan.approved===true);
  const origin=new URL(plan.origin);need(origin.protocol==='https:'&&origin.pathname==='/'&&!origin.username&&!origin.password&&!origin.search&&!origin.hash);
  need(env.GITHUB_REPOSITORY==='Noctua76/eliaskalyvas-website'&&env.GITHUB_REPOSITORY_ID==='1389733212'&&env.GITHUB_REPOSITORY_OWNER_ID==='217035723'&&env.GITHUB_REF==='refs/heads/main'&&env.GITHUB_REF_PROTECTED==='true'&&env.GITHUB_EVENT_NAME==='workflow_dispatch'&&env.RUNNER_ENVIRONMENT==='github-hosted');
+ need(/^[1-9][0-9]*$/.test(env.GITHUB_RUN_ID)&&/^[1-9][0-9]*$/.test(env.GITHUB_RUN_ATTEMPT));
+ let ready=false;for(let n=0;n<30;n++){const r=await fetcher(new URL('ready/'+privilege+'/'+env.GITHUB_RUN_ID+'/'+env.GITHUB_RUN_ATTEMPT,origin),{redirect:'error',headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(10000)});if(r.ok&&(await r.json()).ready===true){ready=true;break;}await wait(1000);}need(ready);
  const tokenURL=new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL);need(tokenURL.protocol==='https:'&&tokenURL.hostname.endsWith('.actions.githubusercontent.com')&&env.ACTIONS_ID_TOKEN_REQUEST_TOKEN);
  tokenURL.searchParams.set('audience','urn:nyra:acceptance:'+privilege);
  const response=await fetcher(tokenURL,{redirect:'error',headers:{Authorization:'Bearer '+env.ACTIONS_ID_TOKEN_REQUEST_TOKEN},signal:AbortSignal.timeout(10000)});need(response.ok);const {value}=await response.json();need(typeof value==='string'&&value.length<20000);
