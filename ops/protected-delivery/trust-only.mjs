@@ -27,6 +27,8 @@ if(process.env.NYRA_TRUST_CONTAINER==='1'){
  let bridge,hostRule=false,forwardRule=false;
  try{
   for(const key of ['db','driver'])command('docker',['pull',images[key].image]);
+  const {checkIPCContainerDependencies}=await import('../acceptance-bootstrap/role-ipc-container-check.mjs');
+  console.log(JSON.stringify({id:'role-ipc-digest-pinned-dependencies',status:'PASS',detail:await checkIPCContainerDependencies({command,images,head})}));
   command('docker',['network','create','--internal',network]);const info=JSON.parse(command('docker',['network','inspect',network]))[0];assert(info.Internal);bridge='br-'+info.Id.slice(0,12);
   command('sudo',['iptables','-I','INPUT','1','-i',bridge,'-m','conntrack','--ctstate','NEW','-j','DROP']);hostRule=true;
   command('sudo',['iptables','-I','DOCKER-USER','1','-i',bridge,'!','-o',bridge,'-j','DROP']);forwardRule=true;

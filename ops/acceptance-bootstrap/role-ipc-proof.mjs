@@ -3,7 +3,7 @@
 import {execFileSync,spawn} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
 import {readFile,writeFile,chown,chmod,lstat,rm} from 'node:fs/promises';
-import {createInterface} from 'node:readline';
+import {receiveRoleIPC} from './role-ipc-client.mjs';
 import {authenticatedFrames} from '../../lib/publication/runtime/acceptance-ipc.mjs';
 import {NET,DB} from './db-stage.mjs';
 const ROOT='/opt/nyra-5c/bootstrap',ROLES=['registrar','broker'];
@@ -23,7 +23,8 @@ export function roleIPCArgs(role,uid,gid,keyPath){
   '--pids-limit','64','--memory','256m','--cpus','0.5',
   '--tmpfs','/tmp:rw,nosuid,nodev,size=16m',
   '--mount','type=bind,src='+ROOT+'/ops/acceptance-bootstrap/role-ipc-worker.mjs,dst=/app/ops/acceptance-bootstrap/role-ipc-worker.mjs,readonly',
-  '--mount','type=bind,src='+ROOT+'/lib/publication,dst=/app/lib/publication,readonly',
+  '--mount','type=bind,src='+ROOT+'/lib/publication/runtime/acceptance-ipc.mjs,dst=/app/lib/publication/runtime/acceptance-ipc.mjs,readonly',
+  '--mount','type=bind,src='+ROOT+'/lib/publication/canonical-json.mjs,dst=/app/lib/publication/canonical-json.mjs,readonly',
   '--mount','type=bind,src='+ROOT+'/ops/native-acceptance/node_modules,dst=/app/node_modules,readonly',
   '--mount','type=bind,src=/var/lib/nyra-5c/'+role+'/pg.json,dst=/run/role/pg.json,readonly',
   '--mount','type=bind,src='+keyPath+',dst=/run/role/ipc.key,readonly',
@@ -55,27 +56,7 @@ async function invokeRole(role){
   const request=authenticatedFrames({key,role,direction:'request'});
   const response=authenticatedFrames({key,role,direction:'response'});
   child=spawn('docker',roleIPCArgs(role,uid,gid,keyPath),{stdio:['pipe','pipe','ignore']});
-  const result=await new Promise((resolve,reject)=>{
-   let finished=false,outputLines=0,verified=null;
-   const done=(err,val)=>{if(finished)return;finished=true;clearTimeout(timer);
-    err?reject(err):resolve(val);};
-   const timer=setTimeout(()=>done(Error('NYRA_IPC_TIMEOUT')),20000);
-   createInterface({input:child.stdout,crlfDelay:Infinity}).on('line',line=>{
-    try{
-     need(++outputLines===1&&Buffer.byteLength(line)<4096,'OUTPUT');
-     const body=response.decode(JSON.parse(line));
-     need(body?.ok===true&&body.result?.role===role&&
-      body.result.dbAuthenticated===true&&body.result.roleGrantsVerified===true&&
-      body.result.recordsWritten===0,'RESPONSE');
-     verified=body.result;
-    }catch{done(Error('NYRA_IPC_RESPONSE_DENIED'));}
-   });
-   child.on('error',()=>done(Error('NYRA_IPC_DOCKER_START')));
-   child.on('close',code=>{if(code!==0)done(Error('NYRA_IPC_WORKER_EXIT'));
-     else if(!verified||outputLines!==1)done(Error('NYRA_IPC_NO_RESPONSE'));
-     else done(null,verified);});
-   child.stdin.end(JSON.stringify(request.encode({op:'identity'}))+'\n');
-  });
+  const result=await receiveRoleIPC({child,role,request,response});
   return {...result,authenticatedIPC:true};
  }finally{
   if(child&&child.exitCode===null&&child.signalCode===null&&!child.killed)child.kill();
