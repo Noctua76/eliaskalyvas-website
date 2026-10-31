@@ -24,6 +24,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Dedicated 5C test graph has a separate lockfile; required CI installs it too.
+      - run: npm ci --ignore-scripts --prefix ops/acceptance-bootstrap/runtime
       - run: npm test
       - run: npm run build
         env:
