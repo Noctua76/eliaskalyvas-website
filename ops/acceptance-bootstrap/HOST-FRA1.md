@@ -14,8 +14,14 @@ resources remain unchanged.
 - Detached code checkout: `/opt/nyra-5c/bootstrap`
 - Private root directory: `/opt/nyra-5c/private` (0700)
 - Separate non-login service identities: coordinator, registrar, broker, owner
-- No credentials, database, trust processes, evidence key, real GitHub job or
-  registration have been provisioned.
+- Disposable private PostgreSQL 17 is running: owner-verified real host output
+  reports internalNetwork=true, publishedPorts=0, separateDbLogins=true.
+- Two distinct local PostgreSQL logins have been provisioned; their credentials
+  are local 0600 files, not shared in repo or chat.
+- Current DB expiry timer was set to 2026-10-31T21:21:16.663Z (host UTC).
+  This expires the isolated DB and its local credentials, **not the Droplet**.
+- No live registrar/broker services, Github read identity, owner authorization,
+  evidence signing key, real GitHub job or registration have been activated.
 
 ## Read-only prerequisite check on the selected host
 
@@ -25,8 +31,11 @@ After fetching the reviewed exact PR head (not main), run:
 node ops/acceptance-bootstrap/host-preflight.mjs
 ```
 
-The command checks concrete DNS/TLS, available CPU/RAM/disk, Caddy/Docker,
-UFW, no running containers and private Linux identity/directory permissions.
+This command was completed successfully **before** PostgreSQL provisioning.
+It includes a requirement for no running containers, so it is an initial host
+preflight and is NOT intended to be rerun unchanged after DB installation.
+It checks concrete DNS/TLS, available CPU/RAM/disk, Caddy/Docker, UFW and
+private Linux identity/directory permissions.
 Its result is **never** a credential-issuance authorization or a PASS for Phase
 5C. A local 404 and valid TLS are intentionally required before any listener.
 
@@ -38,7 +47,7 @@ Its result is **never** a credential-issuance authorization or a PASS for Phase
   transient host cleanup timer **before** any credentials or GitHub invocation
 - Implement actual private registrar/broker/coordinator network/SQL/IPC watcher,
   no builder egress, bounded host egress to exact approved GitHub/Auth origins
-- Install disposable isolated PostgreSQL 17, separate scoped LOGINs and keys
+- Validate live role-isolated database clients, then connect actual role services
 - Replace Caddy 404 only for exact approved fixed readiness and acceptance routes
   after binding is reviewed; do not expose private admin/owner/evidence or DB
 - Compose actual independent evidence persistence and OIDC registration; fill
