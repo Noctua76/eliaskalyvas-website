@@ -77,6 +77,7 @@ export function composeTrustAcceptance({
  };
  const watcher=createLiveWatcher({getJSON,registrars,policies,
   assertAdministration:gate,callerSHA,windowStartsAt,windowEndsAt,now});
+ const acceptedReceipts=new Set();
  const acceptors=Object.fromEntries(ROLES.map(role=>[role,async token=>{
   need(enabled===true,'DISABLED');
   const policy=policies[role];
@@ -89,11 +90,15 @@ export function composeTrustAcceptance({
    publicKey:evidencePublicKey,keyId:evidenceKeyId,policy,now
   });
   need(await watcher.isReady({role,runId:observed.runId,
-   runAttempt:observed.runAttempt})===true,'JOB_NOT_READY');
+   runAttempt:observed.runAttempt,checkRunId:observed.checkRunId})===true,'JOB_NOT_READY');
   await gate(policy);
+  // Broker PostgreSQL still owns the durable JWT replay guard. This local
+  // digest set also prevents repeated acceptance in the same coordinator.
+  need(!acceptedReceipts.has(observed.digest),'REPLAY');
   // Only an already verified sanitized receipt reaches the private collector.
   need(await persistSignedEvidence({role,envelope:signed,coordinates:observed})===true,
    'PERSISTENCE');
+  acceptedReceipts.add(observed.digest);
   await gate(policy);
   return {accepted:true,digest:observed.digest,keyId:observed.keyId};
  }]));
