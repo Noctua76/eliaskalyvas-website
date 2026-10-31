@@ -89,8 +89,8 @@ test('Bootstrap real private UNIX transport rejects token-in-body and uses only 
 });
 test('Bootstrap cleanup dry-run/apply are exact-label scoped and reject substituted resources',async()=>{
  const {cleanupPlan}=await import('../ops/acceptance-bootstrap/cleanup.mjs');
- const c={schema:'nyra.acceptance.bootstrap.v1',...policy(),host:'owner-acceptance.example.net',collectorOrigin:'https://acceptance.example.net',callerSHA:'c'.repeat(40),reusableSHA:'cefd1a402dcffd0b00f05f7d7539ba381120641e',evidenceKeyId:'externally-pinned',evidencePublicKeySHA256:'a'.repeat(64),ownerDecisionPublicKeySHA256:'b'.repeat(64),windowStartsAt:new Date(clock()).toISOString(),windowEndsAt:new Date(clock()+3600000).toISOString()},label=bootstrapPlan(c).planSHA256,calls=[];
- const execute=args=>{calls.push(args);if(args[0]==='ps')return 'owned-container';if(args.includes('inspect'))return JSON.stringify([{Config:{Labels:{'com.noctua.nyra.acceptance':label}}}]);return '';};
+ const c=cleanupConfig(),label=bootstrapPlan(c).planSHA256,calls=[];
+ let present=true;const execute=args=>{calls.push(args);if(args[0]==='rm'){present=false;return '';}if(args[0]==='ps')return present?'owned-container':'';if(args.includes('inspect'))return JSON.stringify([{Config:{Labels:{'com.noctua.nyra.acceptance':label}}}]);return '';};
  assert.equal(cleanupPlan(c,{execute}).resources[0].removed,false);assert(!calls.some(x=>x[0]==='rm'));assert.equal(cleanupPlan(c,{execute,apply:true}).resources[0].removed,true);assert(calls.some(x=>x[0]==='rm'));
  assert.throws(()=>cleanupPlan(c,{apply:true,execute:args=>args.includes('inspect')?'[{"Config":{"Labels":{}}}]':args[0]==='ps'?'other-container':''}),/SCOPE/);
 });
@@ -100,3 +100,33 @@ test('Bootstrap retirement during async signing wins before any receipt is retur
  const source=createOwnerRiskSource({...f.args,authenticateOwner:async()=>({contract:'existing-owner-mfa',ownerId:'217035723',authUserId:user,sessionDigest:hashJSON(session),expiresAt:clock()+300000}),journal:{append:async()=>{},current:async()=>structuredClone(active)},signReceipt:async record=>{const receipt=await f.sign(record);active={...active,state:'retired'};return receipt;}});
  await assert.rejects(source.receipt({decisionId:d.decisionId,challenge:crypto.randomUUID()}),/CHANGED/);
 });
+
+// Unit-only Docker command adapter: never invokes Docker or creates resources.
+function cleanupConfig(){return {schema:'nyra.acceptance.bootstrap.v1',...policy(),host:'owner-acceptance.example.net',collectorOrigin:'https://acceptance.example.net',callerSHA:'c'.repeat(40),reusableSHA:'cefd1a402dcffd0b00f05f7d7539ba381120641e',evidenceKeyId:'externally-pinned',evidencePublicKeySHA256:'a'.repeat(64),ownerDecisionPublicKeySHA256:'b'.repeat(64),windowStartsAt:new Date(clock()).toISOString(),windowEndsAt:new Date(clock()+3600000).toISOString()};}
+for(const kind of ['container','network','volume']){
+ test('Generic cleanup independently confirms exact '+kind+' absence after remove',async()=>{
+  const {cleanupPlan}=await import('../ops/acceptance-bootstrap/cleanup.mjs'),c=cleanupConfig(),label=bootstrapPlan(c).planSHA256,id=kind==='volume'?'owned-volume':'a'.repeat(64),calls=[];
+  const run=({remains=false,errorAt=null}={})=>{
+   let removed=false;
+   const execute=args=>{
+    calls.push(args);
+    const inspecting=args.includes('inspect'),removing=args[0]==='rm'||args[1]==='rm',listing=!inspecting&&!removing;
+    const selected=kind==='container'?args[0]==='ps'||args[0]==='rm'||args[0]==='container':args[0]===kind;
+    if(!selected)return '';
+    const phase=inspecting?'inspect':removing?'remove':removed?'readback':'list';
+    if(phase===errorAt)throw Error('DOCKER_'+phase+'_UNAVAILABLE');
+    if(inspecting)return JSON.stringify([kind==='container'?{Config:{Labels:{'com.noctua.nyra.acceptance':label}}}:{Labels:{'com.noctua.nyra.acceptance':label}}]);
+    if(removing){removed=true;return id;}
+    // A surviving resource loses its old label in this negative case.
+    // Only an unfiltered read-back can detect it after a successful remove.
+    if(listing)return removed?args.includes('--filter')?'':remains?id:'unrelated-resource':id;
+   };
+   return cleanupPlan(c,{execute,apply:true});
+  };
+  assert.equal(run().resources[0].removed,true);
+  const readback=calls.find(args=>!args.includes('--filter')&&(kind==='container'?args[0]==='ps':args[0]===kind&&args[1]==='ls'));
+  assert(readback);if(kind!=='volume')assert(readback.includes('--no-trunc'));
+  assert.throws(()=>run({remains:true}),/CLEANUP_REMAINS/);
+  for(const errorAt of ['list','inspect','remove','readback'])assert.throws(()=>run({errorAt}),new RegExp('DOCKER_'+errorAt+'_UNAVAILABLE'));
+ });
+}
