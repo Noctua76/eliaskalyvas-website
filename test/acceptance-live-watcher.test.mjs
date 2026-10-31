@@ -81,12 +81,13 @@ test('Partial registrar failure rolls back already registered jobs and fails clo
 });
 test('Revocation errors preserve exact pending rows and still deny readiness',async()=>{
  const f=fixture();await f.watcher.arm();f.dispatch();await f.watcher.scan();
- f.failRevoke('broker');
+ f.failRevoke('inspection');
  await assert.rejects(f.watcher.retire(),/WATCHER_RETIRE/);
- assert.equal(f.watcher.state().registered.length,1);
- assert.equal(await f.watcher.isReady({role:'broker',runId:'101',runAttempt:'1'}),false);
+ assert.deepEqual(f.watcher.state().registered,['inspection:101:1']);
+ assert.equal(await f.watcher.isReady({role:'inspection',runId:'101',runAttempt:'1'}),false);
  f.failRevoke(null);await f.watcher.retire();
  assert.deepEqual(f.watcher.state().registered,[]);
+ assert.equal(f.revoked.filter(x=>x.role==='inspection').length,1);
 });
 test('Readiness refuses substituted check run, run attempt or workflow job',async()=>{
  const f=fixture();await f.watcher.arm();f.dispatch();await f.watcher.scan();
