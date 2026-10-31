@@ -40,7 +40,8 @@ test('Authenticated IPC rejects tampering, replay and role substitution',()=>{
 test('Role-grant read is SQL SELECT only and asserts distinct privileges',async()=>{
  const mk=role=>async sql=>{
   assert.match(sql,/^select current_user/);
-  assert(!/\b(update|insert|delete|drop|alter)\b/i.test(sql));
+  assert(!/^\s*(update|insert|delete|drop|alter)\b/i.test(sql));
+  assert(!sql.includes(';'));
   return {rows:[{identity:'nyra_accept_'+role,...expectedGrants(role)}]};
  };
  for(const role of ['registrar','broker']){
