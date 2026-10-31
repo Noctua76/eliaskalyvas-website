@@ -43,6 +43,10 @@ export async function verifyPinnedObservation(envelope,{publicKey,keyId,policy,n
   c.ref==='refs/heads/main'&&decimal(c.run_id)&&decimal(c.run_attempt)&&
   decimal(c.check_run_id)&&
   Number.isSafeInteger(c.exp)&&c.exp*1000>now(),'JOB_CONTEXT');
+ const discovery=policy.purpose==='registered-provenance-acceptance'?{...policy,purpose:'identity-observation-only',codeSHA:policy.callerSHA}:policy;
+ const policyDigest=createHash('sha256').update(canonicalize(discovery),'utf8').digest('hex');
+ need(r.planSHA256===policyDigest&&c.aud===policy.audience&&c.repository_owner==='Noctua76'&&c.ref_type==='branch'&&c.workflow_ref===policy.workflowRef&&c.workflow_sha===policy.callerSHA&&c.job_workflow_ref===policy.jobWorkflowRef&&c.job_workflow_sha===policy.jobWorkflowSHA,'POLICY_BINDING');
+ need(typeof c.sub==='string'&&c.sub.startsWith('repo:Noctua76@217035723/eliaskalyvas-website@1389733212:')&&(!policy.subject||policy.subject==='urn:nyra:unapproved-subject-discovery'||c.sub===policy.subject),'SUBJECT');
  let digest;
  try{digest=createHash('sha256').update(canonicalize(r),'utf8').digest('hex');}
  catch{throw Error('NYRA_COMPOSITION_RECORD_CANONICAL');}

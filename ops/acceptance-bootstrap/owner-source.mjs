@@ -1,7 +1,7 @@
 // PRIVATE UNIX socket only. This process is NOT started by import/CI/workflows.
 // All keys/config are owner-provisioned AFTER explicit infrastructure approval.
 import {createServer} from 'node:http';
-import {open,readFile,lstat,chmod} from 'node:fs/promises';
+import {open,readFile,lstat,chmod,chown} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {dirname,resolve} from 'node:path';
 import {existingOwnerMFA,createOwnerRiskSource,signedDecisionJournal} from '../../lib/publication/runtime/owner-risk-source.mjs';
@@ -14,10 +14,12 @@ export async function startOwnerSource(config){
  const dir=await lstat(dirname(config.socket));if(!dir.isDirectory()||(dir.mode&0o077)||dir.uid!==process.getuid()||dirname(config.socket)!==dirname(config.journal))throw Error('PRIVATE_DIRECTORY');
  const signing=await privateFile(config.signingKey),privateKey=await crypto.subtle.importKey('jwk',signing.privateKey,'Ed25519',false,['sign']),publicKey=await crypto.subtle.importKey('jwk',signing.publicKey,'Ed25519',false,['verify']);
  if(signing.keyId!==config.keyId||hashJSON(signing.publicKey)!==config.publicKeySHA256)throw Error('OWNER_KEY_PIN');
- const sign=evidenceSigner({privateKey,publicKeyId:signing.keyId});
+ const signer=evidenceSigner({privateKey,publicKeyId:signing.keyId}),keyDigest=hashJSON(signing);
+ const sign=async record=>{if(hashJSON(await privateFile(config.signingKey))!==keyDigest)throw Error('OWNER_KEY_RETIRED');return signer(record);};
  // Refuse an existing socket. Never unlink an arbitrary operator path.
  const records={async read(){try{const s=await lstat(config.journal);if(!s.isFile()||s.nlink!==1||(s.mode&0o077)||s.uid!==process.getuid()||s.size>2000000)throw Error('PRIVATE_JOURNAL');return (await readFile(config.journal,'utf8')).trim().split('\n').filter(Boolean).map(JSON.parse);}catch(e){if(e.code==='ENOENT')return [];throw e;}},async append(row){const f=await open(config.journal,constants.O_WRONLY|constants.O_CREAT|constants.O_APPEND|constants.O_NOFOLLOW,0o600);try{await f.writeFile(JSON.stringify(row)+'\n');await f.sync();}finally{await f.close();}}};
  const source=createOwnerRiskSource({policy:config.policy,authenticateOwner:existingOwnerMFA(config.auth),journal:signedDecisionJournal({records,signRecord:sign,publicKey,keyId:signing.keyId}),signReceipt:sign});
+ if(config.receiptSocket){const d=await lstat(dirname(config.receiptSocket));if(!d.isDirectory()||d.isSymbolicLink()||d.uid!==process.getuid()||d.gid!==config.receiptGroupId||(d.mode&0o027)!==0||!Number.isInteger(config.receiptGroupId))throw Error('RECEIPT_DIRECTORY');}
  const server=createServer(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json');try{
   if(req.method!=='POST'||!['/authorize','/retire','/receipt'].includes(req.url))throw Error('OPERATION');let body='';for await(const b of req){if(Buffer.byteLength(body)+b.length>30000)throw Error('BODY');body+=b.toString();}const input=JSON.parse(body);
   if(Object.hasOwn(input,'token'))throw Error('TOKEN_BODY_FORBIDDEN');
@@ -26,7 +28,20 @@ export async function startOwnerSource(config){
  }catch{res.writeHead(403);res.end('{"error":"OWNER_SOURCE_DENIED"}');}});
  server.requestTimeout=15000;server.headersTimeout=10000;
  await new Promise((ok,no)=>{server.once('error',no);server.listen(config.socket,ok);});await chmod(config.socket,0o600);
- const stop=()=>{clearTimeout(timer);source.close();server.close();server.closeAllConnections();};const timer=setTimeout(stop,end);timer.unref();process.once('SIGTERM',stop);process.once('SIGINT',stop);
+ let receiptServer;
+ try{if(config.receiptSocket){
+  const d=await lstat(dirname(config.receiptSocket));
+  if(!d.isDirectory()||d.isSymbolicLink()||d.uid!==process.getuid()||d.gid!==config.receiptGroupId||(d.mode&0o027)!==0||!Number.isInteger(config.receiptGroupId))throw Error('RECEIPT_DIRECTORY');
+  receiptServer=createServer(async(req,res)=>{res.setHeader('Cache-Control','no-store');try{
+   if(req.method!=='POST'||req.url!=='/receipt'||req.headers.authorization)throw Error('RECEIPT_ONLY');let b='';for await(const c of req){if(Buffer.byteLength(b)+c.length>1000)throw Error('BODY');b+=c.toString();}
+   const input=JSON.parse(b);if(Object.keys(input).sort().join(',')!=='challenge,decisionId')throw Error('FIELDS');
+   const result=await source.receipt(input);res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(result));
+  }catch{res.writeHead(403);res.end();}});
+  receiptServer.requestTimeout=15000;receiptServer.headersTimeout=10000;
+  await new Promise((ok,no)=>{receiptServer.once('error',no);receiptServer.listen(config.receiptSocket,ok);});await chown(config.receiptSocket,process.getuid(),config.receiptGroupId);await chmod(config.receiptSocket,0o660);
+ }
+ }catch(e){source.close();server.close();server.closeAllConnections();receiptServer?.close();receiptServer?.closeAllConnections();throw e;}
+ const stop=()=>{clearTimeout(timer);source.close();server.close();server.closeAllConnections();receiptServer?.close();receiptServer?.closeAllConnections();};const timer=setTimeout(stop,end);timer.unref();process.once('SIGTERM',stop);process.once('SIGINT',stop);
  return {server,stop};
 }
 if(process.argv[1]===new URL(import.meta.url).pathname){try{await startOwnerSource(await privateFile(resolve(process.argv[2])));console.log('NYRA_PRIVATE_OWNER_SOURCE_READY');}catch{console.error('NYRA_PRIVATE_OWNER_SOURCE_DENIED');process.exitCode=1;}}

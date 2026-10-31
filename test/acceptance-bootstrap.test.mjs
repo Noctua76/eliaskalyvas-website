@@ -77,9 +77,13 @@ test('Bootstrap real private UNIX transport rejects token-in-body and uses only 
  const old=process.env.NYRA_ACCEPTANCE_OWNER_SOURCE;process.env.NYRA_ACCEPTANCE_OWNER_SOURCE='1';
  try{await chmod(dir,0o700);const publicKey=await crypto.subtle.exportKey('jwk',f.keys.publicKey),signingKey=join(dir,'test-key.json');
   await writeFile(signingKey,JSON.stringify({keyId:'test-control-plane',privateKey:await crypto.subtle.exportKey('jwk',f.keys.privateKey),publicKey}),{mode:0o600});
-  const socket=join(dir,'owner.sock');service=await startOwnerSource({socket,journal:join(dir,'decisions.jsonl'),signingKey,keyId:'test-control-plane',publicKeySHA256:hashJSON(publicKey),policy:{...policy(),windowEndsAt:new Date(Date.now()+60000).toISOString()},auth:{...authConfig,fetcher:async url=>Response.json(url.endsWith('/user')?{id:user,is_anonymous:false}:{publishing:false})}});
+  const receiptDir=join(dir,'receipts');await (await import('node:fs/promises')).mkdir(receiptDir,{mode:0o750});const receiptSocket=join(receiptDir,'receipt.sock');
+  const socket=join(dir,'owner.sock');service=await startOwnerSource({socket,receiptSocket,receiptGroupId:process.getgid(),journal:join(dir,'decisions.jsonl'),signingKey,keyId:'test-control-plane',publicKeySHA256:hashJSON(publicKey),policy:{...policy(),windowEndsAt:new Date(Date.now()+60000).toISOString()},auth:{...authConfig,fetcher:async url=>Response.json(url.endsWith('/user')?{id:user,is_anonymous:false}:{publishing:false})}});
   const d=await ownerRequest({socket,operation:'authorize',input:{token:token(),applicationsSHA256:digest,policyVersion:1,riskAcknowledgment:{write:true,merge:true,workflow:true}}});
   const receipt=await ownerRequest({socket,operation:'receipt',input:{decisionId:d.decisionId,challenge:crypto.randomUUID()}});assert.equal(receipt.keyId,'test-control-plane');
+  assert.equal((await ownerRequest({socket:receiptSocket,operation:'receipt',input:{decisionId:d.decisionId,challenge:crypto.randomUUID()}})).keyId,'test-control-plane');
+  await assert.rejects(ownerRequest({socket:receiptSocket,operation:'authorize',input:{token:token()}}));
+  await assert.rejects(ownerRequest({socket:receiptSocket,operation:'retire',input:{token:token(),decisionId:d.decisionId}}));
   await ownerRequest({socket,operation:'retire',input:{token:token(),decisionId:d.decisionId}});await assert.rejects(ownerRequest({socket,operation:'receipt',input:{decisionId:d.decisionId,challenge:crypto.randomUUID()}}));
  }catch(e){if(e.code==='EPERM'&&!process.env.GITHUB_ACTIONS)t.skip('Workspace denies UNIX listen; required CI must exercise the real socket');else throw e;}finally{service?.stop();if(old===undefined)delete process.env.NYRA_ACCEPTANCE_OWNER_SOURCE;else process.env.NYRA_ACCEPTANCE_OWNER_SOURCE=old;await rm(dir,{recursive:true,force:true});}
 });

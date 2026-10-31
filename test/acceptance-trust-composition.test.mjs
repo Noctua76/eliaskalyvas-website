@@ -25,7 +25,7 @@ async function fixture({enabled=true,signMode='valid'}={}){
  const keys=await webcrypto.subtle.generateKey('Ed25519',true,['sign','verify']);
  let dispatched=false,owner=true,admin=true,persisted=[];
  const policies=Object.fromEntries(roles.map(role=>[role,{
-  role,jobName:'exact-'+role,environment:'nyra-'+role,
+  role,jobName:'exact-'+role,environment:'nyra-'+role,purpose:'identity-observation-only',subject:'urn:nyra:unapproved-subject-discovery',audience:'urn:nyra:acceptance:'+role,workflowRef:'Noctua76/eliaskalyvas-website/.github/workflows/nyra-live-trust-acceptance.yml@refs/heads/main',jobWorkflowRef:'Noctua76/eliaskalyvas-website/.github/workflows/nyra-live-trust-probe.yml@'+'b'.repeat(40),jobWorkflowSHA:'b'.repeat(40),
   repository:'Noctua76/eliaskalyvas-website',ownerId:'217035723',callerSHA:caller
  }]));
  const getJSON=async url=>{
@@ -42,7 +42,7 @@ async function fixture({enabled=true,signMode='valid'}={}){
  const observation=async role=>{
   const claims={iss:'https://token.actions.githubusercontent.com',
    repository:'Noctua76/eliaskalyvas-website',repository_id:'1389733212',
-   repository_owner_id:'217035723',environment:signMode==='wrong-environment'?'nyra-owner':'nyra-'+role,
+   repository_owner_id:'217035723',repository_owner:'Noctua76',aud:policies[role].audience,sub:'repo:Noctua76@217035723/eliaskalyvas-website@1389733212:synthetic:'+role,ref_type:'branch',workflow_ref:policies[role].workflowRef,workflow_sha:caller,job_workflow_ref:policies[role].jobWorkflowRef,job_workflow_sha:policies[role].jobWorkflowSHA,environment:signMode==='wrong-environment'?'nyra-owner':'nyra-'+role,
    sha:caller,ref:'refs/heads/main',
    run_id:'101',run_attempt:'1',check_run_id:signMode==='wrong-check'?'999':String(500+roles.indexOf(role)),
    exp:Math.floor((now+120000)/1000)};
@@ -50,7 +50,7 @@ async function fixture({enabled=true,signMode='valid'}={}){
    purpose:'identity-observation-only',authorization:false,
    observedAt:new Date(signMode==='stale'?now-120000:now).toISOString(),
    claims,issuerKeyId:'github-oidc-kid',tokenSHA256:'b'.repeat(64),
-   planSHA256:'c'.repeat(64)};
+   planSHA256:createHash('sha256').update(canonicalize(policies[role])).digest('hex')};
   const digest=createHash('sha256').update(canonicalize(record),'utf8').digest('hex');
   const signature=Buffer.from(await webcrypto.subtle.sign('Ed25519',
    keys.privateKey,new TextEncoder().encode(digest))).toString('base64url');
