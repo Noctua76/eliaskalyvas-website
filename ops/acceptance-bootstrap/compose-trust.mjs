@@ -95,11 +95,16 @@ export function composeTrustAcceptance({
   // Broker PostgreSQL still owns the durable JWT replay guard. This local
   // digest set also prevents repeated acceptance in the same coordinator.
   need(!acceptedReceipts.has(observed.digest),'REPLAY');
+  // Burn the receipt before crossing an async persistence boundary. A lost
+  // acknowledgement must require a new OIDC token; concurrent reuse fails.
+  acceptedReceipts.add(observed.digest);
   // Only an already verified sanitized receipt reaches the private collector.
   need(await persistSignedEvidence({role,envelope:signed,coordinates:observed})===true,
    'PERSISTENCE');
-  acceptedReceipts.add(observed.digest);
   await gate(policy);
+  need(await watcher.isReady({role,runId:observed.runId,
+   runAttempt:observed.runAttempt,checkRunId:observed.checkRunId})===true,
+   'JOB_RETIRED');
   return {accepted:true,digest:observed.digest,keyId:observed.keyId};
  }]));
  return Object.freeze({
