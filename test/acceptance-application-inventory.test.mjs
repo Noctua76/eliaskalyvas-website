@@ -1,0 +1,24 @@
+// Synthetic unit fixtures ONLY; never live authenticated audit evidence.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {authenticatedApplicationInventory,normalizeIntegrationAudit} from '../lib/publication/runtime/application-inventory.mjs';
+import {assessApplications} from '../lib/publication/runtime/administration-evidence.mjs';
+import {evidenceSigner} from '../lib/publication/runtime/acceptance-evidence.mjs';
+const now=()=>2000000000000,perms=()=>Object.fromEntries(['contents','workflows','pull_requests','administration','actions','checks','deployments','environments'].map(k=>[k,'none']));
+const audit=()=>({schema:'nyra.authenticated.integration-audit.v1',auditId:'test-only',repository:'Noctua76/eliaskalyvas-website',repositoryId:'1389733212',ownerId:'217035723',complete:true,outstanding:[],observedAt:new Date(now()).toISOString(),coverage:['installed-github-apps','authorized-github-apps','authorized-oauth-apps','personal-access-tokens','repository-integrations'].map(family=>({family,authenticatedOwnerId:'217035723',complete:true,paginationComplete:true,method:'authenticated-owner-settings-export',sourceURL:'https://github.com/settings/applications',captureSHA256:'a'.repeat(64)})),integrations:[
+ {kind:'github-app',id:'codex',appId:'1',installationId:'2',name:'Codex',active:true,scopes:[],repositoryAccess:{mode:'all',repositoryIds:[]},permissions:{...perms(),contents:'write',workflows:'write'},authenticatedSourceSHA256:'b'.repeat(64)},
+ {kind:'oauth-app',id:'vscode',name:'VS Code',active:true,scopes:['repo','workflow'],repositoryAccess:{mode:'all',repositoryIds:[]},permissions:{...perms(),contents:'write',workflows:'write'},authenticatedSourceSHA256:'c'.repeat(64)},
+ {kind:'oauth-app',id:'gcm',name:'Git Credential Manager',active:true,scopes:['repo','workflow'],repositoryAccess:{mode:'all',repositoryIds:[]},permissions:{...perms(),contents:'write',workflows:'write'},authenticatedSourceSHA256:'d'.repeat(64)},
+ ...['Railway','Render','Vercel','Lovable'].map((name,i)=>({kind:'github-app',id:name,appId:String(10+i),installationId:String(20+i),name,active:true,scopes:[],repositoryAccess:{mode:'selected',repositoryIds:['999']},permissions:{...perms(),contents:'write'},authenticatedSourceSHA256:'e'.repeat(64)}))]});
+const keys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']),sign=evidenceSigner({privateKey:keys.privateKey,publicKeyId:'test-independent-capture'});
+test('Independent signed audit covers OAuth, excluded Apps and residual write authority without claiming owner exclusivity',async()=>{
+ const read=authenticatedApplicationInventory({readSignedAudit:async()=>sign(audit()),publicKey:keys.publicKey,keyId:'test-independent-capture',now});const r=await read(),a=assessApplications(r,{now:now()});
+ assert.equal(r.installations.length,1);assert.equal(r.integrationEvidence.integrations.length,7);assert.equal(a.exclusiveTechnicalOwnerControl,false);assert.equal(a.requiresExplicitOwnerRiskDecision,true);
+ assert.equal(a.apps.at(-1).integrations.find(x=>x.name==='Railway').repositoryIncluded,false);assert.equal(a.apps.at(-1).integrations.find(x=>x.name==='VS Code').canPotentiallyMerge,true);
+});
+for(const [name,mutate]of Object.entries({screenshot:x=>x.coverage[0].method='screenshot',repositoryPAT:x=>x.coverage[0].method='repository-PAT',incomplete:x=>x.coverage.pop(),pagination:x=>x.coverage[0].paginationComplete=false,outstanding:x=>x.outstanding=['unknown integration'],stale:x=>x.observedAt='2000-01-01',owner:x=>x.ownerId='1',scopeDowngrade:x=>x.integrations[1].permissions.contents='none',unknownPermissions:x=>delete x.integrations[0].permissions.workflows}))test('Integration evidence rejects '+name,()=>{const r=audit();mutate(r);assert.throws(()=>normalizeIntegrationAudit(r,{now:now()}));});
+test('Unsigned, tampered and differently signed audit declarations cannot enter the trusted inventory reader',async()=>{
+ const bad=[audit(),{...(await sign(audit())),signature:'AAAA'},await evidenceSigner({privateKey:(await crypto.subtle.generateKey('Ed25519',true,['sign','verify'])).privateKey,publicKeyId:'test-independent-capture'})(audit())];
+ for(const envelope of bad)await assert.rejects(authenticatedApplicationInventory({readSignedAudit:async()=>envelope,publicKey:keys.publicKey,keyId:'test-independent-capture',now})(),/UNVERIFIED/);
+});
+test('Renewed audit observations retain the permission digest; a changed OAuth scope changes it',()=>{const a=audit(),b=audit();b.observedAt=new Date(now()-1000).toISOString();assert.equal(normalizeIntegrationAudit(a,{now:now()}).digest,normalizeIntegrationAudit(b,{now:now()}).digest);b.integrations[1].scopes.push('admin:repo_hook');assert.notEqual(normalizeIntegrationAudit(a,{now:now()}).digest,normalizeIntegrationAudit(b,{now:now()}).digest);});

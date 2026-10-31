@@ -1,0 +1,16 @@
+{
+ "schema":"nyra.acceptance.bootstrap.v1",
+ "repository":"Noctua76/eliaskalyvas-website",
+ "repositoryId":"1389733212",
+ "ownerId":"217035723",
+ "governanceMode":"SINGLE_OWNER",
+ "host":null,
+ "collectorOrigin":null,
+ "callerSHA":null,
+ "reusableSHA":"cefd1a402dcffd0b00f05f7d7539ba381120641e",
+ "evidenceKeyId":null,
+ "evidencePublicKeySHA256":null,
+ "ownerDecisionPublicKeySHA256":null,
+ "windowStartsAt":null,
+ "windowEndsAt":null
+}

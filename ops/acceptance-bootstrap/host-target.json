@@ -1,0 +1,10 @@
+{
+  "schema": "nyra.acceptance.host-target.v1",
+  "hostname": "nyra-5c-acceptance",
+  "origin": "https://nyra-5c.eliaskalyvas.gr",
+  "ipv4": "201.79.94.104",
+  "provider": "DigitalOcean",
+  "region": "fra1",
+  "scope": "temporary-phase-5c-only",
+  "authorization": false
+}

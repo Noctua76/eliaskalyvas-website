@@ -29,6 +29,8 @@ jobs:
         run: node -e 'console.log(JSON.stringify({event:process.env.GITHUB_EVENT_NAME,ref:process.env.GITHUB_REF,testedSHA:process.env.GITHUB_SHA}))'
       - name: Install locked dependencies
         run: npm ci
+      - name: Install locked private role test dependencies
+        run: npm ci --ignore-scripts --prefix ops/acceptance-bootstrap/runtime
       - name: Essential regression suite
         run: npm test
 
