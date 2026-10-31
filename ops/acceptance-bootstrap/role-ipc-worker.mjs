@@ -2,7 +2,6 @@
 // This is NOT a GitHub job registration, broker JWT endpoint, or authority.
 import {readFile,lstat} from 'node:fs/promises';
 import {createInterface} from 'node:readline';
-import pg from '/app/node_modules/pg/lib/index.js';
 import {authenticatedFrames} from '../../lib/publication/runtime/acceptance-ipc.mjs';
 const ROLES=['registrar','broker'];
 const role=process.argv[2];
@@ -48,6 +47,7 @@ async function main(){
  const cfg=JSON.parse(cfgText);
  need(cfg.host==='db'&&cfg.database==='postgres'&&cfg.port===5432&&
    cfg.user==='nyra_accept_'+role&&typeof cfg.password==='string');
+ const {default:pg}=await import('/app/node_modules/pg/lib/index.js');
  const db=new pg.Client({...cfg,ssl:false,connectionTimeoutMillis:5000,
   statement_timeout:5000,query_timeout:6000});
  const inbound=authenticatedFrames({key,role,direction:'request'});
