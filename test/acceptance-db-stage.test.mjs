@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {stageCommands,loginsSQL,expiryUnitContents,IMAGE,DB,NET,LABEL} from '../ops/acceptance-bootstrap/db-stage.mjs';
+import {stageCommands,loginsSQL,expiryUnitContents,cleanupScript,IMAGE,DB,NET,LABEL} from '../ops/acceptance-bootstrap/db-stage.mjs';
 test('Temporary PG17 is pinned, internal-only and has no published ports',()=>{
  const {network,db}=stageCommands();
  assert(network.includes('--internal'));
@@ -23,6 +23,14 @@ test('Persistent systemd cleanup timer uses exact UTC date and labelled cleanup'
  const units=expiryUnitContents('2026-11-01T04:15:00.000Z');
  assert.match(units.timer,/OnCalendar=2026-11-01 04:15:00 UTC/);
  assert.match(units.timer,/Persistent=true/);
- assert.match(units.service,/--cleanup/);
+ assert.match(units.service,/ExecStart=\/usr\/local\/sbin\/nyra-5c-db-cleanup/);
+ const cleanup=cleanupScript();
+ assert.match(cleanup,/pr20-fra1-temporary/);
+ assert.match(cleanup,/docker network inspect/);
+ assert(!cleanup.includes('docker system prune'));
+ assert(!cleanup.includes('docker rm -f 
+ assert(!units.service.includes('docker system prune'));
+});
+));
  assert(!units.service.includes('docker system prune'));
 });
