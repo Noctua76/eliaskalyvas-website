@@ -105,7 +105,7 @@ export function createLiveWatcher({
     throw e;
    }
   },
-  async isReady({role,runId,runAttempt}){
+  async isReady({role,runId,runAttempt,checkRunId}){
    if(!armed||closed||failed||now()<start||now()>=end||
       !roles.includes(role)||!DECIMAL.test(runId)||!DECIMAL.test(runAttempt)||
       runId!==chosen||!registered.has(role+':'+runId+':'+runAttempt))return false;
@@ -118,6 +118,7 @@ export function createLiveWatcher({
     need(Number.isSafeInteger(jobs.total_count)&&jobs.total_count<100&&
       jobs.total_count===jobs.jobs?.length,'JOBS_INCOMPLETE');
     const saved=registered.get(role+':'+runId+':'+runAttempt);
+    if(checkRunId!==undefined&&checkRunId!==saved.selector.checkRunId)return false;
     return jobs.jobs.filter(j=>j.name===policies[role].jobName&&
       j.status==='in_progress'&&String(j.run_id)===runId&&
       String(j.run_attempt)===runAttempt&&j.head_sha===callerSHA&&
