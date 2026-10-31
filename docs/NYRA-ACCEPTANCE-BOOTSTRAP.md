@@ -1,11 +1,27 @@
 # Phase 5C — consolidated operator bootstrap
 
 Base main: `c24c891a8d75f4d48a54305eccbdf89722c66a69`.
-This package is INACTIVE. No host, real keys, credential, collector or GitHub job
-has been provisioned/started. It does not repeat the accepted 639-test baseline.
+This package is INACTIVE. A temporary FRA1 host/PG17 pilot was provisioned by
+the operator and has now been destroyed; its DNS was removed. The current code
+has not executed real owner authorization, protected OIDC or provenance acceptance. It does not repeat the accepted 639-test baseline.
 No Phase 5D production operation is enabled. Exact CI/head evidence is in the PR.
 
-## Selected deployment and approval scope
+## Current closure / future execution gate
+
+**2026-10-31: FRA1 pilot retired.** Owner reports PG17 cleanup success/status0,
+DB container and private network removed, no Docker mounts, Droplet destroyed and
+DNS removed. Usage USD0.91 was covered by signup credit, estimated payable USD0.00
+at observation time. These are operator observations, not signed trust evidence.
+The old IP, origin, credentials and expiry are unavailable and must not be reused.
+The public probe plan is disabled before any network or token request.
+
+The instructions below are a **design/reference template**, not authorization to
+execute against FRA1 or a replacement host. Current evidence, gaps and the minimal
+future sequence are authoritative in [the PR20 independent review package](NYRA-PR20-INDEPENDENT-REVIEW.md).
+Any new environment/target binding, credentials, signing authority, ingress or
+invocation requires its specific owner approval. No Phase5D work is enabled.
+
+## Future deployment and approval scope (reference only)
 
 Use ONE owner-provided, temporary Linux host, Docker + systemd, 4 vCPU / 8 GiB /
 20 GiB free, with an existing owner-managed HTTPS reverse proxy and a dedicated

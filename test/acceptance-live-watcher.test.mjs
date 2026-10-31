@@ -101,3 +101,7 @@ test('Readiness refuses substituted check run, run attempt or workflow job',asyn
  f.job({jobs:jobs().jobs.map((x,i)=>i===0?{...x,run_attempt:2}:x)});
  assert.equal(await f.watcher.isReady({role:'build',runId:'101',runAttempt:'1'}),false);
 });
+
+test('Failed or cancelled completed run revokes rows and cannot become successful lifecycle completion',async()=>{
+ for(const conclusion of ['failure','cancelled','timed_out',null]){const f=fixture();await f.watcher.arm();f.dispatch();await f.watcher.scan();f.alter({status:'completed',conclusion});await assert.rejects(f.watcher.scan(),/WATCHER_RUN_FAILED/);assert.equal(f.revoked.length,3);assert.equal(f.watcher.state().closed,true);}
+});

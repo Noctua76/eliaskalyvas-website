@@ -21,8 +21,10 @@ export function liveRoleArgs(role,uid,gid){
 }
 export function scopedFRA1Cleanup(command=cmd){
  const removed=[];for(const name of ['nyra-5c-live-registrar','nyra-5c-live-broker','nyra-5c-live-builder']){
-  let label;try{label=command('docker',['inspect','-f','{{index .Config.Labels "com.noctua.nyra.acceptance.live"}}',name]);}catch{continue;}
-  need(label==='pr20-fra1','CLEANUP_SCOPE');command('docker',['rm','-f',name]);removed.push(name);
+  const exists=()=>{const value=command('docker',['ps','--all','--filter','name=^'+name+'$','--format','{{.Names}}']);need(value===''||value===name,'CLEANUP_SCOPE');return value===name;};
+  if(!exists())continue;
+  const label=command('docker',['inspect','-f','{{index .Config.Labels "com.noctua.nyra.acceptance.live"}}',name]);
+  need(label==='pr20-fra1','CLEANUP_SCOPE');command('docker',['rm','-f',name]);need(!exists(),'CLEANUP_REMAINS');removed.push(name);
  }return removed;
 }
 export function cleanupUnits(endsAt){

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {stageCommands,loginsSQL,expiryUnitContents,cleanupScript,IMAGE,DB,NET,LABEL} from '../ops/acceptance-bootstrap/db-stage.mjs';
+import {stageCommands,loginsSQL,expiryUnitContents,cleanupScript,resourceExists,IMAGE,DB,NET,LABEL} from '../ops/acceptance-bootstrap/db-stage.mjs';
 
 test('Temporary PostgreSQL 17 is digest-pinned, internal-only and has no published ports', () => {
   const {network,db}=stageCommands();
@@ -33,4 +33,20 @@ test('Persistent UTC expiry uses an independent exact-label cleanup script', () 
   assert.match(script,/docker rm -f nyra-5c-pg17/);
   assert(!script.includes('docker system prune'));
   assert(!units.service.includes('docker system prune'));
+});
+
+test('DB cleanup distinguishes absence from Docker failure and refuses ambiguous names',()=>{
+ assert.equal(resourceExists('container',DB,()=>''),false);
+ assert.equal(resourceExists('network',NET,()=>NET),true);
+ assert.throws(()=>resourceExists('container',DB,()=>{throw Error('daemon unavailable')}),/daemon unavailable/);
+ assert.throws(()=>resourceExists('container',DB,()=>DB+'\nother'),/RESOURCE_SCOPE/);
+ assert.throws(()=>resourceExists('container','unrelated',()=>''),/RESOURCE_SCOPE/);
+});
+test('Generated DB cleanup aborts on failed Docker reads before deleting private files',async()=>{
+ const {mkdtemp,writeFile,chmod,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{spawnSync}=await import('node:child_process');
+ const dir=await mkdtemp(join(tmpdir(),'nyra-cleanup-script-'));try{
+  await writeFile(join(dir,'docker'),'#!/bin/sh\nexit 42\n');await chmod(join(dir,'docker'),0o700);
+  await writeFile(join(dir,'rm'),'#!/bin/sh\necho SHOULD_NEVER_DELETE\n');await chmod(join(dir,'rm'),0o700);
+  const r=spawnSync('/bin/sh',['-c',cleanupScript()],{env:{PATH:dir},encoding:'utf8'});assert.equal(r.status,42);assert(!r.stdout.includes('SHOULD_NEVER_DELETE'));
+ }finally{await rm(dir,{recursive:true,force:true});}
 });

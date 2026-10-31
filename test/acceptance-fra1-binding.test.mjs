@@ -8,11 +8,13 @@ import {stageLiveRuntime} from '../ops/acceptance-bootstrap/stage-live-runtime.m
 import {liveRoleArgs,scopedFRA1Cleanup,cleanupUnits} from '../ops/acceptance-bootstrap/fra1-launch.mjs';
 import {readState} from './fixtures/protected-delivery.mjs';
 import {integrationAPI} from './fixtures/protected-integration.mjs';
+import {assertAcceptanceCompletion} from '../ops/acceptance-bootstrap/fra1-runtime.mjs';
+import {probeIdentity} from '../ops/protected-delivery/live-probe.mjs';
 import {liveRoleService} from '../ops/acceptance-bootstrap/live-role-service.mjs';
 test('FRA1 role mounts contain only own private credentials and dedicated read-only runtime; no Docker socket or public ports',()=>{for(const role of ['registrar','broker']){const a=liveRoleArgs(role,1001,1001),s=a.join(' ');assert(a.includes('--read-only'));assert(!a.includes('--publish'));assert(!s.includes('docker.sock'));assert(!s.includes('/coordinator/'));assert(!s.includes('/owner/'));assert(!s.includes(role==='registrar'?'/broker/':'/registrar/'));assert.equal(s.includes('evidence-key.json'),role==='broker');assert(s.includes('/policy,dst=/run/role/policy,readonly'));}assert.throws(()=>liveRoleArgs('owner',0,0));});
 test('FRA1 cleanup fails closed on an unrelated container label; expiry unit uses an absolute reviewed stop command',()=>{assert.throws(()=>scopedFRA1Cleanup(()=> 'unrelated'),/CLEANUP_SCOPE/);const u=cleanupUnits('2026-11-01T00:00:00Z');assert(u.timer.includes('Persistent=true'));assert(u.service.includes('fra1-launch.mjs --cleanup'));assert(!u.service.includes('Caddy'));});
 test('Real role adapter checks exact PostgreSQL identity and cannot accept operations for the opposite role',async()=>{const policies=Object.fromEntries(['build','inspection','publication'].map(role=>[role,{...integrationAPI(role).policy,role,purpose:'identity-observation-only',subject:'urn:nyra:unapproved-subject-discovery'}]));const broker=liveRoleService({role:'broker',mode:'discovery',policies,query:async()=>({rows:[{identity:'postgres'}]}),getJSON:async()=>{},readPolicyState:privilege=>readState(policies[privilege])(),assertAdministration:async()=>{},signEvidence:async()=>{}});await assert.rejects(broker('identity',{}),/ROLE_IDENTITY/);await assert.rejects(broker('register',{privilege:'build',selector:{}}),/ROLE_OPERATION_DENIED/);});
-test('FRA1 public plan contains routing identity only, not owner approval, JWT subjects or credentials',async()=>{const p=JSON.parse(await readFile(new URL('../ops/protected-delivery/live-acceptance-plan.json',import.meta.url)));assert.equal(p.origin,'https://nyra-5c.eliaskalyvas.gr/');assert.equal(p.publicEvidenceKeyId,'nyra-5c-fra1-evidence-v1');assert.deepEqual(Object.keys(p).sort(),['approved','origin','publicEvidenceKeyId','purpose']);});
+test('FRA1 public plan contains routing identity only, not owner approval, JWT subjects or credentials',async()=>{const p=JSON.parse(await readFile(new URL('../ops/protected-delivery/live-acceptance-plan.json',import.meta.url)));assert.equal(p.approved,false);assert.equal(p.origin,'https://nyra-5c.eliaskalyvas.gr/');assert.equal(p.publicEvidenceKeyId,'nyra-5c-fra1-evidence-v1');assert.deepEqual(Object.keys(p).sort(),['approved','origin','publicEvidenceKeyId','purpose']);});
 
 test('Dedicated staged live runtime imports without Vite, React, production dependencies, fixtures or credentials',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'nyra-live-stage-test-'));try{
@@ -28,4 +30,30 @@ test('Scoped retirement revokes all policy registrations, including lost acknowl
  const registrar=liveRoleService({...shared,role:'registrar',query:async(sql)=>{assert.match(sql,/update nyra_trust.jobs/);retired++;return {rows:[]};}});
  assert.deepEqual(await registrar('retire',{}),{retired:true});assert.equal(retired,3);
  let count=1;const broker=liveRoleService({...shared,role:'broker',query:async()=>({rows:[{count}]}),signEvidence:async r=>r});await assert.rejects(broker('retirement',{}),/RETIREMENT_INCOMPLETE/);count=0;assert.equal((await broker('retirement',{})).activeRegistrations,0);
+});
+
+
+test('Retired public plan denies before any DNS/HTTP or GitHub token acquisition',async()=>{
+ const plan=JSON.parse(await readFile(new URL('../ops/protected-delivery/live-acceptance-plan.json',import.meta.url)));let requests=0;
+ await assert.rejects(probeIdentity({privilege:'build',plan,fetcher:async()=>{requests++;}}));assert.equal(requests,0);
+});
+test('Cleanup propagates Docker read/removal errors and verifies fixed-name absence after removal',()=>{
+ assert.throws(()=>scopedFRA1Cleanup(()=>{throw Error('daemon unavailable')}),/daemon unavailable/);
+ assert.deepEqual(scopedFRA1Cleanup(()=>''),[]);
+ const present=new Set(['nyra-5c-live-broker']);const execute=(file,args)=>{
+  const name=args.at(-1);
+  if(args[0]==='ps')return present.has(args[args.indexOf('--filter')+1].slice(6,-1))?'nyra-5c-live-broker':'';
+  if(args[0]==='inspect')return 'pr20-fra1';
+  if(args[0]==='rm'){present.delete(name);return name;}
+  throw Error('unexpected command');
+ };
+ assert.deepEqual(scopedFRA1Cleanup(execute),['nyra-5c-live-broker']);
+ assert.throws(()=>scopedFRA1Cleanup((f,a)=>a[0]==='inspect'?'pr20-fra1':a[0]==='ps'?'nyra-5c-live-registrar':''),/CLEANUP_REMAINS/);
+});
+test('Successful workflow completion cannot replace all three signed observations or provenance evidence',()=>{
+ assert.throws(()=>assertAcceptanceCompletion({mode:'discovery',observedRoles:[]}),/INCOMPLETE/);
+ assert.throws(()=>assertAcceptanceCompletion({mode:'discovery',observedRoles:['build','inspection']}),/INCOMPLETE/);
+ assert.equal(assertAcceptanceCompletion({mode:'discovery',observedRoles:['build','inspection','publication']}),true);
+ for(const patch of [{inventory:false,consumed:true},{inventory:true,consumed:false}])assert.throws(()=>assertAcceptanceCompletion({mode:'provenance',observedRoles:['build','inspection','publication'],...patch}),/INCOMPLETE/);
+ assert.equal(assertAcceptanceCompletion({mode:'provenance',observedRoles:['build','inspection','publication'],inventory:true,consumed:true}),true);
 });

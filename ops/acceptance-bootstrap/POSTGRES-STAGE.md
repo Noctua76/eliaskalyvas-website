@@ -1,4 +1,10 @@
-# NYRA 5C — isolated temporary PostgreSQL stage
+# NYRA 5C — archived temporary PostgreSQL stage
+
+**RETIRED PILOT: do not execute these commands.** The FRA1 DB/container/network,
+Droplet and DNS have been removed according to the owner. The commands below
+record the historical stage only; future infrastructure, credentials and expiry
+require a separately approved environment and reviewed target binding. See
+HOST-FRA1.md and docs/NYRA-PR20-INDEPENDENT-REVIEW.md.
 
 This is **not** production or real Live Trust Acceptance. The script provisions
 only an isolated PostgreSQL 17 test database using the existing approved
@@ -33,5 +39,5 @@ billing continues until the operator destroys the Droplet in DigitalOcean.
 Even after this stage is passing, REAL registrar/broker services and private
 IPC, the GitHub administrative/App inventory source, the actual signed
 Owner/AAL2 decision, bounded egress, the evidence collector, workflow/job
-wiring, and live protected OIDC evidence remain unimplemented or unaccepted.
+wiring, and live protected OIDC evidence remain NOT VERIFIED in real acceptance; executable source bindings now exist.
 The live Caddy listener remains the safe 404; do not enable public routes.

@@ -73,7 +73,7 @@ export function createLiveWatcher({
     valid(run,callerSHA,ownerId,{start,end});
     if(run.status==='completed'){
      const previouslyRegistered=[...registered.keys()];
-     failed=true;await retire();
+     failed=true;await retire();need(run.conclusion==='success','RUN_FAILED');
      return {observed:true,completed:true,retired:true,registered:previouslyRegistered,
       authorization:false};
     }

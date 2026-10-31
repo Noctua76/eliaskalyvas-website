@@ -1,58 +1,36 @@
-# NYRA 5C — actual temporary FRA1 host (non-secret record)
+# NYRA 5C — HISTORICAL FRA1 PILOT — RETIRED
 
-This is **not** a deployment, policy approval, real OIDC evidence, or an
-instruction to provision GitHub credentials. Scope remains the existing Draft
-PR #20 and separate owner authorization. The site, Pages and production Supabase
-resources remain unchanged.
+**Recorded 2026-10-31 from the owner's operator observations.** No independent
+signed Live Trust Acceptance evidence was produced. This file is an archival
+record, not a current host inventory or executable deployment instruction.
 
-- Provider: DigitalOcean; single Ubuntu 24.04 Droplet `nyra-5c-acceptance`
-- Region: FRA1; Basic Regular 4 vCPU, 8 GiB class, 160 GiB SSD
-- Public IPv4: `201.79.94.104`
-- Dedicated TLS origin: `https://nyra-5c.eliaskalyvas.gr`
-- TLS certificate verified, baseline `GET /` responds `404`
-- UFW default deny incoming with SSH/HTTP/HTTPS exceptions; Docker installed
-- Detached code checkout: `/opt/nyra-5c/bootstrap`
-- Private root directory: `/opt/nyra-5c/private` (0700)
-- Separate non-login service identities: coordinator, registrar, broker, owner
-- Disposable private PostgreSQL 17 is running: owner-verified real host output
-  reports internalNetwork=true, publishedPorts=0, separateDbLogins=true.
-- Two distinct local PostgreSQL logins have been provisioned; their credentials
-  are local 0600 files, not shared in repo or chat.
-- Current DB expiry timer was set to 2026-10-31T21:21:16.663Z (host UTC).
-  This expires the isolated DB and its local credentials, **not the Droplet**.
-- No live registrar/broker services, Github read identity, owner authorization,
-  evidence signing key, real GitHub job or registration have been activated.
+| Historical resource | Final operator-observed state |
+| --- | --- |
+| DigitalOcean FRA1 Droplet `nyra-5c-acceptance` | Destroyed |
+| PostgreSQL17 cleanup service | `Result=success`, `ExecMainStatus=0` |
+| Container `nyra-5c-pg17` | Removed |
+| Private Docker network | Removed |
+| Docker mounts | None reported |
+| DNS `nyra-5c.eliaskalyvas.gr` | Removed |
+| Billing observation | USD0.91 usage, covered by signup credit; estimated payable USD0.00 at observation time |
 
-## Read-only prerequisite check on the selected host
+Historical IPv4 `201.79.94.104`, old TLS origin, local paths/users, credential
+files and PostgreSQL deadline are **not available resources**. No request, SSH,
+DNS recreation, credential reuse or new billing operation is authorized by this
+record. Billing is a point-in-time operator observation, not a final invoice or
+independently checked provider balance.
 
-After fetching the reviewed exact PR head (not main), run:
+The pilot previously exercised private PG17 role isolation and identity-only
+process/IPC checks. These observations establish neither genuine protected OIDC
+nor owner/MFA authorization, registered provenance or full live acceptance.
+Droplet destruction does not prove issuer-side credential revocation; any issued
+identity must have separate issuer-side revocation evidence, or an authenticated
+record that no such identity was provisioned. No credential is assumed reusable.
 
-```sh
-node ops/acceptance-bootstrap/host-preflight.mjs
-```
+`host-target.json`, `Caddyfile.review-only`, host-specific scripts and the detailed
+FRA1 binding notes preserve the old reviewed template. They are **not a selected
+future destination**. The public probe plan is disabled (`approved:false`) and
+rejects before DNS/HTTP/token acquisition. Do not run old provisioning commands.
 
-This command was completed successfully **before** PostgreSQL provisioning.
-It includes a requirement for no running containers, so it is an initial host
-preflight and is NOT intended to be rerun unchanged after DB installation.
-It checks concrete DNS/TLS, available CPU/RAM/disk, Caddy/Docker, UFW and
-private Linux identity/directory permissions.
-Its result is **never** a credential-issuance authorization or a PASS for Phase
-5C. A local 404 and valid TLS are intentionally required before any listener.
-
-## Mandatory gates still unfulfilled
-
-- Independently review actual Github administrative/App evidence and owner
-  residual write/merge/workflow authority; require fresh AAL2 risk receipt
-- Approve and bound a <=24h window; install issuer-side revocation and a
-  transient host cleanup timer **before** any credentials or GitHub invocation
-- Implement actual private registrar/broker/coordinator network/SQL/IPC watcher,
-  no builder egress, bounded host egress to exact approved GitHub/Auth origins
-- Validate live role-isolated database clients, then connect actual role services
-- Replace Caddy 404 only for exact approved fixed readiness and acceptance routes
-  after binding is reviewed; do not expose private admin/owner/evidence or DB
-- Compose actual independent evidence persistence and OIDC registration; fill
-  reviewed public probe plan, pin eventual merged main SHA, run targeted tests,
-  external review and separate merge/dispatch approvals
-
-Do not interpret this host inventory as runnable real acceptance. Keep the old
-runbook order and fail-closed requirements.
+For independent review and a separately approved future environment, read
+[NYRA-PR20-INDEPENDENT-REVIEW.md](../../docs/NYRA-PR20-INDEPENDENT-REVIEW.md).

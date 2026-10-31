@@ -4,7 +4,22 @@
 Repository: Noctua76/eliaskalyvas-website; existing Draft PR #20.
 No merge, production publication, protected dispatch, Caddy activation or acceptance claim.
 
-## Actual DigitalOcean observations (operator-supplied terminal screenshots)
+## Closure supersedes the historical operational instructions
+
+**2026-10-31: the owner reports complete FRA1 retirement.** PostgreSQL cleanup
+Result=success/ExecMainStatus=0; DB container and private network removed; Docker
+mounts none; Droplet destroyed; DNS removed. Billing observation: USD0.91 covered
+by signup credit, estimated payable USD0.00. This is operator-observed closure,
+not independently signed Live Trust Acceptance evidence. No previous IP,
+credential, origin or deadline is available. The public plan is now disabled.
+
+All FRA1 paths/commands/target pins below are **historical template details**;
+none may be executed against expired resources. Future selection and binding
+requires explicit approval and reviewed changes, not reuse of old credentials.
+See [the final PR20 review package](NYRA-PR20-INDEPENDENT-REVIEW.md) for the current
+readiness matrix, correction evidence and minimal next operator sequence.
+
+## Historical DigitalOcean observations (operator-supplied)
 - FRA1 Ubuntu, DNS/HTTPS, firewall and host preflight: PASS.
 - PostgreSQL 17 private Docker network, no published ports, distinct DB logins.
 - Registrar/broker cross-credential substitution: DENIED.
@@ -20,7 +35,7 @@ No merge, production publication, protected dispatch, Caddy activation or accept
 - Repeat, stale, unsigned, wrong-role, missing-owner and revoked-admin paths fail closed.
 - No listener, dispatch, token source or role process is started by these imports.
 
-## BLOCKED / NOT VERIFIED in the real host
+## Historical blockers — no real host now exists
 1. Independent authenticated GitHub administration reader with Administration:read.
    The connected GitHub integration returned 403 for main branch protection.
 2. Complete owner-authoritative GitHub App inventory and effective permissions.
@@ -42,7 +57,7 @@ Neither a dry run nor CI tests can substitute for actual owner-risk authorizatio
 Remain Draft and fail closed. Do not enable public ingress, real GitHub dispatch or
 production publication until all independently verified gates are accepted.
 
-## FRA1 executable binding — current PR20 revision
+## Archived FRA1 executable binding template — not a current target
 
 This section supersedes the earlier implementation blockers 4/5 above **for source
 implementation only**. None of the new commands has been executed on DigitalOcean.
@@ -111,7 +126,7 @@ an actual bypass or a harmless grant. No App is silently treated as a reviewer.
 Renew the authenticated signed observation within five minutes throughout the
 window; any permission change changes the digest and requires a new owner decision.
 
-### Private configuration and operator sequence (not authorization to execute)
+### Historical private configuration / sequence (NOT EXECUTABLE NOW)
 
 1. External review this exact PR and obtain separate inactive merge approval.
    Pin the eventual reviewed main merge SHA as `callerSHA`; do not dispatch this

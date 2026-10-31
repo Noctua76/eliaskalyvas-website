@@ -18,6 +18,9 @@ import {verifyEvidence} from '../../lib/publication/runtime/acceptance-evidence.
 const roles=['build','inspection','publication'];
 const need=(v,c)=>{if(!v)throw Error('FRA1_'+c);};
 const fd=(n,readable)=>new Socket({fd:n,readable,writable:!readable});
+export function assertAcceptanceCompletion({mode,observedRoles,inventory=false,consumed=false}){
+ need(['discovery','provenance'].includes(mode)&&roles.every(r=>observedRoles.includes(r))&&(mode==='discovery'||inventory&&consumed),'ACCEPTANCE_INCOMPLETE');return true;
+}
 export function validateFRA1Policies(c){
  need(['discovery','provenance'].includes(c.mode)&&/^[a-f0-9]{40}$/.test(c.callerSHA),'MODE_PIN');
  for(const role of roles){const p=c.policies?.[role];validateGovernance(p?.governance,'217035723');
@@ -37,19 +40,19 @@ export async function createFRA1Runtime({config:c,ports,buildPort,getJSON,readSi
  const gate=administrationGate({readEvidence,acceptedApplicationsSHA256:c.acceptedApplicationsSHA256,ownerRiskDecisionId:c.ownerDecisionId,readOwnerRiskDecision:readOwnerDecision,ownerDecisionPublicKey:c.ownerPublicKey,ownerDecisionKeyId:c.ownerKeyId,now});
  const assertAdministration=async p=>{await gate(p);need(now()<Date.parse(c.windowEndsAt),'EXPIRED');return true;};
  const registrars=Object.fromEntries(roles.map(privilege=>[privilege,{register:selector=>ports.registrar.call('register',{privilege,selector}),revoke:selector=>ports.registrar.call('revoke',{privilege,selector})}]));
- let approvedInventory=null;
+ let approvedInventory=null,consumed=false;const observedRoles=new Set();
  const brokerAcceptors=Object.fromEntries(roles.map(privilege=>[privilege,async token=>{
   const r=await ports.broker.call('accept',{privilege,token});
   const observed=await verifyPinnedObservation(r.signed,{publicKey:c.evidencePublicKey,keyId:c.evidenceKeyId,policy:c.policies[privilege],now});
   need(await composition.watcher.isReady({role:privilege,runId:observed.runId,runAttempt:observed.runAttempt,checkRunId:observed.checkRunId}),'JOB_NOT_READY');
   if(c.mode==='provenance'){
    if(privilege==='build'){need(r.grant?.privilege==='build','BUILD_GRANT');approvedInventory=await ports.registrar.call('capture',{handle:r.handle,grant:r.grant});await persist({kind:'inventory',record:approvedInventory});}
-   if(privilege==='publication'){need(approvedInventory?.configurationSHA256,'BUILD_REQUIRED');const evidence=await ports.broker.call('consume',{handle:r.handle,configurationSHA256:approvedInventory.configurationSHA256});const record=await verifyEvidence(evidence,{publicKey:c.evidencePublicKey,keyId:c.evidenceKeyId});need(record.schema==='nyra.provenance.acceptance.v1'&&record.codeSHA===c.callerSHA&&record.publicationPerformed===false&&record.inventoryDigest===approvedInventory.digest,'PROVENANCE_EVIDENCE');await persist({kind:'provenance',envelope:evidence});}
+   if(privilege==='publication'){need(approvedInventory?.configurationSHA256,'BUILD_REQUIRED');const evidence=await ports.broker.call('consume',{handle:r.handle,configurationSHA256:approvedInventory.configurationSHA256});const record=await verifyEvidence(evidence,{publicKey:c.evidencePublicKey,keyId:c.evidenceKeyId});need(record.schema==='nyra.provenance.acceptance.v1'&&record.codeSHA===c.callerSHA&&record.publicationPerformed===false&&record.inventoryDigest===approvedInventory.digest,'PROVENANCE_EVIDENCE');await persist({kind:'provenance',envelope:evidence});consumed=true;}
   }
   return r.signed;
  }]));
- const composition=composeTrustAcceptance({getJSON,registrars,policies:c.policies,assertAdministration,assertOwnerDecision:assertAdministration,brokerAcceptors,persistSignedEvidence:async row=>{await persist({kind:'observation',...row});return true;},evidencePublicKey:c.evidencePublicKey,evidenceKeyId:c.evidenceKeyId,callerSHA:c.callerSHA,windowStartsAt:c.windowStartsAt,windowEndsAt:c.windowEndsAt,enabled:true,now});
- return {composition,assertAdministration,async query(op,a){
+ const composition=composeTrustAcceptance({getJSON,registrars,policies:c.policies,assertAdministration,assertOwnerDecision:assertAdministration,brokerAcceptors,persistSignedEvidence:async row=>{await persist({kind:'observation',...row});observedRoles.add(row.role);return true;},evidencePublicKey:c.evidencePublicKey,evidenceKeyId:c.evidenceKeyId,callerSHA:c.callerSHA,windowStartsAt:c.windowStartsAt,windowEndsAt:c.windowEndsAt,enabled:true,now});
+ return {composition,assertAdministration,assertComplete:()=>assertAcceptanceCompletion({mode:c.mode,observedRoles:[...observedRoles],inventory:!!approvedInventory,consumed}),async query(op,a){
   if(op==='github')return getJSON(a.url);
   if(op==='administration'){need(roles.includes(a.privilege),'POLICY');return assertAdministration(c.policies[a.privilege]);}
   if(op==='revalidate')return ports.broker.call('revalidate',a);
@@ -70,8 +73,8 @@ async function main(){
  const ports=Object.fromEntries([['registrar',4,3],['broker',6,5]].map(([role,input,output])=>[role,privatePort({role,key:Buffer.from(keys[role],'hex'),input:fd(input,true),output:fd(output,false),side:'coordinator',timeout:180000,onQuery:async(op,a)=>{if(op==='jwks')return jwks();return runtime.query(op,a);}})]));
  const buildPort=privatePort({role:'registrar',key:Buffer.from(keys.builder,'hex'),input:fd(7,true),output:fd(8,false),side:'coordinator',timeout:180000});
  const persist=async record=>{const path=c.evidenceDirectory+'/'+Date.now()+'-'+crypto.randomUUID()+'.json',f=await open(path,'wx',0o600);try{await f.writeFile(JSON.stringify(record));await f.sync();}finally{await f.close();}};
- let ingress,stopped=false;
- const stop=async()=>{if(stopped)return;stopped=true;try{try{await runtime?.composition.watcher.retire();}finally{await ports.registrar.call('retire',{});const receipt=await ports.broker.call('retirement',{});const record=await verifyEvidence(receipt,{publicKey:c.evidencePublicKey,keyId:c.evidenceKeyId});need(record.schema==='nyra.acceptance.retirement.v1'&&record.activeRegistrations===0&&record.policiesSHA256===hashJSON(c.policies),'RETIREMENT');await persist({kind:'retirement',envelope:receipt});}}finally{ingress?.close();ingress?.closeAllConnections();Object.values(ports).forEach(p=>p.close());buildPort.close();}};
+ let ingress,stopped=false,stopping,completed=false;
+ const stop=()=>{if(stopping)return stopping;stopped=true;stopping=(async()=>{try{try{await runtime?.composition.watcher.retire();}finally{await ports.registrar.call('retire',{});const receipt=await ports.broker.call('retirement',{});const record=await verifyEvidence(receipt,{publicKey:c.evidencePublicKey,keyId:c.evidenceKeyId});need(record.schema==='nyra.acceptance.retirement.v1'&&record.activeRegistrations===0&&record.policiesSHA256===hashJSON(c.policies),'RETIREMENT');await persist({kind:'retirement',envelope:receipt});}}finally{ingress?.close();ingress?.closeAllConnections();Object.values(ports).forEach(p=>p.close());buildPort.close();}})();return stopping;};
  try{
   runtime=await createFRA1Runtime({config:c,ports,buildPort,getJSON,readSignedAudit:()=>privateFile(c.applicationAuditFile),readOwnerDecision:input=>ownerRequest({socket:c.ownerReceiptSocket,operation:'receipt',input}),persist});
   process.once('SIGTERM',()=>stop().catch(()=>{}));process.once('SIGINT',()=>stop().catch(()=>{}));
@@ -79,7 +82,8 @@ async function main(){
   await runtime.composition.watcher.arm();
   ingress=await startUnixIngress({handler:runtime.composition.ingress,socketPath:'/run/nyra-5c/ingress.sock',groupId:c.ingressGroupId,enable:true});
   console.log('NYRA_FRA1_PRIVATE_WATCHER_ARMED_NO_DISPATCH');
-  while(!stopped){need(Date.now()<Date.parse(c.windowEndsAt),'WINDOW');need(!Object.values(ports).some(p=>p.isClosed()),'ROLE_EXIT');const r=await runtime.composition.watcher.scan();if(r.completed)break;await new Promise(r=>setTimeout(r,1000));}
+  while(!stopped){need(Date.now()<Date.parse(c.windowEndsAt),'WINDOW');need(!Object.values(ports).some(p=>p.isClosed()),'ROLE_EXIT');const r=await runtime.composition.watcher.scan();if(r.completed){completed=true;break;}await new Promise(r=>setTimeout(r,1000));}
+  need(completed,'INTERRUPTED');runtime.assertComplete();
  }finally{await stop();}
 }
 if(process.argv[1]===new URL(import.meta.url).pathname)main().catch(()=>{console.error('NYRA_FRA1_ACCEPTANCE_CLOSED');process.exitCode=1;});

@@ -39,14 +39,22 @@ export function expiryUnitContents(iso){
 export function cleanupScript(){
  return [
  '#!/bin/sh','set -eu',
- 'if docker inspect nyra-5c-pg17 >/dev/null 2>&1; then',
+ "containers=$(docker ps --all --filter 'name=^nyra-5c-pg17$' --format '{{.Names}}')",
+ 'test -z "$containers" || test "$containers" = nyra-5c-pg17',
+ 'if test -n "$containers"; then',
  '  test "$(docker inspect -f '+String.fromCharCode(39)+'{{index .Config.Labels "com.noctua.nyra.acceptance.db"}}'+String.fromCharCode(39)+' nyra-5c-pg17)" = pr20-fra1-temporary',
  '  docker rm -f nyra-5c-pg17 >/dev/null',
  'fi',
- 'if docker network inspect nyra-5c-db-private >/dev/null 2>&1; then',
+ "containers=$(docker ps --all --filter 'name=^nyra-5c-pg17$' --format '{{.Names}}')",
+ 'test -z "$containers"',
+ "networks=$(docker network ls --filter 'name=^nyra-5c-db-private$' --format '{{.Name}}')",
+ 'test -z "$networks" || test "$networks" = nyra-5c-db-private',
+ 'if test -n "$networks"; then',
  '  test "$(docker network inspect -f '+String.fromCharCode(39)+'{{index .Labels "com.noctua.nyra.acceptance.db"}}'+String.fromCharCode(39)+' nyra-5c-db-private)" = pr20-fra1-temporary',
  '  docker network rm nyra-5c-db-private >/dev/null',
  'fi',
+ "networks=$(docker network ls --filter 'name=^nyra-5c-db-private$' --format '{{.Name}}')",
+ 'test -z "$networks"',
  'rm -f /opt/nyra-5c/private/db.env /opt/nyra-5c/private/pg17-expiry.json',
  'rm -f /var/lib/nyra-5c/registrar/pg.json /var/lib/nyra-5c/broker/pg.json',
  ''
@@ -58,7 +66,12 @@ async function secret(path,value,uid=0,gid=0){
  await writeFile(path,value,{flag:'wx',mode:0o600});
  await chown(path,uid,gid);await chmod(path,0o600);
 }
-function exists(kind,name){try{cmd('docker',kind==='network'?['network','inspect',name]:['inspect',name]);return true;}catch{return false;}}
+export function resourceExists(kind,name,command=cmd){
+ need((kind==='network'&&name===NET)||(kind==='container'&&name===DB),'RESOURCE_SCOPE');
+ const value=command('docker',kind==='network'?['network','ls','--filter','name=^'+name+'$','--format','{{.Name}}']:['ps','--all','--filter','name=^'+name+'$','--format','{{.Names}}']);
+ need(value===''||value===name,'RESOURCE_SCOPE');return value===name;
+}
+const exists=resourceExists;
 function verifyLabel(kind,name){
  const f=kind==='network'?'{{index .Labels "com.noctua.nyra.acceptance.db"}}':'{{index .Config.Labels "com.noctua.nyra.acceptance.db"}}';
  need(cmd('docker',kind==='network'?['network','inspect','-f',f,name]:['inspect','-f',f,name])==='pr20-fra1-temporary','LABEL_MISMATCH');
@@ -67,6 +80,7 @@ async function cleanup(){
  need(process.getuid?.()===0,'ROOT');
  if(exists('container',DB)){verifyLabel('container',DB);cmd('docker',['rm','-f',DB]);}
  if(exists('network',NET)){verifyLabel('network',NET);cmd('docker',['network','rm',NET]);}
+ need(!exists('container',DB)&&!exists('network',NET),'CLEANUP_REMAINS');
  for(const f of [ROOT+'/db.env',MARKER,...roles.map(r=>'/var/lib/nyra-5c/'+r+'/pg.json')])await rm(f,{force:true});
  return {cleaned:true,dropletDestroyed:false,githubCredentialsTouched:false};
 }
