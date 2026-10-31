@@ -19,6 +19,7 @@ test('Edge package pins all six exact v1.1 schema byte hashes without changing t
 test('raw offline stage preserves every original source and guards before importing the handler',async()=>{
  const stage=await stageEdgeRuntime({offlineDependencies:true});
  try{
+  assert(stage.files.includes('lib/publication/canonical-json.mjs'));
   for(const path of stage.files)assert.deepEqual(await readFile(stage.dir+'/'+path),await readFile(new URL('../'+path,import.meta.url)));
   const config=JSON.parse(await readFile(stage.dir+'/deno.json','utf8'));assert.equal(config.nodeModulesDir,'manual');assert(config.imports['ajv/dist/2020.js'].startsWith('./node_modules/'));
   const entry=await readFile(stage.dir+'/index.ts','utf8');assert(entry.indexOf('verifySchemaAssets();')<entry.indexOf('await import('));assert(!entry.includes('Deno.serve'));assert(!entry.includes('env.get'));

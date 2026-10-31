@@ -1,0 +1,21 @@
+# REVIEW ONLY: keep active host Caddyfile returning 404 until acceptance
+# authorization/credential lifecycle, private socket and role isolation are live.
+nyra-5c.eliaskalyvas.gr {
+    @readiness {
+        method GET
+        path_regexp readiness ^/ready/(build|inspection|publication)/[1-9][0-9]*/[1-9][0-9]*$
+    }
+    handle @readiness {
+        reverse_proxy unix//run/nyra-5c/ingress.sock
+    }
+    @acceptance {
+        method POST
+        path /acceptance/build /acceptance/inspection /acceptance/publication
+    }
+    handle @acceptance {
+        reverse_proxy unix//run/nyra-5c/ingress.sock
+    }
+    handle {
+        respond "Not Found" 404
+    }
+}

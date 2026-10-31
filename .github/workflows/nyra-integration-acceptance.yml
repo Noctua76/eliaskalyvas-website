@@ -23,6 +23,7 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npm ci --ignore-scripts --prefix ops/native-acceptance
+      - run: npm ci --ignore-scripts --prefix ops/acceptance-bootstrap/runtime
       - name: Native isolated trust-store and protected integration acceptance
         env:
           NYRA_TRUST_CI: '1'
