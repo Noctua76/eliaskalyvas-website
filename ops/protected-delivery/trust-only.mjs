@@ -15,6 +15,7 @@ if(process.env.NYRA_TRUST_CONTAINER==='1'){
  try{
   await nativeProtectedAcceptance({...config,event:(id,status,detail)=>console.log(JSON.stringify({id,status,detail}))});
   const connect=async()=>{const c=new pg.Client({host:config.dbHost,port:5432,user:'postgres',password:config.password,database:'postgres',statement_timeout:15000,lock_timeout:10000});await c.connect();clients.push(c);return c;};
+  const queueClient=await connect();const {acceptNativeInspectionQueue}=await import('../publication/native-queue-acceptance.mjs');console.log(JSON.stringify({id:'5D-native-inspection-queue',status:'PASS',detail:await acceptNativeInspectionQueue(queueClient.query.bind(queueClient))}));
   const registrar=await connect(),a=await connect(),b=await connect();await registrar.query('set role nyra_trust_registrar');await a.query('set role nyra_trust_broker');await b.query('set role nyra_trust_broker');
   console.log(JSON.stringify({id:'B2-native-composition',status:'PASS',detail:await acceptProtectedIntegration({registrarQuery:registrar.query.bind(registrar),brokerQuery:a.query.bind(a),otherBrokerQuery:b.query.bind(b)})}));
  }finally{await Promise.all(clients.map(c=>c.end()));}

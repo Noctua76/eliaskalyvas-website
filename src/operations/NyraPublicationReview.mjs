@@ -1,4 +1,4 @@
-// Private review component; deliberately not imported or mounted in the live Admin.
+// Owner review; mounted only when the server exposes publication preparation.
 import React,{useEffect,useRef,useState} from 'react';
 const h=React.createElement;
 const external=url=>{try{const u=new URL(url);return u.protocol==='https:'&&!u.username&&!u.password?u.href:undefined;}catch{return undefined;}};
@@ -15,7 +15,7 @@ function block(b,i,sources){
  if(b.type==='list')return h('ul',{key:i},...b.items.map((item,n)=>h('li',{key:n,style:textStyle},item.text,citations(item.source_ids,sources))));
  return h('p',{key:i,style:textStyle},b.text,citations(b.source_ids,sources));
 }
-export default function NyraPublicationReview({preview,onAuthorize}){
+export default function NyraPublicationReview({preview,onAuthorize,publicationAction=false,imageURL=null}){
  const [status,setStatus]=useState(''),[busy,setBusy]=useState(false),attempt=useRef(null);
  const current=useRef(preview?.preview_id);current.current=preview?.preview_id;
  useEffect(()=>{setStatus('');setBusy(false);attempt.current=null;},[preview?.preview_id]);
@@ -28,20 +28,20 @@ export default function NyraPublicationReview({preview,onAuthorize}){
   setBusy(true);setStatus('');
   try{const result=await onAuthorize({preview_id:preview.preview_id,request_id:attempt.current.key});
    if(current.current!==selected)return;
-   setStatus(result.status==='authorized_held'&&!result.delivered&&!result.publishing?'Η έγκριση καταγράφηκε ιδιωτικά. Η δημοσίευση παραμένει ανενεργή.':'Δεν επιβεβαιώθηκε ιδιωτική εξουσιοδότηση.');
+   setStatus(publicationAction&&result.status==='authorized_held'&&result.delivered===false&&result.publishing===false?'Η ενέργεια εξουσιοδοτήθηκε. Αναμένεται ανεξάρτητη επιβεβαίωση δημοσίευσης.':result.status==='authorized_held'&&!result.delivered&&!result.publishing?'Η έγκριση καταγράφηκε ιδιωτικά. Η δημοσίευση παραμένει ανενεργή.':'Δεν επιβεβαιώθηκε ιδιωτική εξουσιοδότηση.');
   }catch{if(current.current===selected)setStatus('Η ενέργεια δεν επιβεβαιώθηκε. Η επανάληψη χρησιμοποιεί το ίδιο αναγνωριστικό.');}finally{if(current.current===selected)setBusy(false);}
  }
  return h('section',{'aria-label':'Τελική ιδιωτική συντακτική έγκριση',className:'ops-panel'},
   h('h3',null,'Τελική έγκριση — '+preview.action),
-  h('p',null,'Ελέγχεις το ακριβές στιγμιότυπο και τη συγκεκριμένη γλώσσα. Η ενέργεια προετοιμάζει μόνο ιδιωτική εξουσιοδότηση· δεν δημοσιεύει.'),
+  h('p',null,publicationAction?'Ελέγχεις το ακριβές στιγμιότυπο και τη συγκεκριμένη γλώσσα. Η μία ενέργεια εξουσιοδοτεί την προστατευμένη παράδοση, εφόσον όλοι οι έλεγχοι ασφάλειας περάσουν.':'Ελέγχεις το ακριβές στιγμιότυπο και τη συγκεκριμένη γλώσσα. Η ενέργεια προετοιμάζει μόνο ιδιωτική εξουσιοδότηση· δεν δημοσιεύει.'),
   release?h(React.Fragment,null,h('p',null,release.locale.toUpperCase()),h('h2',null,release.content.title),h('p',null,release.content.summary),
    h('p',null,release.identity.disclosure),
-   h('figure',null,h('img',{src:release.presentation.cover.url,alt:release.presentation.cover.alt,width:release.presentation.cover.width,height:release.presentation.cover.height,referrerPolicy:'no-referrer',style:{maxWidth:'100%',height:'auto'}}),
+   h('figure',null,h('img',{src:imageURL||release.presentation.cover.url,alt:release.presentation.cover.alt,width:release.presentation.cover.width,height:release.presentation.cover.height,referrerPolicy:'no-referrer',style:{maxWidth:'100%',height:'auto'}}),
     h('figcaption',null,release.presentation.cover.caption,' · ',release.presentation.cover.attribution.creator,' · ',release.presentation.cover.attribution.license_name)),
    ...release.content.blocks.map((b,i)=>block(b,i,release.content.sources)),
    h('ol',{'aria-label':'Εγκεκριμένες δημόσιες πηγές'},...release.content.sources.map(s=>h('li',{key:s.id},h('a',{href:external(s.url),rel:'noopener noreferrer',referrerPolicy:'no-referrer'},s.id+': '+s.title)))),
    h('details',null,h('summary',null,'Πλήρες στιγμιότυπο: εικόνα, δικαιώματα, SEO, πηγές και σχέσεις γλωσσών'),h('pre',null,JSON.stringify(release,null,2)))):
    h('pre',null,JSON.stringify(preview.withdrawal,null,2)),
-  h('button',{type:'button',disabled:busy||status.startsWith('Η έγκριση καταγράφηκε'),onClick:approve},busy?'Καταγραφή…':'Εγκρίνω τη συγκεκριμένη ενέργεια — μόνο ιδιωτική προετοιμασία'),
+  h('button',{type:'button',disabled:busy||status.startsWith('Η έγκριση καταγράφηκε')||status.startsWith('Η ενέργεια εξουσιοδοτήθηκε'),onClick:approve},busy?'Καταγραφή…':publicationAction?'Εγκρίνω και εκτελώ: '+preview.action:'Εγκρίνω τη συγκεκριμένη ενέργεια — μόνο ιδιωτική προετοιμασία'),
   h('p',{role:'status'},status));
 }

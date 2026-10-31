@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { operationsConfig } from './config.js';
 import './nyra-lab.css';
+import NyraFinalPublication from './NyraFinalPublication.jsx';
 import NyraPresentation from './NyraPresentation.jsx';
 const MODELS=['gpt-6.1-sol','gpt-6-astra','gpt-6-luna'];
 const names={'gpt-6.1-sol':'GPT-6.1 Sol','gpt-6-astra':'GPT-6 Astra','gpt-6-luna':'GPT-6 Luna'};
@@ -117,6 +118,7 @@ export default function NyraLab({lang,token,onUnauthorized}) {
         <h3>{gr ? 'Ισχυρότερη αντίρρηση' : 'Strongest counterargument'}</h3><p>{current.article.counterargument}</p>
         <p>{current.article.editor_note}</p><ul>{current.article.uncertainties.map((x, i) => <li key={i}>{x}</li>)}</ul>
       </details>
+      {status?.publication_preparation===true&&<NyraFinalPublication key={work.id+':'+current.run.id} work={work} draft={current} index={version<0?drafts.length-1:version} gr={gr} call={call} assetPreview={async(workId,assetId,sha)=>{const jwt=await access.current.token();const r=await fetch(api+'/publication/asset',{method:'POST',credentials:'omit',headers:{Authorization:'Bearer '+jwt,'Content-Type':'application/json'},body:JSON.stringify({work_id:workId,asset_id:assetId}),signal:AbortSignal.timeout(60000)});if(!r.ok)throw Error('PRIVATE_IMAGE_UNAVAILABLE');const blob=await r.blob(),digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join('');if(digest!==sha)throw Error('IMAGE_HASH_MISMATCH');return URL.createObjectURL(blob);}} onEdited={w=>accept(w,true)} onSavePresentation={savePresentation} upload={async form=>{const jwt=await access.current.token();const r=await fetch(api+'/publication/upload',{method:'POST',credentials:'omit',headers:{Authorization:'Bearer '+jwt},body:form,signal:AbortSignal.timeout(60000)});const data=await r.json();if(!r.ok)throw Error(data.error||'INSPECTION_UNAVAILABLE');return data;}}/>}
       <NyraPresentation gr={gr} workId={work.id} draft={current} index={version<0?drafts.length-1:version} busy={busy} status={status} onSave={savePresentation} />
       <form onSubmit={revise}><label>{gr ? 'Οδηγία αναθεώρησης' : 'Revision instruction'}<textarea value={revision} onChange={e => setRevision(e.target.value)} required maxLength={3000} /></label><button disabled={busy||work.state.imported} type="submit">{gr ? 'Αναθεώρηση με χρέωση' : 'Revise (paid)'}</button></form>
     </article>}
