@@ -11,6 +11,7 @@ export const LABEL='com.noctua.nyra.acceptance.db=pr20-fra1-temporary';
 const ROOT='/opt/nyra-5c/private',MARKER=ROOT+'/pg17-expiry.json';
 const timer='/etc/systemd/system/nyra-5c-db-expiry.timer',service='/etc/systemd/system/nyra-5c-db-expiry.service';
 const roles=['registrar','broker'];
+const CLEANUP_EXEC='/usr/local/sbin/nyra-5c-db-cleanup';
 const need=(v,c)=>{if(!v)throw Error('NYRA_PG_'+c);};
 const cmd=(file,args,extra={})=>execFileSync(file,args,{encoding:'utf8',timeout:120000,stdio:['ignore','pipe','pipe'],...extra}).trim();
 export function stageCommands(){
@@ -29,11 +30,27 @@ export function loginsSQL(a,b){
 export function expiryUnitContents(iso){
  const d=new Date(iso);need(Number.isFinite(d.getTime()),'EXPIRY');
  return {service:['[Unit]','Description=NYRA Phase 5C private DB cleanup','After=docker.service',
-  '[Service]','Type=oneshot','ExecStart=/usr/bin/node /opt/nyra-5c/bootstrap/ops/acceptance-bootstrap/db-stage.mjs --cleanup',''].join('\n'),
+  '[Service]','Type=oneshot','ExecStart='+CLEANUP_EXEC,''].join('\n'),
   timer:['[Unit]','Description=NYRA Phase 5C 12-hour DB expiry','[Timer]',
   'OnCalendar='+d.toISOString().slice(0,19).replace('T',' ')+' UTC',
   'Persistent=true','Unit=nyra-5c-db-expiry.service',
   '[Install]','WantedBy=timers.target',''].join('\n')};
+}
+export function cleanupScript(){
+ return [
+ '#!/bin/sh','set -eu',
+ 'if docker inspect nyra-5c-pg17 >/dev/null 2>&1; then',
+ '  test "$(docker inspect -f '+String.fromCharCode(39)+'{{index .Config.Labels "com.noctua.nyra.acceptance.db"}}'+String.fromCharCode(39)+' nyra-5c-pg17)" = pr20-fra1-temporary',
+ '  docker rm -f nyra-5c-pg17 >/dev/null',
+ 'fi',
+ 'if docker network inspect nyra-5c-db-private >/dev/null 2>&1; then',
+ '  test "$(docker network inspect -f '+String.fromCharCode(39)+'{{index .Labels "com.noctua.nyra.acceptance.db"}}'+String.fromCharCode(39)+' nyra-5c-db-private)" = pr20-fra1-temporary',
+ '  docker network rm nyra-5c-db-private >/dev/null',
+ 'fi',
+ 'rm -f /opt/nyra-5c/private/db.env /opt/nyra-5c/private/pg17-expiry.json',
+ 'rm -f /var/lib/nyra-5c/registrar/pg.json /var/lib/nyra-5c/broker/pg.json',
+ ''
+ ].join('\n');
 }
 async function secret(path,value,uid=0,gid=0){
  const parent=await lstat(dirname(path));
@@ -79,6 +96,10 @@ async function apply(){
  const dir=await lstat(ROOT);need(dir.isDirectory()&&dir.uid===0&&(dir.mode&0o077)===0,'PRIVATE_ROOT');
  need(!exists('container',DB)&&!exists('network',NET),'EXISTS');
  const expiry=new Date(Date.now()+12*3600000).toISOString(),unit=expiryUnitContents(expiry);
+ // Install an independent root-only cleanup script; subsequent Git checkouts
+ // cannot silently disable the reboot-resilient DB expiry mechanism.
+ await writeFile(CLEANUP_EXEC,cleanupScript(),{flag:'wx',mode:0o700});
+ await chmod(CLEANUP_EXEC,0o700);
  // Permanent reboot-resilient timer is installed BEFORE creating any DB secret.
  await writeFile(service,unit.service,{flag:'wx',mode:0o644});
  await writeFile(timer,unit.timer,{flag:'wx',mode:0o644});
