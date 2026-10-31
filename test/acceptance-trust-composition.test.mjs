@@ -44,7 +44,7 @@ async function fixture({enabled=true,signMode='valid'}={}){
    repository:'Noctua76/eliaskalyvas-website',repository_id:'1389733212',
    repository_owner_id:'217035723',environment:signMode==='wrong-environment'?'nyra-owner':'nyra-'+role,
    sha:caller,ref:'refs/heads/main',
-   run_id:'101',run_attempt:'1',check_run_id:String(500+roles.indexOf(role)),
+   run_id:'101',run_attempt:'1',check_run_id:signMode==='wrong-check'?'999':String(500+roles.indexOf(role)),
    exp:Math.floor((now+120000)/1000)};
   const record={schema:'nyra.github.identity.observation.v1',
    purpose:'identity-observation-only',authorization:false,
@@ -55,7 +55,7 @@ async function fixture({enabled=true,signMode='valid'}={}){
   const signature=Buffer.from(await webcrypto.subtle.sign('Ed25519',
    keys.privateKey,new TextEncoder().encode(digest))).toString('base64url');
   return {record,digest,keyId:'pinned-collector',signature:
-   signMode==='tamper'?'A'+signature.slice(1):signature};
+   signMode==='tamper'?Buffer.alloc(64,0).toString('base64url'):signature};
  };
  const brokers=Object.fromEntries(roles.map(role=>[role,async()=>observation(role)]));
  const composed=composeTrustAcceptance({
@@ -103,7 +103,7 @@ test('Administrative revocation after registration rejects an otherwise correctl
  assert.equal((await f.composed.ingress(request())).status,403);
  assert.equal(f.persisted.length,0);
 });
-for(const signMode of ['tamper','wrong-environment','stale'])
+for(const signMode of ['tamper','wrong-environment','wrong-check','stale'])
  test('Signed receipt fail-closed: '+signMode,async()=>{
   const f=await fixture({signMode});await f.composed.watcher.arm();
   f.dispatch();await f.composed.watcher.scan();
@@ -117,4 +117,12 @@ test('Rejects unsigned or unbound broker policy wiring',async()=>{
   publicKey:f.keys.publicKey,keyId:'incorrect-key',
   policy:f.policies.build,now:()=>now
  }),/NYRA_COMPOSITION_ENVELOPE/);
+});
+
+test('Reusing the same signed observation is rejected after first persistence',async()=>{
+ const f=await fixture();await f.composed.watcher.arm();f.dispatch();
+ await f.composed.watcher.scan();
+ assert.equal((await f.composed.ingress(request())).status,200);
+ assert.equal((await f.composed.ingress(request())).status,403);
+ assert.equal(f.persisted.length,1);
 });
