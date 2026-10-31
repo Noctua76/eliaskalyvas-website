@@ -56,7 +56,7 @@ async function invokeRole(role){
   const response=authenticatedFrames({key,role,direction:'response'});
   child=spawn('docker',roleIPCArgs(role,uid,gid,keyPath),{stdio:['pipe','pipe','ignore']});
   const result=await new Promise((resolve,reject)=>{
-   let finished=false,outputLines=0;
+   let finished=false,outputLines=0,verified=null;
    const done=(err,val)=>{if(finished)return;finished=true;clearTimeout(timer);
     err?reject(err):resolve(val);};
    const timer=setTimeout(()=>done(Error('NYRA_IPC_TIMEOUT')),20000);
@@ -67,16 +67,18 @@ async function invokeRole(role){
      need(body?.ok===true&&body.result?.role===role&&
       body.result.dbAuthenticated===true&&body.result.roleGrantsVerified===true&&
       body.result.recordsWritten===0,'RESPONSE');
-     done(null,body.result);
+     verified=body.result;
     }catch{done(Error('NYRA_IPC_RESPONSE_DENIED'));}
    });
    child.on('error',()=>done(Error('NYRA_IPC_DOCKER_START')));
-   child.on('close',code=>{if(code!==0)done(Error('NYRA_IPC_WORKER_EXIT'));else if(!finished)done(Error('NYRA_IPC_NO_RESPONSE'));});
+   child.on('close',code=>{if(code!==0)done(Error('NYRA_IPC_WORKER_EXIT'));
+     else if(!verified||outputLines!==1)done(Error('NYRA_IPC_NO_RESPONSE'));
+     else done(null,verified);});
    child.stdin.end(JSON.stringify(request.encode({op:'identity'}))+'\n');
   });
   return {...result,authenticatedIPC:true};
  }finally{
-  if(child&&!child.killed)child.kill();
+  if(child&&child.exitCode===null&&child.signalCode===null&&!child.killed)child.kill();
   stopScoped(role);
   await rm(keyPath,{force:true});
  }
