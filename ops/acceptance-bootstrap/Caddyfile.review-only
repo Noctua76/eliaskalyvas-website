@@ -1,0 +1,18 @@
+# NOT AN ACTIVE HOST CONFIG. Never replace the current safe 404 until the
+# private ingress, isolation, issuer pins and cleanup timer have been reviewed.
+# Actual Linux UNIX socket must be reachable only to the caddy group.
+nyra-5c.eliaskalyvas.gr {
+    @readiness path_regexp readiness ^/ready/(build|inspection|publication)/[1-9][0-9]*/[1-9][0-9]*$
+    handle @readiness {
+        method GET
+        reverse_proxy unix//run/nyra-5c/ingress.sock
+    }
+    @acceptance path /acceptance/build /acceptance/inspection /acceptance/publication
+    handle @acceptance {
+        method POST
+        reverse_proxy unix//run/nyra-5c/ingress.sock
+    }
+    handle {
+        respond "Not Found" 404
+    }
+}
