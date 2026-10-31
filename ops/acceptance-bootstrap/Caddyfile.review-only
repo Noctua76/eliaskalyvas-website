@@ -1,15 +1,18 @@
-# NOT AN ACTIVE HOST CONFIG. Never replace the current safe 404 until the
-# private ingress, isolation, issuer pins and cleanup timer have been reviewed.
-# Actual Linux UNIX socket must be reachable only to the caddy group.
+# REVIEW ONLY: keep active host Caddyfile returning 404 until acceptance
+# authorization/credential lifecycle, private socket and role isolation are live.
 nyra-5c.eliaskalyvas.gr {
-    @readiness path_regexp readiness ^/ready/(build|inspection|publication)/[1-9][0-9]*/[1-9][0-9]*$
-    handle @readiness {
+    @readiness {
         method GET
+        path_regexp readiness ^/ready/(build|inspection|publication)/[1-9][0-9]*/[1-9][0-9]*$
+    }
+    handle @readiness {
         reverse_proxy unix//run/nyra-5c/ingress.sock
     }
-    @acceptance path /acceptance/build /acceptance/inspection /acceptance/publication
-    handle @acceptance {
+    @acceptance {
         method POST
+        path /acceptance/build /acceptance/inspection /acceptance/publication
+    }
+    handle @acceptance {
         reverse_proxy unix//run/nyra-5c/ingress.sock
     }
     handle {

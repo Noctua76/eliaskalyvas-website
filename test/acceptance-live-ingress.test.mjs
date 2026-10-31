@@ -26,11 +26,11 @@ test('Acceptance forwards only bearer token to broker; response never leaks it',
  const ok=await f.handler(new Request(host+'/acceptance/build',{
   method:'POST',headers:{Authorization:'Bearer '+bearer},body:'{}'
  }));
- assert.equal(ok.status,200);assert.deepEqual(await ok.json(),{
+ assert.equal(ok.status,200);const mirror=ok.clone();assert.deepEqual(await ok.json(),{
   accepted:true,digest:'a'.repeat(64),keyId:'pinned-evidence'
  });
  assert.deepEqual(f.calls[0],{role:'build',token:bearer});
- assert(!(await ok.clone().text()).includes(bearer));
+ assert(!(await mirror.text()).includes(bearer));
 });
 test('Ingress rejects wrong method, payload and missing bearer without invoking acceptor',async()=>{
  const f=fixture();
