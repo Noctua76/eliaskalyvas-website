@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {fixture} from './fixture.mjs';
-import {emptyPresentation,validatePresentation,presentationStatus,imageUrl} from '../supabase/functions/nyra-api/lib/presentation.mjs';
+import {emptyPresentation,validatePresentation,presentationStatus,imageUrl,presentationRightsTransition} from '../supabase/functions/nyra-api/lib/presentation.mjs';
+import {advanceState} from '../supabase/functions/nyra-api/lib/workspace.mjs';
 import {seal,unseal} from '../supabase/functions/nyra-api/lib/api.mjs';
 import {PROMPT_VERSION,CORE_INSTRUCTIONS} from '../supabase/functions/nyra-api/lib/instructions.mjs';
 const owner='dad84105-d898-4194-bbe1-721a2636e543',other='cad84105-d898-4194-bbe1-721a2636e543';
@@ -44,4 +45,20 @@ test('only the managed server can renew a stored v0.6 ticket; public unseal rema
  assert.equal((await unseal(ticket,'test-secret',owner,0,['nyra-core-0.6'])).prompt_version,'nyra-core-0.6');
  await assert.rejects(unseal(ticket,'test-secret',other,0,['nyra-core-0.6']));
  assert.equal(PROMPT_VERSION,'nyra-core-0.7');
+});
+
+test('Every image/rights identity change clears confirmation even with a same-mutation confirmation intent',()=>{
+ const prior={...valid(),cover:{image_url:'https://eliaskalyvas.gr/assets/signals/'+'a'.repeat(64)+'.png',source_url:'https://example.com/image',license_url:'https://example.com/license',creator:'Owner',license_name:'Owned',alt:'Original image',caption:'Original attribution',rights_basis:'owned',rights_confirmed:true}};
+ for(const [key,value]of Object.entries({image_url:'https://eliaskalyvas.gr/assets/signals/'+'b'.repeat(64)+'.png',source_url:'https://example.com/new-image',license_url:'https://example.com/new-license',creator:'Different owner',license_name:'Different license',alt:'Changed image',caption:'Changed attribution',rights_basis:'licensed'})){
+  const next=structuredClone(prior);next.cover[key]=value;const result=presentationRightsTransition(prior,next,{confirmRights:true});assert.equal(result.cover.rights_confirmed,false,key);assert.equal(prior.cover.rights_confirmed,true);
+ }
+ const staged=presentationRightsTransition(prior,{...prior,cover:{...prior.cover,rights_basis:'licensed'}},{confirmRights:true});
+ assert.throws(()=>presentationRightsTransition(staged,{...staged,cover:{...staged.cover,rights_confirmed:true}}),/RECONFIRMATION_REQUIRED/);
+ assert.equal(presentationRightsTransition(staged,{...staged,cover:{...staged.cover,rights_confirmed:true}},{confirmRights:true}).cover.rights_confirmed,true);
+});
+
+test('Generated drafts cannot seed a pre-confirmed image rights flag',()=>{
+ const presentation=valid();presentation.cover={image_url:'https://example.com/new.png',rights_confirmed:true};
+ const state=advanceState({drafts:[]},'draft',{article:{title:'New draft',presentation}},false);
+ assert.equal(state.drafts[0].presentation.cover.rights_confirmed,false);
 });

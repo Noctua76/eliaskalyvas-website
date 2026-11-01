@@ -8,7 +8,9 @@ export const integrationRuntimeFiles=Object.freeze([
  ...privateRuntimeFiles,
  ...['archive','observer','github','dispatch','service','outbox'].map(n=>'lib/publication/integration/'+n+'.mjs'),
  'lib/signals/seo.mjs','src/signals/public-view.mjs','src/signals/model.mjs','src/signals/entries.mjs','src/signals/data.mjs',
- 'runtime/nyra-edge/integration.mjs','runtime/nyra-edge/schema-assets.mjs'
+ 'runtime/nyra-edge/integration.mjs','runtime/nyra-edge/schema-assets.mjs',
+ 'lib/publication/integration/policy.mjs','lib/publication/runtime/delivery-policy.mjs',
+ 'runtime/nyra-edge/editorial.mjs','runtime/nyra-edge/final-delivery.mjs','lib/publication/runtime/inspection.mjs'
 ]);
 export async function stageEdgeRuntime({offlineDependencies=false}={}){
  verifySchemaAssets();

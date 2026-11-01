@@ -8,5 +8,5 @@ export const privateRuntimeFiles=Object.freeze([
  'lib/publication/runtime/materialize.mjs','lib/publication/runtime/machine.mjs',
  'lib/publication/runtime/assets.mjs','lib/publication/runtime/adapters.mjs','lib/publication/runtime/controller.mjs','lib/publication/runtime/artifact.mjs',
  ...['shared','release','manifest','event','receipt','dataset'].map(n=>'contracts/nyra-publication/v1.1/'+n+'.schema.json'),
- ...['api','instructions','evidence','presentation'].map(n=>'supabase/functions/nyra-api/lib/'+n+'.mjs')
+ ...['api','instructions','evidence','presentation','workspace','owner-edit','costs','proposals'].map(n=>'supabase/functions/nyra-api/lib/'+n+'.mjs')
 ]);

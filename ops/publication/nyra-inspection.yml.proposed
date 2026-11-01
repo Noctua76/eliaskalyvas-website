@@ -1,0 +1,28 @@
+# INERT: requires separate reviewed replacement and immutable caller pin.
+name: Nyra private queued image inspection
+on:
+  workflow_call:
+permissions: {}
+jobs:
+  trusted-inspection:
+    if: github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/main' && github.ref_protected
+    name: trusted-inspection
+    runs-on: ubuntu-24.04
+    environment: nyra-inspection
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NYRA_INSPECTION_ENABLED: ${{ vars.NYRA_INSPECTION_ENABLED }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Process only independently registered server-selected pending images
+        run: node ops/publication/inspect-pending.mjs

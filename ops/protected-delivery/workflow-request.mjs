@@ -1,12 +1,13 @@
 // Reusable-job entry point. No checked-in activation configuration or caller.
 // Broker origin/operation/audience are reviewed configuration, never PR inputs.
 import {readFile} from 'node:fs/promises';
+import {reviewedIntegrationPolicy} from '../../lib/publication/integration/policy.mjs';
 import {reviewedDeliveryPolicy} from '../../lib/publication/runtime/delivery-policy.mjs';
 import {requireDelivery as need} from '../../lib/publication/runtime/materialize.mjs';
 export async function requestProtectedJob({privilege,configuration,env=process.env,fetcher=fetch}){
- const p=reviewedDeliveryPolicy(configuration,privilege),url=new URL(configuration.brokerOrigin);
+ const p=configuration?.version==='nyra.protected.integration.v1'?reviewedIntegrationPolicy(configuration,privilege):reviewedDeliveryPolicy(configuration,privilege),url=new URL(configuration.brokerOrigin);
  need(url.protocol==='https:'&&!url.username&&!url.password&&!url.search&&!url.hash&&url.pathname==='/','BROKER_ORIGIN');
- need(env.GITHUB_REPOSITORY===p.repository&&env.GITHUB_REF===p.ref&&env.GITHUB_SHA===p.callerSHA&&env.GITHUB_EVENT_NAME==='workflow_dispatch'&&env.RUNNER_ENVIRONMENT==='github-hosted','WORKFLOW_CONTEXT');
+ need(env.GITHUB_REPOSITORY===p.repository&&env.GITHUB_REF===p.ref&&env.GITHUB_SHA===p.callerSHA&&p.events.includes(env.GITHUB_EVENT_NAME)&&env.RUNNER_ENVIRONMENT==='github-hosted','WORKFLOW_CONTEXT');
  const tokenURL=new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL);
  need(tokenURL.protocol==='https:'&&tokenURL.hostname.endsWith('.actions.githubusercontent.com')&&env.ACTIONS_ID_TOKEN_REQUEST_TOKEN,'OIDC_REQUEST');
  tokenURL.searchParams.set('audience',p.audience);

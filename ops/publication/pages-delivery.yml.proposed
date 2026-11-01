@@ -5,10 +5,10 @@ on:
 permissions: {}
 jobs:
   protected:
-    if: github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/main'
+    if: github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/main' && github.ref_protected
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: github-pages
+    environment: nyra-publication
     permissions:
       contents: read
       actions: read
@@ -37,6 +37,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm ci --ignore-scripts --prefix ops/acceptance-bootstrap/runtime
       - run: npm test
       - name: Acquire current authorization and build
         run: node lib/publication/integration/runner.mjs build
@@ -56,5 +57,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Independent live observation and receipt
+        if: ${{ always() }}
         # Initial caches may be uncertain: this must reconcile, NEVER redeploy.
         run: node lib/publication/integration/runner.mjs observe

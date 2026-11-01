@@ -9,13 +9,19 @@ concurrency:
   group: pages
   cancel-in-progress: false
 jobs:
-  orchestrate:
-    runs-on: ubuntu-latest
-    permissions: {}
-    steps:
-      - run: echo 'Delivery requests current server-authorized state; no caller dataset or release selector.'
+  build-inventory:
+    uses: Noctua76/eliaskalyvas-website/.github/workflows/nyra-build.yml@64d848bed447a5d873eb961185a9c7a27610161d
+    permissions:
+      contents: read
+      id-token: write
+  inspection:
+    needs: build-inventory
+    uses: Noctua76/eliaskalyvas-website/.github/workflows/nyra-inspection.yml@REVIEW_REQUIRED_IMMUTABLE_SHA
+    permissions:
+      contents: read
+      id-token: write
   delivery:
-    needs: orchestrate
+    needs: inspection
     # Replace only after separate review with the actual immutable reusable SHA.
     uses: Noctua76/eliaskalyvas-website/.github/workflows/pages-delivery.yml@REVIEW_REQUIRED_IMMUTABLE_SHA
     permissions:
