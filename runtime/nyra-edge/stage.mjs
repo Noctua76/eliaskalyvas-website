@@ -10,6 +10,7 @@ export const integrationRuntimeFiles=Object.freeze([
  'lib/signals/seo.mjs','src/signals/public-view.mjs','src/signals/model.mjs','src/signals/entries.mjs','src/signals/data.mjs',
  'runtime/nyra-edge/integration.mjs','runtime/nyra-edge/schema-assets.mjs',
  'lib/publication/integration/policy.mjs','lib/publication/runtime/delivery-policy.mjs',
+ 'runtime/nyra-edge/repository-binding.mjs','lib/publication/runtime/repository-policy.mjs','lib/publication/runtime/repository-trust.mjs','lib/publication/runtime/administration-evidence.mjs','lib/publication/runtime/acceptance-evidence.mjs',
  'runtime/nyra-edge/editorial.mjs','runtime/nyra-edge/application.mjs','runtime/nyra-edge/final-delivery.mjs','lib/publication/runtime/inspection.mjs'
 ]);
 export async function stageEdgeRuntime({offlineDependencies=false}={}){
@@ -28,7 +29,7 @@ export async function stageEdgeRuntime({offlineDependencies=false}={}){
  }
  await writeFile(join(dir,'deno.json'),JSON.stringify(config,null,2));
  // Importable handler factory only. No Deno.serve, env read or enabled listener.
- await writeFile(join(dir,'index.ts'),"import {verifySchemaAssets} from './runtime/nyra-edge/schema-assets.mjs';\nverifySchemaAssets();\nconst {composePrivateDelivery}=await import('./runtime/nyra-edge/integration.mjs');\nconst {createFinalEditorialApplication}=await import('./runtime/nyra-edge/application.mjs');\nconst {composeFinalDelivery}=await import('./runtime/nyra-edge/final-delivery.mjs');\nexport {composePrivateDelivery,createFinalEditorialApplication,composeFinalDelivery};\n");
+ await writeFile(join(dir,'index.ts'),"import {verifySchemaAssets} from './runtime/nyra-edge/schema-assets.mjs';\nverifySchemaAssets();\nconst {composePrivateDelivery}=await import('./runtime/nyra-edge/integration.mjs');\nconst {createFinalEditorialApplication}=await import('./runtime/nyra-edge/application.mjs');\nconst {composeFinalDelivery}=await import('./runtime/nyra-edge/final-delivery.mjs');\nconst {bindRepositoryControlPlane}=await import('./runtime/nyra-edge/repository-binding.mjs');\nexport {composePrivateDelivery,createFinalEditorialApplication,composeFinalDelivery,bindRepositoryControlPlane};\n");
  const schemas=integrationRuntimeFiles.filter(p=>p.endsWith('.schema.json')).map(p=>'"./functions/nyra-delivery/'+p+'"').join(',');
  await writeFile(join(root,'supabase/config.toml'),'project_id = "nyra-disposable-acceptance"\n[functions.nyra-delivery]\nverify_jwt = false\nentrypoint = "./functions/nyra-delivery/index.ts"\nimport_map = "./functions/nyra-delivery/deno.json"\nstatic_files = ['+schemas+']\n');
  return {root,dir,files:integrationRuntimeFiles};

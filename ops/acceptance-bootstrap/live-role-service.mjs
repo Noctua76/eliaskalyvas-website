@@ -3,7 +3,7 @@ import {createJobRegistrar} from '../../lib/publication/runtime/job-registrar.mj
 import {postgresIdentityStore,registeredGithubJobFacts} from '../../lib/publication/runtime/protected-identity.mjs';
 import {registeredObservation} from '../../lib/publication/runtime/acceptance-collector.mjs';
 import {acceptanceBroker} from '../../lib/publication/integration/live-acceptance.mjs';
-import {createProtectedInventoryRegistrar} from '../../lib/publication/integration/protected-composition.mjs';
+import {confirmRepositoryRetirement,createProtectedInventoryRegistrar} from '../../lib/publication/integration/protected-composition.mjs';
 import {observeGithubOIDC} from '../../lib/publication/runtime/oidc-observation.mjs';
 import {REQUIRED_CHECKS,policyGuard} from '../../lib/publication/runtime/governance.mjs';
 import {hashJSON} from '../../lib/publication/contract.mjs';
@@ -19,7 +19,7 @@ export function liveRoleService({role,mode,policies,query,getJSON,readPolicyStat
   if(op==='identity'){for(const privilege of roles)policyGuard(policies[privilege],()=>readPolicyState(privilege))();const row=(await query('select current_user as identity')).rows[0];if(row?.identity!=='nyra_accept_'+role)throw Error('ROLE_IDENTITY');return {role,identity:row.identity};}
   // Non-authorizing cleanup remains available after owner/session expiry.
   if(role==='registrar'&&op==='retire'){for(const r of Object.values(registrars))await r.retirePolicy();return {retired:true};}
-  if(role==='broker'&&op==='retirement'){const hashes=roles.map(r=>hashJSON(policies[r]));const row=(await query('select count(*)::int as count from nyra_trust.jobs where policy_sha256=any($1::text[]) and revoked_at is null',[hashes])).rows[0];if(row?.count!==0)throw Error('RETIREMENT_INCOMPLETE');grants.clear();return signEvidence({schema:'nyra.acceptance.retirement.v1',activeRegistrations:0,policiesSHA256:hashJSON(policies),observedAt:new Date(now()).toISOString()});}
+  if(role==='broker'&&op==='retirement'){if(policies.build.repositoryTrust){grants.clear();return confirmRepositoryRetirement({policies,brokerQuery:query,signEvidence,challenge:a.challenge,repositoryTrustSHA256:a.repositoryTrustSHA256,now});}const hashes=roles.map(r=>hashJSON(policies[r]));const row=(await query('select count(*)::int as count from nyra_trust.jobs where policy_sha256=any($1::text[]) and revoked_at is null',[hashes])).rows[0];if(row?.count!==0)throw Error('RETIREMENT_INCOMPLETE');grants.clear();return signEvidence({schema:'nyra.acceptance.retirement.v1',activeRegistrations:0,policiesSHA256:hashJSON(policies),observedAt:new Date(now()).toISOString()});}
   if(role==='registrar'&&['register','revoke'].includes(op)){if(!roles.includes(a.privilege))throw Error('ROLE_SCOPE');await assertAdministration(policies[a.privilege]);return registrars[a.privilege][op](a.selector);}
   if(role==='registrar'&&op==='capture'&&mode==='provenance')return createProtectedInventoryRegistrar({registrarQuery:query,authorizeBuild:async()=>a.grant,rebuild:b=>privateQuery('rebuild',b),revalidateBuild:async grant=>{
    const receipt=await privateQuery('revalidate',{handle:a.handle}),p=await verifyEvidence(receipt,{publicKey:evidencePublicKey,keyId:evidenceKeyId});

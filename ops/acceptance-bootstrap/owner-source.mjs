@@ -1,5 +1,6 @@
 // PRIVATE UNIX socket only. This process is NOT started by import/CI/workflows.
 // All keys/config are owner-provisioned AFTER explicit infrastructure approval.
+import {signingKeySHA256} from '../../lib/publication/runtime/repository-policy.mjs';
 import {createServer} from 'node:http';
 import {open,readFile,lstat,chmod,chown} from 'node:fs/promises';
 import {constants} from 'node:fs';
@@ -13,6 +14,7 @@ export async function startOwnerSource(config){
  const end=Date.parse(config.policy.windowEndsAt)-Date.now();if(!(end>0&&end<=86400000))throw Error('OWNER_SOURCE_WINDOW');
  const dir=await lstat(dirname(config.socket));if(!dir.isDirectory()||(dir.mode&0o077)||dir.uid!==process.getuid()||dirname(config.socket)!==dirname(config.journal))throw Error('PRIVATE_DIRECTORY');
  const signing=await privateFile(config.signingKey),privateKey=await crypto.subtle.importKey('jwk',signing.privateKey,'Ed25519',false,['sign']),publicKey=await crypto.subtle.importKey('jwk',signing.publicKey,'Ed25519',false,['verify']);
+ if(config.policy.repositoryTrust&&(signing.keyId!==config.policy.repositoryTrust.ownerKey.id||signingKeySHA256(signing.publicKey)!==config.policy.repositoryTrust.ownerKey.sha256))throw Error('OWNER_REPOSITORY_KEY_PIN');
  if(signing.keyId!==config.keyId||hashJSON(signing.publicKey)!==config.publicKeySHA256)throw Error('OWNER_KEY_PIN');
  const signer=evidenceSigner({privateKey,publicKeyId:signing.keyId}),keyDigest=hashJSON(signing);
  const sign=async record=>{if(hashJSON(await privateFile(config.signingKey))!==keyDigest)throw Error('OWNER_KEY_RETIRED');return signer(record);};
@@ -34,7 +36,7 @@ export async function startOwnerSource(config){
   if(!d.isDirectory()||d.isSymbolicLink()||d.uid!==process.getuid()||d.gid!==config.receiptGroupId||(d.mode&0o027)!==0||!Number.isInteger(config.receiptGroupId))throw Error('RECEIPT_DIRECTORY');
   receiptServer=createServer(async(req,res)=>{res.setHeader('Cache-Control','no-store');try{
    if(req.method!=='POST'||req.url!=='/receipt'||req.headers.authorization)throw Error('RECEIPT_ONLY');let b='';for await(const c of req){if(Buffer.byteLength(b)+c.length>1000)throw Error('BODY');b+=c.toString();}
-   const input=JSON.parse(b);if(Object.keys(input).sort().join(',')!=='challenge,decisionId')throw Error('FIELDS');
+   const input=JSON.parse(b);if(Object.keys(input).sort().join(',')!==(config.policy.repositoryTrust?'challenge,decisionId,operation,policySHA256':'challenge,decisionId'))throw Error('FIELDS');
    const result=await source.receipt(input);res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(result));
   }catch{res.writeHead(403);res.end();}});
   receiptServer.requestTimeout=15000;receiptServer.headersTimeout=10000;

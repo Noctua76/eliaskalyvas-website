@@ -1,6 +1,8 @@
 # Final integration and delivery — review and operator runbook
 
-This is branch-only implementation, not production authorization. Baseline main
+This is branch-only implementation, not production authorization. The owner explicitly
+approved the repository-scoped policy replacement for branch implementation on
+1 November 2026; that chat decision is not a signed live risk receipt. Baseline main
 `dea8c5ede7df2d11a2de856d966046ca341f1ed6`. No OpenAI calls, infrastructure,
 credentials, migrations, Edge deployment, protected dispatch or public article is
 created by this change. PR24/25 and Trust Policy v2 are not incorporated.
@@ -191,12 +193,12 @@ owner approval; again use one atomic authority replacement, no overlapping runs.
 | Pages cutover | Offline atomic plan and negative tests | NOT APPLIED |
 | OpenAI provider | No calls required for this acceptance | Deferred key/credit-authorized provider test |
 
-The current complete signed five-minute inventory requirement is unchanged.
-The previously reviewed 15-minute window is acceptance-only and not a production
-policy; PR25 diagnostics do not replace either gate. If full capture cannot be
-established, the existing inventory proposal is the sole change proposal to take
-to owner/external review, with its residual integration write/merge risks. No new
-permission audit or broad security project is started here.
+The legacy full-account verifier is retained unchanged for legacy policies only.
+The explicitly selected `nyra.repository-scoped-operation-bound.v1` context replaces
+that requirement only for the new reviewed configuration; there is no automatic
+fallback and no activation of PR25 diagnostics. Unknown external Apps/OAuth/PAT
+rights remain UNKNOWN, never none/complete. No new broad capture cycle is required.
+The prior 15-minute full-inventory proposal is not used as production policy.
 
 One consolidated production approval may be requested only after the exact-head
 branch results and real trust dependencies are resolved. It must name the project,
@@ -214,3 +216,166 @@ and recovery plan. No paid host/key/credential is provisioned by this PR.
 | `20261029145714_nyra_protected_delivery_acceptance.sql` | `3d9e0da70f98addc2cb71f6e425fcbb3daa1842cb19a3f7b46a1fdcd0261cb0f` |
 | `20261029194516_nyra_private_asset_inspection.sql` | `e6e3a23174e4426448a2e178b7fb63f2c6e785de5611c0c2a4345e501bc1ed59` |
 | `20261031221433_nyra_final_inspection_queue.sql` | `961ad2f1e2d01f6de15815a3eaeca951ab0d1f3decb6cc8753d0629a08acc858` |
+
+
+## Final Production Activation Packet — repository scope
+
+**Packet status: NO-GO for live activation until the genuine evidence and owner
+production approval below exist.** Implementation/tests can pass without creating
+that authorization. The existing 763-test baseline and normal Pages remain intact.
+
+### Exact trusted configuration and binding
+
+The new `configuration.repositoryTrust` has model
+`nyra.repository-scoped-operation-bound.v1`, a reviewed monotonic version, exact
+repository/owner numeric IDs, source SHA, normal-build configuration SHA256,
+identities SHA256, governance SHA256 and an independently observed administration
+fingerprint. Three exact role identities remain in `configuration.identities`;
+the existing integration policy still requires genuine protected OIDC acceptance
+before operational policy construction. No observed subject suffix is guessed.
+
+`knownAuthorities` is explicitly historical, source-hash-bound metadata reviewed
+by the owner. Each permission is read/write/none/unknown; missing metadata is not
+silently filled. `unknownExternalRights` must include unlisted GitHub Apps, OAuth
+Apps, personal tokens and unobserved administration mutations.
+`inventoryComplete:false` and `exclusiveTechnicalOwnerControl:NOT_PROVEN` are
+mandatory. These are risk descriptions, not authenticated completeness claims.
+
+The complete context is included in every role policy hash. Existing registration,
+JTI, revocation and immutable inventory checks therefore reject old/mismatched
+policies. A scoped publication broker additionally checks the approved normal
+inventory's builder policy against the exact scoped build policy and configuration
+pin; an old full-account inventory cannot be reused just because governance matches.
+An immutable existing code/config inventory is never overwritten: retirement and
+reactivation need a reviewed release/clean rebuild under compatible new pins.
+
+`bindRepositoryControlPlane` constructs the **actual** `administrationReader`
+using the separately authorized private read-only token source. It does not accept
+admin evidence, trust booleans or a policy supplied by a workflow/API caller. Its
+required external dependencies are the real owner-risk receipt transport, pinned
+owner public key, independently authenticated current policy-state reader, and
+existing registrar/broker private IPC retirement transport with its different
+pinned evidence key. The owner and retirement signers cannot share a key under
+different key IDs: the trusted context pins both public Ed25519 key fingerprints,
+not just their names. No private key or credential is shipped in this packet.
+
+Wire the returned `assertTrustReady` into `createFinalEditorialApplication`, and
+`getJSON`, `readPolicyState`, `assertAdministration`, `assertTrustActive` into the
+existing registrar/broker/final-delivery compositions. These scoped compositions
+refuse absent gate hooks. Run registrar and broker in their existing separate
+private processes/SQL roles; do not co-locate both credentials in a workflow job.
+
+The actual GitHub read-back reuses all accepted main/CI/App15368, zero-review,
+no-bypass, exact Environment/main-only/empty-secret, owner/collaborator/deploy-key
+and Actions-default verification. A stable security fingerprint excludes ordinary
+issue counters/activity metadata. Inconsistent repeated reads fail closed. Its
+oldest relied-on observation must remain under 60 seconds through owner receipt
+verification; it is refreshed per privileged operation.
+
+The owner-risk source reuses `existingOwnerMFA`, the signed append-only journal and
+fresh challenge-bound signatures. Scoped decisions/receipts have distinct schemas
+`nyra.owner-repository-risk-decision.v1` and
+`nyra.owner-repository-risk.receipt.v1`; legacy and scoped receipt schemas reject
+one another. The authorized context digest, exact role policy hash, operation,
+owner/repository, governance version, active/non-superseded state and explicit
+unknown-write/admin-mutation risk acknowledgement must match. Fresh receipts last
+at most 60 seconds (the existing source issues at most 45 seconds). The existing
+owner session/decision window remains bounded, including the existing 15-minute
+decision maximum: expiry stops operations, never silently renews approval. A
+reviewed operating renewal/owner-MFA arrangement must be verified before claiming
+continuous unattended production readiness. This is administration risk consent,
+not a second editorial/GitHub Publish action.
+
+On a detected policy/pin/permission/source/owner change or unavailable evidence,
+the local authority latches closed synchronously. Wrapped policy/capability guards
+deny old claims immediately, while the existing registrar retires its policy rows.
+A fresh broker-signed zero-active-registration proof confirms retirement; failed
+or unsigned retirement stays closed and is reported unconfirmed. Recovery creates
+new reviewed state; correcting a failed response does not revive an old gate.
+
+The concrete binding requires synchronous `invalidatePolicyState(policySHA256s)`
+and checks every role's current source after invalidation, before awaiting IPC.
+`ops/acceptance-bootstrap/retire-policy-state.mjs` provides the private atomic-file
+implementation: the coordinator owns its directory and all workers mount the
+**directory** read-only, so renaming the file cannot leave a mounted old inode.
+Bind `readPolicyState(role)` to reread that same file on every guard, and bind
+invalidation to `retirePolicyState({path,policySHA256s})`; do not cache its contents.
+The registrar revokes the exact policy hashes over authenticated private IPC; the
+broker's `confirmRepositoryRetirement` independently queries its real SQL identity
+and signs `nyra.repository.retirement.v1` with the coordinator's fresh challenge,
+context/policies digests, zero active registrations and observation time. A replayed
+proof or caller-provided row count cannot complete this operation.
+
+The historical FRA1 launcher/runtime remains the legacy full-inventory acceptance
+path. It is not silently converted or made executable by this policy change, and
+its retired host, credentials and origin cannot be reused. The new binding is an
+importable operational composition, not an installed listener: the approved future
+private host must supply and independently verify these state/IPC/key mappings.
+No existing factory or historical script is evidence that that deployment exists.
+
+### Reality and residual risks
+
+- Unknown external write paths are owner-accepted residual risk, not proven absent.
+  Fresh repository snapshots cannot detect every transient/unobservable App or
+  account-admin change. Immediate invalidation applies to observed changes and
+  trusted policy state; continuous universal detection is not claimed.
+- A sufficiently privileged external integration could alter workflows, website or
+  Admin code outside the Nyra delivery boundary, potentially compromising an owner
+  browser/session. Exact externally pinned code and the single-authority cutover
+  reduce this exposure; MFA alone does not eliminate compromised-site risk.
+- Read/signing sources and their private host must actually be independently
+  provisioned and accepted. Missing sources, unavailable API permissions or
+  arbitrary signed test records are not a live acceptance result. Existing 403
+  from Codex is not worked around by expanding Connector permissions.
+
+### What the owner must authorize once, before installation
+
+Approve the exact reviewed PR head/tree, five unchanged migration hashes above,
+the two proposed private buckets `nyra-private-assets` and `nyra-quarantine`
+(20 MiB maximum), the `nyra-api` staged server artifact and trusted bindings, and
+one atomic Pages authority cutover. Preserve `website-api` and `github-pages`.
+The immutable reusable source SHA and complete genuine OIDC subjects must first
+be independently observed and pinned; acceptance-only discovery cannot publish.
+
+Name the approved private control-plane execution location, dedicated read-only
+administration identity (and separately permitted check/job reader where needed),
+registrar/broker SQL identities, source/evidence key identities and owner/MFA
+receipt transport. Do not send credential values in chat. No resource is created
+by this packet. GitHub Actions already supports the Node/Sharp inspection jobs;
+no additional paid inspection server is required. Durable independent control-
+plane execution remains a deployment dependency; do not silently put its DB/
+admin/signing credentials in Actions or collapse registrar/broker privileges.
+No new paid host is provisioned or assumed available; retired FRA1 cannot be reused.
+
+Authorize each genuine discovery/provenance invocation explicitly, then the
+controlled public GR/EN lifecycle content. These permissions can be specified in
+one production authorization with stage-by-stage stop conditions; there is no
+second mandatory GitHub reviewer or second editorial approval.
+
+### GO / NO-GO and operator sequence
+
+1. Review this PR and exact-head CI/native evidence. No merge from branch approval.
+2. Establish the actual private control plane/read identity and current policy
+   fingerprint, real owner MFA decision, key pins and accepted configuration.
+   Missing credential/source/host keeps NO-GO; test signers are never installed.
+3. With explicit production installation approval: backup and preflight, five
+   migrations in the listed order, postflight, two private buckets, disabled Edge
+   installation. Verify owner/AAL2/expiry/session/origin/direct-storage denials.
+4. With the separately authorized exact-main invocation plans: real OIDC subject
+   discovery, independent subject/policy pinning, then fresh registered provenance
+   acceptance. Verify API run/reusable/job/check representations, clean rebuild,
+   immutable inventory and consumption plus negative/revocation tests. No content
+   publication at this stage. Missing GitHub facts or source metadata is NO-GO.
+5. Verify no old Pages run can deploy; apply only the reviewed atomic cutover.
+   Verify normal site/booking/legal/GR/EN/Signals and exact artifact before content.
+6. With explicit controlled public-content approval: publish GR/EN, replace,
+   withdraw, rollback, inspect actual URLs/SEO/images/sitemap/hreflang/JSON-LD and
+   independent receipts. Prove outbox-driven execution without another GitHub click.
+7. GO only if every mandatory live boundary passes and resources/credentials have
+   their reviewed operational expiry/rotation/revocation/recovery arrangements.
+   On any failure close authority, retire capabilities, reconcile unknown outcomes
+   without redispatch, and follow the backup/Edge/Pages recovery plan above.
+
+The packet contains **no** real owner-risk receipt, accepted operational policy,
+JWT, signing key, production secret or fabricated deployment evidence. No OpenAI
+provider call or credit is required for these acceptance steps.
