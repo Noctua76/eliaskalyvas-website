@@ -34,6 +34,7 @@ export function validatePresentation(value,{generated=false}={}){
  const c=value.cover||emptyPresentation().cover;
  if(typeof c.rights_confirmed!=='boolean')invalid();
  result.cover={image_url:imageUrl(text(c.image_url,2000)),source_url:imageUrl(text(c.source_url,2000)),license_url:imageUrl(text(c.license_url,2000)),creator:text(c.creator,300),license_name:text(c.license_name,500),alt:text(c.alt,500),caption:text(c.caption,1000),rights_confirmed:c.rights_confirmed};
+ if(c.rights_basis!==undefined){if(c.rights_basis!==null&&!['licensed','permission','owned','public_domain'].includes(c.rights_basis))invalid();result.cover.rights_basis=c.rights_basis;}
  if(c.rights_confirmed&&(!result.cover.image_url||!result.cover.source_url||!result.cover.creator||!result.cover.license_name||!result.cover.alt))invalid();
  return result;
 }
@@ -44,4 +45,21 @@ export function presentationStatus(p){
  for(const k of ['share_title','share_description','share_text','image_brief'])if(!p[k])missing.push(k);
  if(!p.cover.image_url||!p.cover.rights_confirmed)missing.push('cover');
  return {ready_for_owner_review:missing.length===0,missing,publishing:false};
+}
+
+// Existing presentation JSON + revision CAS are the authoritative boundary.
+// A changed identity/attribution can never bring its old confirmation along.
+const rightsFields=['image_url','source_url','license_url','creator','license_name','alt','caption','rights_basis'];
+export function presentationRightsTransition(prior,next,{confirmRights=false}={}){
+ const result=structuredClone(next),old=prior?.cover;
+ const changed=!old||rightsFields.some(k=>(old[k]??null)!==(result.cover[k]??null));
+ if(changed)result.cover.rights_confirmed=false;
+ else if(result.cover.rights_confirmed===true&&old.rights_confirmed!==true){
+  if(confirmRights!==true||!['licensed','permission','owned','public_domain'].includes(result.cover.rights_basis))throw Error('IMAGE_RIGHTS_RECONFIRMATION_REQUIRED');
+ }
+ return result;
+}
+export function confirmedImageMatches(presentation,cover){
+ const c=presentation?.cover,a=cover?.attribution;
+ return !!(c&&a&&c.rights_confirmed===true&&a.rights_confirmed===true&&c.image_url===cover.url&&c.source_url===a.source_url&&(c.license_url||null)===a.license_url&&c.creator===a.creator&&c.license_name===a.license_name&&c.alt===cover.alt&&c.caption===cover.caption&&c.rights_basis===a.rights_basis);
 }

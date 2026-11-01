@@ -4,10 +4,10 @@ import {topics} from '../signals/model.mjs';
 // Owner UI only. All data are re-read/validated by the existing server authority.
 export default function NyraFinalPublication({work,draft,index,call,onEdited,onSavePresentation,upload,assetPreview,gr}){
  const [content,setContent]=useState(()=>structuredClone(draft.article)),[catalog,setCatalog]=useState(null),[preview,setPreview]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
- const [action,setAction]=useState('publish'),[slug,setSlug]=useState(''),[articleId,setArticleId]=useState(''),[restore,setRestore]=useState(''),[assetId,setAssetId]=useState(''),[translation,setTranslation]=useState(''),[topicIds,setTopics]=useState(['ai']),[seoTitle,setSeoTitle]=useState(''),[seoDescription,setSeoDescription]=useState(''),[file,setFile]=useState(null),[rights,setRights]=useState('licensed'),[note,setNote]=useState('');
+ const [action,setAction]=useState('publish'),[slug,setSlug]=useState(''),[articleId,setArticleId]=useState(''),[restore,setRestore]=useState(''),[assetId,setAssetId]=useState(''),[translation,setTranslation]=useState(''),[topicIds,setTopics]=useState(['ai']),[seoTitle,setSeoTitle]=useState(''),[seoDescription,setSeoDescription]=useState(''),[file,setFile]=useState(null),[rights,setRights]=useState(draft.presentation.cover.rights_basis||'licensed'),[note,setNote]=useState('');
  const epoch=useRef(0),active=useRef(false),mounted=useRef(true),privateImage=useRef(null);
  const clearImage=()=>{if(privateImage.current)URL.revokeObjectURL(privateImage.current);privateImage.current=null;};
- useEffect(()=>{epoch.current++;clearImage();setPreview(null);setCatalog(null);setContent(structuredClone(draft.article));},[work.id,draft.run.id,draft.presentation?.revision]);
+ useEffect(()=>{epoch.current++;clearImage();setPreview(null);setCatalog(null);setContent(structuredClone(draft.article));setRights(draft.presentation.cover.rights_basis||'licensed');},[work.id,draft.run.id,draft.presentation?.revision]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;epoch.current++;clearImage();};},[]);
  const run=async fn=>{if(active.current)return;active.current=true;const stamp=epoch.current;setBusy(true);setMessage('');try{const value=await fn();if(stamp===epoch.current&&typeof value==='string')setMessage(value);}catch(e){if(stamp===epoch.current)setMessage(e.message);}finally{active.current=false;setBusy(false);}};
  const load=async()=>{const stamp=epoch.current;const value=await call('/publication/catalog',{work_id:work.id});if(stamp===epoch.current)setCatalog(value);return value;};
@@ -16,9 +16,14 @@ export default function NyraFinalPublication({work,draft,index,call,onEdited,onS
   if(!file||!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>20*1024*1024)throw Error('IMAGE_FILE_REQUIRED');
   const bytes=await file.arrayBuffer(),sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join(''),bitmap=await createImageBitmap(file),c=draft.presentation.cover;
   const cover={kind:'final_cover',template_id:null,url:'https://eliaskalyvas.gr/assets/signals/'+sha+'.'+({'image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[file.type]),sha256:sha,mime_type:file.type,width:bitmap.width,height:bitmap.height,alt:c.alt,caption:c.caption,attribution:{creator:c.creator,source_url:c.source_url,license_name:c.license_name,license_url:c.license_url||null,rights_basis:rights,rights_confirmed:c.rights_confirmed===true}};bitmap.close();
-  // Save the exact controlled image URL before binding the inspection to the
-  // persisted presentation. MIME/dimensions here are hints; Sharp must verify.
-  await onSavePresentation({version:index,expected_revision:draft.presentation.revision,presentation:{...draft.presentation,cover:{...c,image_url:cover.url}}});
+  // Stage a changed identity/basis as UNCONFIRMED. A separate owner action in
+  // the presentation editor must confirm the persisted exact metadata first.
+  if(c.image_url!==cover.url||c.rights_basis!==rights){
+   await onSavePresentation({version:index,expected_revision:draft.presentation.revision,presentation:{...draft.presentation,cover:{...c,image_url:cover.url,rights_basis:rights,rights_confirmed:false}}});
+   if(mounted.current)setMessage(gr?'Η νέα εικόνα αποθηκεύτηκε χωρίς επιβεβαίωση δικαιωμάτων. Έλεγξε την εικόνα, πηγή, άδεια, αναφορά και βάση δικαιώματος στην παρουσίαση, επιβεβαίωσε ρητά και αποθήκευσε. Μετά υπέβαλε το ίδιο αρχείο για έλεγχο.':'New image saved without rights confirmation. Review the exact image, source, license, attribution and rights basis in presentation, explicitly confirm and save, then submit the same file.');
+   return;
+  }
+  if(c.rights_confirmed!==true)throw Error(gr?'Επιβεβαίωσε και αποθήκευσε πρώτα τα δικαιώματα της συγκεκριμένης εικόνας.':'Explicitly confirm and save the rights for this exact image first.');
   const form=new FormData();form.set('file',file);form.set('metadata',JSON.stringify({work_id:work.id,version:index,cover,rights_note:note}));
   const r=await upload(form);if(mounted.current)setMessage((gr?'Ιδιωτικός έλεγχος εικόνας σε αναμονή: ':'Private image inspection pending: ')+r.inspection_id);
  });}
@@ -39,7 +44,7 @@ export default function NyraFinalPublication({work,draft,index,call,onEdited,onS
    <details><summary>{gr?'Αρχείο εικόνας και έλεγχος bytes':'Image file and byte inspection'}</summary><p>{gr?'Συμπλήρωσε πρώτα την πηγή, άδεια και αναφορά στην παρουσίαση. Το αρχείο παραμένει ιδιωτικό μέχρι τον έλεγχο.':'First save source, license and attribution in presentation. The file stays private until inspection.'}</p>
     <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{setPreview(null);setFile(e.target.files?.[0]||null);}}/>
     <label>{gr?'Βάση δικαιώματος':'Rights basis'}<select value={rights} onChange={invalidate(setRights)}>{['licensed','permission','owned','public_domain'].map(x=><option key={x}>{x}</option>)}</select></label>
-    <label>{gr?'Σημείωμα ελέγχου δικαιωμάτων':'Rights review note'}<textarea value={note} maxLength={2000} onChange={invalidate(setNote)}/></label><button type="button" onClick={inspect}>{gr?'Υποβολή για ιδιωτικό έλεγχο εικόνας':'Submit for private image inspection'}</button></details>
+    <label>{gr?'Σημείωμα ελέγχου δικαιωμάτων':'Rights review note'}<textarea value={note} maxLength={2000} onChange={invalidate(setNote)}/></label><button type="button" onClick={inspect}>{gr?'Προετοιμασία εικόνας / υποβολή για ιδιωτικό έλεγχο':'Prepare image / submit for private inspection'}</button></details>
    <button type="button" onClick={()=>run(load)}>{gr?'Ανανέωση εκδόσεων και ελεγμένων εικόνων':'Refresh versions and inspected images'}</button>
    {catalog&&<><label>{gr?'Ενέργεια':'Action'}<select value={action} onChange={invalidate(setAction)}>{['publish','replace','withdraw','rollback'].map(x=><option key={x}>{x}</option>)}</select></label>
     {action!=='publish'&&<label>{gr?'Έκδοση γλώσσας':'Language variant'}<select value={articleId} onChange={invalidate(v=>{setArticleId(v);setSlug(catalog.articles.find(x=>x.article_id===v)?.slug||'');})}><option value="">—</option>{catalog.articles.filter(x=>catalog.associated_article_ids.includes(x.article_id)).map(x=><option key={x.article_id} value={x.article_id}>{x.locale} / {x.slug}</option>)}</select></label>}

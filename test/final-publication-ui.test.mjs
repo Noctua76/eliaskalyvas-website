@@ -27,3 +27,15 @@ test('Switching work during a delayed preview cannot display or approve the prev
   await act(async()=>resolvePreview({preview_id:uid(7),action:'withdraw',release:null,withdrawal:{article_id:uid(1)}}));assert(!document.body.textContent.includes('Τελική έγκριση'));
  }finally{await act(async()=>root?.unmount());Object.assign(globalThis,old);dom.window.close();await p.close();}
 });
+
+test('NYRA-PR22-01: selecting different file bytes stages false rights and cannot automatically submit inspection',async()=>{
+ const p=await panel(),dom=new JSDOM('<div id="root"></div>',{url:'https://unit.invalid'}),old={window:globalThis.window,document:globalThis.document,IS_REACT_ACT_ENVIRONMENT:globalThis.IS_REACT_ACT_ENVIRONMENT,createImageBitmap:globalThis.createImageBitmap};let root;
+ try{globalThis.window=dom.window;globalThis.document=dom.window.document;globalThis.IS_REACT_ACT_ENVIRONMENT=true;globalThis.createImageBitmap=async()=>({width:1280,height:720,close(){}});const {createRoot}=await import('react-dom/client');root=createRoot(document.getElementById('root'));const a=props(),saved=[];let uploaded=0;
+  a.draft.presentation.cover={image_url:'https://eliaskalyvas.gr/assets/signals/'+'a'.repeat(64)+'.png',source_url:'https://example.com/old-image',creator:'Old owner',license_name:'Old license',license_url:'',alt:'Old image',caption:'Old attribution',rights_basis:'owned',rights_confirmed:true};a.onSavePresentation=async value=>saved.push(value);a.upload=async()=>{uploaded++;throw Error('must explicitly reconfirm first');};
+  await act(async()=>root.render(React.createElement(p.Panel,a)));
+  const file=new File([new Uint8Array([7,8,9])],'new.png',{type:'image/png'}),input=document.querySelector('input[type=file]');Object.defineProperty(input,'files',{value:[file]});await act(async()=>input.dispatchEvent(new dom.window.Event('change',{bubbles:true})));
+  await act(async()=>[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Προετοιμασία εικόνας')).click());
+  for(let i=0;i<100&&saved.length===0;i++)await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10));});
+  assert.equal(saved.length,1);assert.notEqual(saved[0].presentation.cover.image_url,a.draft.presentation.cover.image_url);assert.equal(saved[0].presentation.cover.rights_confirmed,false);assert.equal(uploaded,0);assert(document.body.textContent.includes('χωρίς επιβεβαίωση δικαιωμάτων'));
+ }finally{await act(async()=>root?.unmount());Object.assign(globalThis,old);dom.window.close();await p.close();}
+});

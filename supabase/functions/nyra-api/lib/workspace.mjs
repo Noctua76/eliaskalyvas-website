@@ -3,7 +3,7 @@ import { createNyraHandler, assignmentPayload, seal, unseal, safeUrl, validateAr
 import { PROMPT_VERSION } from './instructions.mjs';
 import { MODELS, PRICE_DATE, usageCost, stageEstimate } from './costs.mjs';
 import { proposeTopics } from './proposals.mjs';
-import { emptyPresentation, validatePresentation, presentationStatus, TOPIC_LABELS, HASHTAG_LABELS } from './presentation.mjs';
+import { emptyPresentation, validatePresentation, presentationStatus, presentationRightsTransition, TOPIC_LABELS, HASHTAG_LABELS } from './presentation.mjs';
 const fail = code => { throw new Error(code); };
 const terminal = new Set(['done','selection','paused','error']);
 export function publicWork(work, steps = []) {
@@ -29,7 +29,9 @@ export function advanceState(state, stage, data, autoRepairs) {
   if(stage==='research') { delete s.previous_article; s.research=data; s.stage='evidence'; }
   if(stage==='evidence') { s.research={...s.research,...data}; s.stage='draft'; }
   if(stage==='draft') {
-    s.drafts.push({...data,presentation:{...(data.article.presentation||emptyPresentation(data.article)),revision:0},research:s.research,automatic_review:null,repair_cycles:s.cycle,review_history:[],article:{...data.article,status:'needs_revision'}});
+    const presentation={...(data.article.presentation||emptyPresentation(data.article)),revision:0};
+    presentation.cover={...(presentation.cover||emptyPresentation().cover),rights_confirmed:false};
+    s.drafts.push({...data,presentation,research:s.research,automatic_review:null,repair_cycles:s.cycle,review_history:[],article:{...data.article,status:'needs_revision'}});
     delete s.previous_article;
     s.stage='review';
   }
@@ -113,7 +115,7 @@ export function createWorkspaceHandler({ db,env,fetcher=fetch,sourceFetcher=fetc
       }
       if(match[2]==='presentation') {
         if(!Number.isInteger(b.version)||b.version<0||!work.state.drafts[b.version]||!Number.isInteger(b.expected_revision)||b.expected_revision<0)fail('INVALID_VERSION');
-        const presentation=validatePresentation(b.presentation);
+        const presentation=presentationRightsTransition(work.state.drafts[b.version].presentation,validatePresentation(b.presentation),{confirmRights:b.confirm_rights===true});
         const saved=await checked(db.rpc('nyra_save_presentation',{p_id:work.id,p_owner:owner,p_version:b.version,p_expected_revision:b.expected_revision,p_presentation:{...presentation,checks:presentationStatus(presentation)}}));
         if(saved!=='OK')fail(saved);
         return reply(await withSteps(await getWork(work.id,owner)));
@@ -190,7 +192,7 @@ export function createWorkspaceHandler({ db,env,fetcher=fetch,sourceFetcher=fetc
       if(!finished)fail('STORAGE_UNAVAILABLE');
       return reply(await withSteps(await getWork(work.id,owner)));
     } catch(e) {
-      const allowed=['WORK_BUSY_OR_IMPORTED','STALE_EDITORIAL_VERSION','INVALID_ARTICLE','UNVERIFIED_CITATION','UNVERIFIED_EXCERPT','ARTICLE_WITHOUT_CITATIONS','INVALID_PRESENTATION','INVALID_VERSION','STALE_PRESENTATION','IMPORTED_RESEARCH_REQUIRES_NEW_ASSIGNMENT','NYRA_NOT_CONFIGURED','NOT_FOUND','UNAUTHORIZED','INVALID_MODEL','INVALID_BUDGET','INVALID_FIELDS','INVALID_SELECTION','INVALID_JSON','PAYLOAD_TOO_LARGE','STORAGE_UNAVAILABLE','WORK_BUSY','WORK_BUSY_OR_BUDGET_TOO_LOW','BUDGET_EXCEEDED','STALE_STEP','WORK_PAUSED_OR_DONE'];
+      const allowed=['IMAGE_RIGHTS_RECONFIRMATION_REQUIRED','WORK_BUSY_OR_IMPORTED','STALE_EDITORIAL_VERSION','INVALID_ARTICLE','UNVERIFIED_CITATION','UNVERIFIED_EXCERPT','ARTICLE_WITHOUT_CITATIONS','INVALID_PRESENTATION','INVALID_VERSION','STALE_PRESENTATION','IMPORTED_RESEARCH_REQUIRES_NEW_ASSIGNMENT','NYRA_NOT_CONFIGURED','NOT_FOUND','UNAUTHORIZED','INVALID_MODEL','INVALID_BUDGET','INVALID_FIELDS','INVALID_SELECTION','INVALID_JSON','PAYLOAD_TOO_LARGE','STORAGE_UNAVAILABLE','WORK_BUSY','WORK_BUSY_OR_BUDGET_TOO_LOW','BUDGET_EXCEEDED','STALE_STEP','WORK_PAUSED_OR_DONE'];
       const code=allowed.includes(e.message)?e.message:'SERVICE_UNAVAILABLE';
       return reply({error:code},code==='NOT_FOUND'?404:code==='UNAUTHORIZED'?401:code==='BUDGET_EXCEEDED'?409:code==='STORAGE_UNAVAILABLE'||code==='SERVICE_UNAVAILABLE'?503:400);
     }

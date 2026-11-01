@@ -19,7 +19,10 @@ async function setup(){
  const machine=createPrivateInspectionService({db:f.db,quarantine,accepted,verifier,codeSHA:CODE});
  async function image(w){
   const bytes=new Uint8Array(await sharp({create:{width:1280,height:720,channels:3,background:'#123456'}}).png().toBuffer()),sha=await byteHash(bytes),cover={...structuredClone(f.cover),kind:'final_cover',template_id:null,sha256:sha,mime_type:'image/png',width:1280,height:720,url:'https://eliaskalyvas.gr/assets/signals/'+sha+'.png'};
-  await f.mutate(w.id,row=>{Object.assign(row.state.drafts[0].presentation.cover,{image_url:cover.url,source_url:cover.attribution.source_url,creator:cover.attribution.creator,license_name:cover.attribution.license_name,license_url:cover.attribution.license_url||'',alt:cover.alt,caption:cover.caption,rights_confirmed:true});});
+  const current=(await send('/work/'+w.id,undefined,{method:'GET'})).body.state.drafts[0].presentation;
+  const staged=await send('/work/'+w.id+'/presentation',{version:0,expected_revision:current.revision,presentation:{...current,cover:{image_url:cover.url,source_url:cover.attribution.source_url,creator:cover.attribution.creator,license_name:cover.attribution.license_name,license_url:cover.attribution.license_url||'',alt:cover.alt,caption:cover.caption,rights_basis:cover.attribution.rights_basis,rights_confirmed:false}}});assert.equal(staged.status,200,JSON.stringify(staged.body));
+  const saved=staged.body.state.drafts[0].presentation;
+  const confirmed=await send('/work/'+w.id+'/presentation',{version:0,expected_revision:saved.revision,confirm_rights:true,presentation:{...saved,cover:{...saved.cover,rights_confirmed:true}}});assert.equal(confirmed.status,200,JSON.stringify(confirmed.body));assert.equal(confirmed.body.state.drafts[0].presentation.cover.rights_confirmed,true);
   const form=new FormData();form.set('file',new Blob([bytes],{type:'image/png'}),'owned.png');form.set('metadata',JSON.stringify({work_id:w.id,version:0,cover,rights_note:'UNIT ONLY owner-owned image rights review'}));return {form,cover,bytes};
  }
  return {...f,handler,args,send,image,machine,objects,setReady:v=>{ready=v},gateCalls:()=>calls};
@@ -98,4 +101,30 @@ test('Private inspection HTTP client processes only server-selected bytes and pr
   if(loseResponse)await assert.rejects(runPendingInspections({service}),/LOST_COMPLETION_RESPONSE/);else assert.deepEqual(await runPendingInspections({service}),{status:'idle',inspected:1});
   assert.equal((await f.pg.query('select count(*)::int n from nyra_inspection.receipts')).rows[0].n,1);assert(!requests.some(p=>p.endsWith('/fail')));assert.equal((await f.machine.next('UNIT_MACHINE')).operation_id,null);
  }finally{await f.pg.close();}}
+});
+
+test('NYRA-PR22-01: a fully inspected image cannot donate rights to different bytes; explicit confirmation of persisted new identity permits inspection',async()=>{
+ const f=await setup();try{
+  const w=await f.work(),first=await f.image(w),initial=await f.send('/publication/upload',first.form);assert.equal(initial.status,200);
+  await runPrivateAssetInspection({service:f.machine,tokenSource:async()=> 'UNIT_MACHINE',operationId:initial.body.inspection_id});
+  const immutable=(await f.pg.query('select * from nyra_inspection.receipts where upload_id=$1',[initial.body.inspection_id])).rows[0];assert(immutable);
+  const prior=(await f.send('/work/'+w.id,undefined,{method:'GET'})).body.state.drafts[0].presentation;assert.equal(prior.cover.rights_confirmed,true);
+  const bytes=new Uint8Array(await sharp({create:{width:1280,height:720,channels:3,background:'#abcdef'}}).png().toBuffer()),sha=await byteHash(bytes);
+  const cover={...first.cover,sha256:sha,url:'https://eliaskalyvas.gr/assets/signals/'+sha+'.png',alt:'Different new image',caption:'New license attribution',attribution:{...first.cover.attribution,source_url:'https://example.com/new-image',creator:'New photographer',license_name:'New explicit image license',rights_basis:'licensed'}};
+  const candidate={...prior,cover:{image_url:cover.url,source_url:cover.attribution.source_url,creator:cover.attribution.creator,license_name:cover.attribution.license_name,license_url:cover.attribution.license_url||'',alt:cover.alt,caption:cover.caption,rights_basis:cover.attribution.rights_basis,rights_confirmed:true}};
+  // Even a forged same-mutation confirmation intent must be cleared server-side.
+  const changed=await f.send('/work/'+w.id+'/presentation',{version:0,expected_revision:prior.revision,confirm_rights:true,presentation:candidate});assert.equal(changed.status,200);
+  const staged=changed.body.state.drafts[0].presentation;assert.equal(staged.cover.rights_confirmed,false);assert.equal(staged.cover.image_url,cover.url);assert.equal(staged.cover.rights_basis,'licensed');
+  const form=()=>{const v=new FormData();v.set('file',new Blob([bytes],{type:'image/png'}),'new.png');v.set('metadata',JSON.stringify({work_id:w.id,version:0,cover,rights_note:'Explicit UNIT ONLY new image license review'}));return v;};
+  const before=f.objects.size;assert.notEqual((await f.send('/publication/upload',form())).status,200);assert.equal(f.objects.size,before);assert.equal((await f.pg.query('select count(*)::int n from nyra_inspection.rights')).rows[0].n,1);
+  const confirmed={...staged,cover:{...staged.cover,rights_confirmed:true}};
+  assert.equal((await f.send('/work/'+w.id+'/presentation',{version:0,expected_revision:staged.revision,presentation:confirmed})).body.error,'IMAGE_RIGHTS_RECONFIRMATION_REQUIRED');
+  assert.notEqual((await f.send('/work/'+w.id+'/presentation',{version:0,expected_revision:staged.revision,confirm_rights:true,presentation:confirmed},{token:f.token({aal:'aal1'})})).status,200);
+  assert.equal((await f.send('/work/'+w.id+'/presentation',{version:0,expected_revision:prior.revision,confirm_rights:true,presentation:confirmed})).body.error,'STALE_PRESENTATION');
+  const accepted=await f.send('/work/'+w.id+'/presentation',{version:0,expected_revision:staged.revision,confirm_rights:true,presentation:confirmed});assert.equal(accepted.status,200);assert.equal(accepted.body.state.drafts[0].presentation.cover.rights_confirmed,true);
+  // Upload cannot substitute a different rights basis after confirmation either.
+  const wrong=form(),meta=JSON.parse(wrong.get('metadata'));meta.cover.attribution.rights_basis='owned';wrong.set('metadata',JSON.stringify(meta));assert.notEqual((await f.send('/publication/upload',wrong)).status,200);
+  const upload=await f.send('/publication/upload',form());assert.equal(upload.status,200,JSON.stringify(upload.body));await runPrivateAssetInspection({service:f.machine,tokenSource:async()=> 'UNIT_MACHINE',operationId:upload.body.inspection_id});
+  assert.equal((await f.pg.query('select count(*)::int n from nyra_inspection.receipts')).rows[0].n,2);assert.deepEqual((await f.pg.query('select * from nyra_inspection.receipts where upload_id=$1',[initial.body.inspection_id])).rows[0],immutable);
+ }finally{await f.pg.close();}
 });

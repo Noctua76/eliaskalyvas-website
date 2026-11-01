@@ -11,7 +11,7 @@ export default function NyraPresentation({gr,workId,draft,index,busy,status,onSa
  const lang=draft.assignment.language,topics=status?.topic_labels?.[lang]||[],suggestions=status?.hashtag_labels?.[lang]||[];
  function addTag(t){if(!tagList.includes(t))setTags([...tagList,t].join(', '));}
  function addHash(t){if(!hashList.includes(t)&&hashList.length<5)setHashtags([...hashList,t].join(' '));}
- async function save(e){e.preventDefault();setMessage('');try{await onSave({version:index,expected_revision:value.revision||0,presentation:{...value,tags:tagList,hashtags:hashList}});setMessage(gr?'Αποθηκεύτηκε χωρίς κλήση AI.':'Saved without an AI call.');}catch(e){setMessage(e.message);}}
+ async function save(e){e.preventDefault();setMessage('');try{await onSave({version:index,expected_revision:value.revision||0,confirm_rights:value.cover.rights_confirmed===true&&draft.presentation?.cover?.rights_confirmed!==true,presentation:{...value,tags:tagList,hashtags:hashList}});setMessage(gr?'Αποθηκεύτηκε χωρίς κλήση AI.':'Saved without an AI call.');}catch(e){setMessage(e.message);}}
  async function copy(){try{await navigator.clipboard.writeText([value.share_text,hashList.join(' ')].filter(Boolean).join('\n\n'));setMessage(gr?'Αντιγράφηκε το κείμενο με τα hashtags.':'Text and hashtags copied.');}catch{setMessage(gr?'Δεν επιτράπηκε η αντιγραφή. Επίλεξε και αντέγραψε το κείμενο από το πεδίο.':'Clipboard unavailable. Select and copy the text from the field.');}}
  let safeImage='';try{safeImage=imageUrl(value.cover.image_url);}catch{}
  const textField=(key,label,max,rows=2)=><label>{label}<textarea value={value[key]} maxLength={max} rows={rows} onChange={e=>set(key,e.target.value)} /></label>;
@@ -39,6 +39,7 @@ export default function NyraPresentation({gr,workId,draft,index,busy,status,onSa
      {imageField('license_url',gr?'Σύνδεσμος άδειας (αν υπάρχει)':'License URL (if available)')}
      {imageField('alt',gr?'Εναλλακτικό κείμενο εικόνας':'Image alternative text',500)}
      {imageField('caption',gr?'Λεζάντα / απαιτούμενη αναφορά':'Caption / required attribution',1000)}
+     <label>{gr?'Βάση δικαιώματος για τη συγκεκριμένη εικόνα':'Rights basis for this exact image'}<select value={value.cover.rights_basis||''} onChange={e=>cover('rights_basis',e.target.value||null)}><option value="">—</option>{['licensed','permission','owned','public_domain'].map(b=><option key={b} value={b}>{b}</option>)}</select></label>
      <label className="nyra-check"><input type="checkbox" checked={value.cover.rights_confirmed} onChange={e=>cover('rights_confirmed',e.target.checked)} />{gr?'Έλεγξα ότι επιτρέπεται η συγκεκριμένη χρήση και ότι έχουν συμπληρωθεί τα στοιχεία αναφοράς.':'I checked that this use is permitted and the required attribution is recorded.'}</label>
      {value.cover.image_url&&<button type="button" onClick={()=>setPreview(p=>!p)}>{gr?'Προεπισκόπηση εξωτερικής εικόνας':'Preview external image'}</button>}
      {preview&&safeImage&&<img className="nyra-cover-preview" src={safeImage} alt={value.cover.alt} referrerPolicy="no-referrer" loading="lazy" />}
