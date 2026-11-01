@@ -1,3 +1,5 @@
+> **Replacement preparation:** see [the target-configurable offline package](../ops/acceptance-bootstrap/REPLACEMENT.md). Historical host commands below are not the current execution path. No resource is created by preparing the replacement.
+
 # Phase 5C — consolidated operator bootstrap
 
 Base main: `c24c891a8d75f4d48a54305eccbdf89722c66a69`.
