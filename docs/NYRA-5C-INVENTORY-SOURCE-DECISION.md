@@ -1,18 +1,26 @@
 # NYRA Phase 5C — inventory source decision (review proposal)
 
 **Date:** 2026-11-01  
-**Status:** PROPOSED FOR INDEPENDENT REVIEW — NOT ACCEPTED / NOT AUTHORIZED  
+**Status:** SINGLE_OWNER technical feasibility proposal — NOT TRUST ACCEPTED / NOT PRODUCTION AUTHORIZED  
 **Repository:** `Noctua76/eliaskalyvas-website`  
 **Reviewed main baseline:** `dea8c5ede7df2d11a2de856d966046ca341f1ed6`  
 **Scope:** non-executable decision record only. No policy, verifier, deployment, GitHub settings, migration, credential, runtime, or production changes.
+
+## Binding governance — SINGLE_OWNER, not a second human reviewer
+
+The owner-approved `SINGLE_OWNER` governance in [NYRA-GOVERNANCE-REVIEW.md](NYRA-GOVERNANCE-REVIEW.md) **supersedes the historical B1/B2 mandatory second-person review model**. The owner `Noctua76` is the sole administrator and final editorial authorizer. The intended branch rule requires a PR and exactly **zero mandatory GitHub approval reviews**, while retaining strict required checks `nyra-required-regression` and `nyra-required-production-build` (GitHub Actions App 15368), enforced administrator protection and no bypass/force-push/deletion. The three Nyra Environments have no mandatory human reviewers and are restricted to `main` with no privileged secrets. `OWNER_WITH_REVIEWERS` is strictly future/opt-in.
+
+**Do not request a second GitHub account, separate email, collaborator invitation, or outside PR/Environment reviewer as a prerequisite to this plan.** A second account run by the same owner would not provide independent human approval. The term **independent** in source validation means technical control separation: non-delivery credential/capture authority, independently pinned signing key, source-derived metadata and cryptographic verification; it does **not** require a second human GitHub identity.
+
+The existing narrow GitHub integration cannot currently read the complete branch-protection settings (HTTP 403). `main.protected=true` and App-bound required-check metadata are visible, but the exact zero-approval, no-bypass and Environment settings require an authorized read-back before a *live* trust claim. Do not infer them merely from `protected=true`.
 
 ## Decision sought
 
 **Recommendation: HOLD the existing five-minute full-account integration-inventory trust gate unchanged; stop repeated captures based on the current extraction approach.** First establish whether an independently controlled, owner-authenticated source can *actually* supply complete, correlated, effective permissions across the five required families, with verifiable provenance and an independent signer. No additional capture run or signer implementation is approved by this proposal.
 
-**Do not adopt the proposed `BOUNDED_ACCEPTANCE_WINDOW` (15 minutes) yet.** A longer freshness window cannot repair missing permission evidence, incorrect classification, absent source attestation, or unknown write authority. If complete evidence later becomes demonstrable but repeat refresh within five minutes is infeasible, that bounded, non-publishing exception may be separately reviewed with its explicit 15-to-30-minute stale-observation risk. It is *not* a production policy.
+**Do not adopt the proposed `BOUNDED_ACCEPTANCE_WINDOW` (15 minutes) yet.** A longer freshness window cannot repair missing permission evidence, incorrect classification, absent source attestation, or unknown write authority. If complete evidence later becomes demonstrable but repeat refresh within five minutes is infeasible, that bounded, non-publishing exception must receive an explicit owner decision and separate technical threat-model validation with its 15-to-30-minute stale-observation risk. It is *not* a production policy.
 
-This proposal is **not itself an independent external approval**. It must not be cited as a signed inventory, cryptographic attestation, policy acceptance, owner-risk decision, or authorization to merge/activate.
+This proposal is **not itself an owner/MFA decision or independent technical evidence**. It must not be cited as a signed inventory, cryptographic attestation, policy acceptance, owner-risk decision, or authorization to merge/activate. In SINGLE_OWNER, a separately recorded explicit owner authorization and independently checkable technical evidence replace mandatory second-person GitHub reviews.
 
 ## Evidence observed, and what it does not prove
 
@@ -75,21 +83,21 @@ Official documentation:
 
 ## One controlled source-feasibility gate — BEFORE another capture
 
-A separately designated reviewer must approve a concrete **read-only extraction specification**, not an unbounded new crawler:
+The **sole owner**, using a separately documented, challenge-bound owner/MFA authorization, must explicitly approve a concrete **read-only extraction specification**, not an unbounded new crawler. Technical verification remains separate from editorial owner approval; no second-person GitHub review is required:
 
 1. Enumerate every required account and repository surface, with owner authentication and all list/detail pagination; independently correlate immutable IDs, scopes, all/selected repository coverage, permission semantics, effective rights, disabled/revoked entries and exclusions.
 2. Provide a mapping **for each of the eight permission dimensions** from an authoritative observable field to `read`/`write`/`none`. Missing, hidden, ambiguous or conflicting fields remain **UNKNOWN**; show explicit denial evidence before asserting `none`.
 3. Verify source completeness against independently observed item counts/identifiers. A Settings overview must not count as permission-detail evidence. Treat UI, account-privilege, pagination and schema changes as fail-closed.
 4. Document a secure owner-session procedure: no passwords, cookie stores, bearer tokens, form secrets or private credentials captured in the persistent report, application logs, repository, ChatGPT, or signing input. Scrub **before** persistence; use private source hashes and metadata only.
-5. Nominate a genuine independent capture operator/signing authority, with a separate Ed25519 private key unavailable to delivery jobs, acceptance host, repository or development agent; out-of-band verification of public key ID and digest. The operator must actually inspect the source, not sign an owner-typed JSON assertion.
+5. Define a technically isolated, owner-approved capture/signing **process or service** outside the delivery runner and acceptance host, with a separate Ed25519 private key unavailable to delivery jobs, repository or development agent and independently pinned public key ID/digest. The source process must actually verify authenticated metadata; it must never sign an owner-typed JSON assertion. This separation does **not** require a second human account. Cryptographic independence may be weakened by compromise of a shared owner device; record that residual risk.
 6. Execute **one approved** real metadata-only trial and compare it against the existing verifier, including positive completeness and deliberate missing-field, stale, permission-conflict, pagination-gap, wrong-owner and signature-failure negatives. No signed PASS is accepted unless the observed evidence satisfies all constraints.
 7. Record end-to-end acquisition latency, including the *oldest* observation. A successful single fresh trial does **not** prove repeatable five-minute revalidation. Independently demonstrate repeat refresh or keep live acceptance blocked.
 
 ### Acceptance verdicts
 
-- **GO to further reviewed live trust planning:** every family/entry and effective permission evidenced, zero unknowns, independent source authentication and signature validated, full five-minute refresh demonstrated, owner-risk and remaining live gates *separately* satisfied.
+- **GO to separately owner-authorized live trust planning:** every family/entry and effective permission evidenced, zero unknowns, independent source authentication and signature validated, full five-minute refresh demonstrated, owner-risk and remaining live gates *separately* satisfied.
 - **HOLD:** any unknown field, uncorrelated integration, partial/overview-only view, absent signer/key pin, refresh beyond five minutes, or unverifiable authorization. Neither tests nor a passing admin preflight can override HOLD.
-- **REDESIGN (separate architecture proposal):** if full capture cannot be evidenced, commission a new repo-scoped authority/threat-model design (e.g., strictly bounded GitHub App and deployment principals). Do **not** reinterpret this as an automatic waiver for existing OAuth/PAT or personal-owner authorities. Any replacement trust policy requires its own independent security review, explicit owner authorization, tested migration and a new acceptance contract.
+- **REDESIGN (separate architecture proposal):** if full capture cannot be evidenced, prepare a new repo-scoped authority/threat-model design (e.g., strictly bounded GitHub App and deployment principals). Do **not** reinterpret this as an automatic waiver for existing OAuth/PAT or personal-owner authorities. Any replacement trust policy requires separate documented technical security validation, explicit owner/MFA authorization, tested migration and a new acceptance contract — not a mandatory second GitHub reviewer.
 
 ## Operational instruction and stop rule
 
@@ -97,10 +105,12 @@ For now **STOP** repeated `review-existing`, `detail-capture`, manual screenshot
 
 The next authorization, if any, is **approval of the specific source-extraction/signer specification for one non-publishing feasibility trial only**. That authorization is *not* approval to merge, dispatch protected workflows, create a new host, provision secrets, publish articles, or activate production.
 
-## External reviewer decision requested
+## Owner decision and objective security gate (SINGLE_OWNER)
 
-Independently **ACCEPT / REQUEST CHANGES / REJECT** this hold-and-source-feasibility recommendation, with explicit answers to:
+The owner may **ACCEPT / REQUEST CHANGES / REJECT** the documentation-only feasibility plan. Accepting the document never signifies accepted inventory or permission to activate. The technical evidence gate remains fail-closed and separately verifiable. Required factual questions:
 - Does the documented current contract provide any truthful way to treat current 21 unknown pages as complete? (Expected: no.)
 - Is there a concrete owner-authenticated source and separately controlled signer that can prove actual permission semantics for all five families?
 - Can strict five-minute freshness be demonstrated from the oldest observation, rather than a late signature timestamp?
-- If no complete source is available, is a separately reviewed repo-authority redesign needed instead of repeated captures?
+- If no complete source is available, must a separate owner-authorized, technically validated repo-authority redesign replace repeated captures?
+
+**Operational separation:** Human GitHub PR/Environment approvals = **0** in SINGLE_OWNER. Machine verification, signed-source provenance, owner AAL2/MFA, immutable policy/job/check binding, secure separation of capture from delivery, and fail-closed handling of UNKNOWN permissions are retained. No unverified human reviewer is substituted with a self-created GitHub identity.
