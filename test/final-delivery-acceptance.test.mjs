@@ -17,7 +17,7 @@ test('Connected owner/inspection/SQL/materialization/static-artifact/receipt lif
   await f.pg.exec(await readFile(new URL('../ops/publication/sql/preflight.sql',import.meta.url),'utf8'));
   await f.pg.exec(await readFile(new URL('../ops/publication/sql/postflight.sql',import.meta.url),'utf8'));
   // PGlite fixture otherwise serializes all JS arrays as JSON, unlike PostgREST's uuid[] binding.
-  const originalRPC=f.db.rpc;f.db.rpc=async(name,args)=>{if(name==='nyra_delivery_materialized')args={...args,p_intents:'{'+args.p_intents.join(',')+'}'};return originalRPC(name,args);};
+  const originalRPC=f.db.rpc;f.db.rpc=async(name,args)=>{if(name==='nyra_delivery_materialized')args={...args,p_intents:'{'+args.p_intents.join(',')+'}'};await f.pg.exec('set role service_role');try{const r=await originalRPC(name,args);return r;}finally{await f.pg.exec('reset role');}};
   const pending=new Map(),accepted=new Map(),quarantine={put:async(id,b)=>pending.set(id,b),get:async id=>pending.get(id),remove:async id=>pending.delete(id)},storage={put:async(id,b)=>accepted.set(id,b),get:async id=>accepted.get(id)};
   const handler=composeEditorialPublication({db:f.db,env:{ALLOWED_ORIGINS:'https://eliaskalyvas.gr'},quarantine,storage,codeSHA,assertTrustReady:async()=>true,enabled:true,fetcher:async()=>{throw Error('NO_PAID_PROVIDER');}});
   const send=async(path,body,{method='POST'}={})=>{const r=await handler(new Request('https://eliaskalyvas.gr/nyra-api'+path,{method,headers:{Origin:'https://eliaskalyvas.gr',Authorization:'Bearer '+f.good,...(body instanceof FormData?{}:{'Content-Type':'application/json'})},...(method==='GET'?{}:{body:body instanceof FormData?body:JSON.stringify(body)})}));return {status:r.status,data:await r.json()};};
