@@ -14,4 +14,4 @@ try{
   ?await import('../protected-delivery/native.mjs').then(m=>m.nativeProtectedAcceptance({...config,event}))
   :await (config.inspectionMode?runNativeInspection:runNative)({...config,event,out:'/evidence'});
  writeFileSync('/evidence/'+config.prefix+'-catalog.json',JSON.stringify(catalog));
-}catch(e){event(config.prefix+':execution','FAIL',{name:e.name,code:e.code||null,message:e.message,location:e.stack?.split('\n').slice(1,4).join('\n')});process.exitCode=1;}
+}catch(e){event(config.prefix+':execution','FAIL',{name:e.name,code:e.code||null,message:e.message,location:e.stack?.split('\n').filter(line=>/^\s+at /.test(line)).slice(0,4).join('\n')});process.exitCode=1;}

@@ -7,6 +7,7 @@ import {deflateRawSync} from 'node:zlib';
 import sharp from 'sharp';
 import {hashJSON} from '../../lib/publication/contract.mjs';
 import {byteHash} from '../../lib/publication/runtime/adapters.mjs';
+import {createPrivateDeliveryHandler} from '../../lib/publication/integration/service.mjs';
 import {composePrivateDelivery} from '../../runtime/nyra-edge/integration.mjs';
 import {createNormalBuildInventory,buildAuthenticatedArtifact} from '../../lib/publication/integration/build.mjs';
 import {createExportReceiver} from '../../lib/publication/integration/transport.mjs';
@@ -49,14 +50,17 @@ export async function acceptFinalLifecycle({send,createWork,inspect,db,q,storage
   deploymentFor:async attempt=>{const j=await journal.read(attempt.id);if(!j)return null;const end=await journal.observeStatus(attempt.id,'succeed');return {...j,id:j.deploymentId,status:'succeed',completedAt:end.completedAt};}};
  const publicReader={read:async path=>{const b=stale?null:files.get(path.endsWith('/')?path+'index.html':path);return {status:b?200:404,bytes:b||new Uint8Array()};}};
  const delivery=composePrivateDelivery({db,verifier,pagesVerifier:verifier,storage,github,publicReader,repository:'Noctua76/eliaskalyvas-website',baseSitemap,pathScopeAuthority,enabled:true,fetcher:async(url,options)=>{assert.equal(options.method,'POST');posts++;return Response.json({id:String(posts+9000)});}});
- const rpc=async operation=>{const r=await delivery.handler(new Request('https://simulated.invalid/delivery/'+operation,{method:'POST',headers:{Authorization:'Bearer SIMULATED_JOB',...(operation==='deploy'?{'X-Pages-OIDC':'SIMULATED_JOB','X-GitHub-Token':'SIMULATED_GITHUB'}:{})},body:'{}'}));return {status:r.status,data:await r.json()};};
+ let rejected=null;
+ const checkedService=Object.fromEntries(Object.entries(delivery.service).map(([name,fn])=>[name,async(...args)=>{try{return await fn(...args);}catch(e){rejected={operation:name,message:e.message};throw e;}}]));
+ const handler=createPrivateDeliveryHandler({service:checkedService,enabled:true});
+ const rpc=async operation=>{rejected=null;const r=await handler(new Request('https://simulated.invalid/delivery/'+operation,{method:'POST',headers:{Authorization:'Bearer SIMULATED_JOB',...(operation==='deploy'?{'X-Pages-OIDC':'SIMULATED_JOB','X-GitHub-Token':'SIMULATED_GITHUB'}:{})},body:'{}'}));return {status:r.status,data:await r.json(),...(rejected?{diagnostic:rejected}:{})};};
  async function deliver({uncertain=false,tamper=false}={}){
   run++;artifactId=String(run+7000);
   const receiver=createExportReceiver({endpoint:'https://simulated.invalid/delivery',audience:'urn:nyra:publication',identity:{codeSHA,runId:String(run),runAttempt:'1'},tokenSource:async()=> 'SIMULATED_JOB',fetcher:async()=>{const r=await rpc('export');assert.equal(r.status,200,JSON.stringify(r));return Response.json(r.data);}}),proof=await receiver.acquire();
   const built=await buildAuthenticatedArtifact({receiver,proof});files=built.files;archive=zip(built.tar);assert(files.has(WITNESS_PATH));
   for(const [path,content]of files)assert(!/PRIVATE_NATIVE_|PRIVATE_TICKET_CANARY|PRIVATE_EXCERPT_CANARY/.test(Buffer.from(content).toString()),path);
   if(tamper){forgedArchive=true;assert.notEqual((await rpc('permit')).status,200);forgedArchive=false;}
-  assert.equal((await rpc('permit')).status,200);assert.equal((await rpc('deploy')).status,200);
+  const permit=await rpc('permit');assert.equal(permit.status,200,JSON.stringify(permit));const deployed=await rpc('deploy');assert.equal(deployed.status,200,JSON.stringify(deployed));
   const before=posts;assert.notEqual((await rpc('deploy')).status,200);assert.equal(posts,before,'one-shot permit must not dispatch twice');
   if(uncertain){stale=true;assert.equal((await rpc('observe')).data.status,'unknown');assert.equal((await q('select blocked from nyra_delivery.control')).rows[0].blocked,true);stale=false;}
   const result=uncertain?await delivery.service.reconcilePending():(await rpc('observe')).data;assert.equal(result.status,'released_verified',JSON.stringify(result));
