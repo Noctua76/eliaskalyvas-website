@@ -20,18 +20,32 @@ The latest local sanitized `SAFE_LOCAL_CLASSIFICATION` reports:
 
 | Diagnostic | Count |
 | --- | ---: |
-| Reviewed detail pages | 27 |
-| Pages with some explicit permissions | 6 |
-| Recognized permission fields | 32 |
-| Pages without explicit permission evidence | 21 |
-| Repository integration overview pages within the above | 4 |
-| Unvisited details | 0 |
+| Reviewed pages (details **and** overviews) | 27 |
+| Actual detail pages | 23 |
+| Overview-only pages (not permission detail evidence) | 4 |
+| Detail pages with some explicit permissions | 6 |
+| Detail pages without explicit permission evidence | 17 |
+| Total pages without explicit permission evidence (including 4 overviews) | 21 |
+| Recognized permission fields across 6 partial detail pages | 32 |
+| Unvisited details reported by local diagnostic | 0 |
 | Navigation/pagination gaps | 0 |
 | Local regression checks | 10 / 10 passing |
 
-Family breakdown: installed GitHub Apps: 5 detail pages, all partially documented (27 fields); authorized GitHub Apps: 8 detail pages, no explicit permissions; authorized OAuth Apps: 7, no explicit permissions; personal access tokens: 3, one partially documented (5 fields); repository integrations: 4 overview pages with no per-integration permission detail.
+### Source-specific feasibility matrix — no invented permission values
 
-**Inference boundary:** 27/27 visited is navigation coverage only. `withoutExplicitPermissions` means **UNKNOWN**, not `none`; partial fields cannot be promoted to a complete account-wide permission matrix. The report is `complete:false`, `independentlySigned:false`, `acceptedForTrust:false`, `liveAcceptance:false`, `productionAuthorized:false`. The test suite validates classifier behavior only.
+| Family | Actual evidence counted | What is still missing |
+| --- | --- | --- |
+| Installed GitHub Apps | 5 detail pages; 27 individual fields recognized across partial pages | Verifiable full permission matrix, immutable App/installation IDs and exact repository scope for each |
+| Authorized GitHub Apps | 8 detail pages; no explicit permission fields recognized | Grant-level permissions, distinction from installation permissions, effective acting-on-user authority |
+| Authorized OAuth Apps | 7 detail pages; no explicit permission fields recognized | Source-verified token scopes and actual effective repository capabilities; no inference from an application name |
+| Personal access tokens | 3 detail pages; 5 recognized fields on one partially evidenced page | Classic/fine-grained scope, target resources, expiry and each effective right; do not capture token bytes |
+| Repository integrations | **4 overview pages**, **0 actual per-integration detail pages** | Enumeration and effective permissions for repository Apps, deploy keys, webhooks and relevant write paths |
+
+**No family meets the complete signed-audit requirement.** The 4 overviews must not be described as detail-page observations. The apparent 0 navigation gaps means only that the diagnostic traversed its known URLs, **not** that all relevant grants and effective rights were enumerated independently.
+
+For source-to-contract mapping, the GitHub source may expose privileges beyond the verifier's `read/write/none` vocabulary (for example fine-grained token `admin`). A reviewed mapping must preserve the original elevated level in authenticated private evidence and conservatively represent its **write-capable risk** without silently downgrading it. Missing fields may be recorded as `none` only with explicit authoritative negative evidence. This change proposes **no code modification** to the existing normalization contract.
+
+**Inference boundary:** 27/27 pages visited is recorded navigation coverage only; only 23 were true detail pages. `withoutExplicitPermissions` means **UNKNOWN**, not `none`; partial fields cannot be promoted to a complete account-wide permission matrix. The report is `complete:false`, `independentlySigned:false`, `acceptedForTrust:false`, `liveAcceptance:false`, `productionAuthorized:false`. The test suite validates classifier behavior only.
 
 ## Existing technical trust contract (unchanged)
 
