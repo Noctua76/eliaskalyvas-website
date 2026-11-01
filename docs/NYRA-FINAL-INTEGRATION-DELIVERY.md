@@ -64,7 +64,10 @@ native. Its job/OIDC/admin gate, GitHub deployment and public observation adapte
 are **SIMULATED**. It does not grant genuine live provenance acceptance. There are
 no published ports, paid resources or production secrets. The final lifecycle
 driver alone has a bounded 512 MiB noexec/nosuid tmpfs for actual complete website
-rebuilds (the prior 32 MiB SQL/inspection-only scratch space is insufficient). Normal CI independently
+rebuilds (the prior 32 MiB SQL/inspection-only scratch space is insufficient).
+Its disposable HTTP gateway closes both connection hops: CPU-heavy rebuilds must
+not reuse stale keep-alive sockets and turn a native read into `fetch failed`.
+There is no automatic retry of SQL mutations or production broker change. Normal CI independently
 runs the existing native trust/replay/revocation/process-isolation checks.
 
 No Docker/PostgreSQL/Edge daemon exists in the local Work Mode runtime. Native
