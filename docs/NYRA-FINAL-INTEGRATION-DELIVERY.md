@@ -62,7 +62,9 @@ lifecycle through actual Edge and private Storage with **real local GoTrue owner
 AAL2/TOTP sessions**. AAL1, other owner, tampered JWT and revoked-session denial are
 native. Its job/OIDC/admin gate, GitHub deployment and public observation adapters
 are **SIMULATED**. It does not grant genuine live provenance acceptance. There are
-no published ports, paid resources or production secrets. Normal CI independently
+no published ports, paid resources or production secrets. The final lifecycle
+driver alone has a bounded 512 MiB noexec/nosuid tmpfs for actual complete website
+rebuilds (the prior 32 MiB SQL/inspection-only scratch space is insufficient). Normal CI independently
 runs the existing native trust/replay/revocation/process-isolation checks.
 
 No Docker/PostgreSQL/Edge daemon exists in the local Work Mode runtime. Native
