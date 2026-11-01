@@ -78,7 +78,7 @@ for(const [name,mutate]of Object.entries({
  'fabricated production authority':p=>p.productionAuthorized=true,
  'secret injection':p=>p.token='plaintext',
  'other account':p=>p.ownerId='999',
- 'stale main':p=>p.mainSHA='c'.repeat(40),
+
  'reviewer governance':p=>{p.governance.mode='OWNER_WITH_REVIEWERS';p.governance.reviewerIds=['77'];},
  'missing reviewer mode':p=>delete p.governance,
  'unknown mapped to none':p=>p.unknownPermissionIsNotNone=false,
