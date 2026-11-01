@@ -62,7 +62,7 @@ export async function verifyPinnedObservation(envelope,{publicKey,keyId,policy,n
 export function composeTrustAcceptance({
  getJSON,registrars,policies,assertAdministration,assertOwnerDecision,
  brokerAcceptors,persistSignedEvidence,evidencePublicKey,evidenceKeyId,
- callerSHA,windowStartsAt,windowEndsAt,enabled=false,now=Date.now
+ callerSHA,windowStartsAt,windowEndsAt,enabled=false,origin,now=Date.now
 }){
  need(typeof assertAdministration==='function'&&
   typeof assertOwnerDecision==='function'&&
@@ -113,7 +113,7 @@ export function composeTrustAcceptance({
  }]));
  return Object.freeze({
   watcher,
-  ingress:createIngressHandler({watcher,acceptors,enabled}),
+  ingress:createIngressHandler({watcher,acceptors,enabled,origin}),
   activeIngress:enabled===true,
   // A handler is NOT a network listener. Host Caddy must remain review-only
   // until separate owner authorization and external acceptance readiness.

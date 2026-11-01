@@ -4,7 +4,7 @@
 import {readFile,writeFile,mkdir,copyFile,cp,lstat,realpath} from 'node:fs/promises';
 import {dirname,resolve,join} from 'node:path';
 import {execFileSync} from 'node:child_process';
-const roots=['ops/acceptance-bootstrap/live-role-worker.mjs','ops/acceptance-bootstrap/fra1-runtime.mjs','ops/acceptance-bootstrap/fra1-launch.mjs'];
+const roots=['ops/acceptance-bootstrap/repository-db.mjs','ops/acceptance-bootstrap/repository-launch.mjs','ops/acceptance-bootstrap/repository-runtime.mjs','ops/acceptance-bootstrap/replacement-target.mjs','ops/acceptance-bootstrap/live-role-worker.mjs','ops/acceptance-bootstrap/fra1-runtime.mjs','ops/acceptance-bootstrap/fra1-launch.mjs'];
 export async function stageLiveRuntime({source,destination}){
  source=await realpath(source);destination=resolve(destination);if(destination===source||destination.startsWith(source+'/'))throw Error('STAGE_OUTSIDE_CHECKOUT');
  await mkdir(destination,{mode:0o755});const seen=new Set();

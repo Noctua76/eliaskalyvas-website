@@ -1,3 +1,5 @@
+> **Replacement preparation:** see [the target-configurable offline package](REPLACEMENT.md). Historical host commands below are not the current execution path. No resource is created by preparing the replacement.
+
 # NYRA 5C — HISTORICAL FRA1 PILOT — RETIRED
 
 **Recorded 2026-10-31 from the owner's operator observations.** No independent

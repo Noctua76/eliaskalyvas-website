@@ -14,6 +14,7 @@ export async function startOwnerSource(config){
  const end=Date.parse(config.policy.windowEndsAt)-Date.now();if(!(end>0&&end<=86400000))throw Error('OWNER_SOURCE_WINDOW');
  const dir=await lstat(dirname(config.socket));if(!dir.isDirectory()||(dir.mode&0o077)||dir.uid!==process.getuid()||dirname(config.socket)!==dirname(config.journal))throw Error('PRIVATE_DIRECTORY');
  const signing=await privateFile(config.signingKey),privateKey=await crypto.subtle.importKey('jwk',signing.privateKey,'Ed25519',false,['sign']),publicKey=await crypto.subtle.importKey('jwk',signing.publicKey,'Ed25519',false,['verify']);
+ if(config.policy.repositoryTrust&&config.signingKey!=='/var/lib/nyra-5c/owner/owner-key.json')throw Error('OWNER_REPOSITORY_KEY_PATH');
  if(config.policy.repositoryTrust&&(signing.keyId!==config.policy.repositoryTrust.ownerKey.id||signingKeySHA256(signing.publicKey)!==config.policy.repositoryTrust.ownerKey.sha256))throw Error('OWNER_REPOSITORY_KEY_PIN');
  if(signing.keyId!==config.keyId||hashJSON(signing.publicKey)!==config.publicKeySHA256)throw Error('OWNER_KEY_PIN');
  const signer=evidenceSigner({privateKey,publicKeyId:signing.keyId}),keyDigest=hashJSON(signing);

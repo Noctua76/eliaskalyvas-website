@@ -4,7 +4,11 @@ import {execFileSync} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import {bootstrapPlan} from './plan.mjs';
 export function cleanupPlan(config,{execute=(args)=>execFileSync('docker',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}),apply=false}={}){
- const plan=bootstrapPlan(config),label='com.noctua.nyra.acceptance='+plan.planSHA256,removed=[];
+ return cleanupByDigest(bootstrapPlan(config).planSHA256,{execute,apply});
+}
+export function cleanupByDigest(planSHA256,{execute=(args)=>execFileSync('docker',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}),apply=false}={}){
+ if(!/^[a-f0-9]{64}$/.test(planSHA256))throw Error('CLEANUP_SCOPE');
+ const plan={planSHA256},label='com.noctua.nyra.acceptance='+planSHA256,removed=[];
  const resources=[
   ['container',['ps','-aq','--no-trunc'],['rm','-f']],
   ['network',['network','ls','-q','--no-trunc'],['network','rm']],
@@ -32,6 +36,6 @@ export function cleanupPlan(config,{execute=(args)=>execFileSync('docker',args,{
   }
  }
 
- return {planSHA256:plan.planSHA256,apply,resources:removed,manualRequired:['Revoke GitHub read credential at issuer','Retire owner decision and close owner session','Remove private key/IPC/login files after retaining sanitized signed evidence','Remove approved DNS/proxy mapping and transient timer']};
+ return {planSHA256:plan.planSHA256,apply,resources:removed,manualRequired:['Destroy exact provider Droplet and verify absence/billing; container cleanup does not stop billing','Revoke GitHub read credential at issuer','Retire owner decision and close owner session','Remove private key/IPC/login files after retaining sanitized signed evidence','Remove approved DNS/proxy mapping and transient timer']};
 }
 if(process.argv[1]===new URL(import.meta.url).pathname){try{console.log(JSON.stringify(cleanupPlan(JSON.parse(await readFile(process.argv[2],'utf8')),{apply:process.argv[3]==='--apply'}),null,2));}catch{console.error('SCOPED_CLEANUP_FAILED');process.exitCode=1;}}

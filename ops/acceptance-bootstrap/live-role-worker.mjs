@@ -14,7 +14,7 @@ async function run(){
  let signEvidence,evidencePublicKey;
  if(c.role==='broker'){const k=read('/run/role/evidence-key.json');if(k.keyId!==c.evidenceKeyId)throw Error('KEY_ID');const secret=await crypto.subtle.importKey('jwk',k.privateKey,'Ed25519',false,['sign']);signEvidence=evidenceSigner({privateKey:secret,publicKeyId:k.keyId});}
  evidencePublicKey=await crypto.subtle.importKey('jwk',c.evidencePublicKey,'Ed25519',false,['verify']);
- operation=liveRoleService({...c,query:db.query.bind(db),getJSON:url=>port.query('github',{url}),readPolicyState:privilege=>read('/run/role/policy/state.json')[privilege],assertAdministration:async p=>{if(await port.query('administration',{privilege:p.role})!==true)throw Error('ADMIN_GATE');},keySource:()=>port.query('jwks',{}),signEvidence,evidencePublicKey,privateQuery:port.query});
+ operation=liveRoleService({...c,query:db.query.bind(db),getJSON:url=>port.query('github',{url}),readPolicyState:privilege=>(()=>{const path='/run/role/policy/state.json';if(!c.policyOwnerUID)return read(path)[privilege];const s=lstatSync(path);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.uid!==c.policyOwnerUID||s.gid!==c.policyGroupID||(s.mode&0o027))throw Error('POLICY_STATE');return JSON.parse(readFileSync(path,'utf8'))[privilege];})(),assertAdministration:async(p,operation='identity')=>{if(await port.query('administration',{privilege:p.role,operation})!==true)throw Error('ADMIN_GATE');},keySource:()=>port.query('jwks',{}),signEvidence,evidencePublicKey,privateQuery:port.query});
  process.stdin.on('end',()=>{port.close();db.end().catch(()=>{});});
  await operation('identity',{});ready();
 }

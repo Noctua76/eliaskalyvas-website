@@ -379,3 +379,19 @@ second mandatory GitHub reviewer or second editorial approval.
 The packet contains **no** real owner-risk receipt, accepted operational policy,
 JWT, signing key, production secret or fabricated deployment evidence. No OpenAI
 provider call or credit is required for these acceptance steps.
+
+
+## Offline replacement bootstrap — subsequent unreviewed change
+
+Owner comment `6564206677` identified the historical FRA1 wiring deficiency.
+The new [replacement operator package](../ops/acceptance-bootstrap/REPLACEMENT.md)
+provides target validation, exact public prerequisite hashes, no-secret Ubuntu setup,
+new repository-scoped coordinator/launcher/DB composition, shared policy retirement
+and provider-level teardown instructions. Preparation creates no credentials/host.
+The new acceptance configuration cannot satisfy operational publication policy.
+Its code must receive independent review; `1dbeb46` acceptance does not approve
+these subsequent changes. Current protected main and inactive public probe plan
+prevent claiming genuine PR26 acceptance before a separately approved merge and
+reviewed public-plan/policy pinning. Stop before provisioning until that boundary
+is cleared. Actual host install, DNS/TLS, GitHub runner reachability, real owner
+authorization and protected discovery/provenance remain NOT VERIFIED.
