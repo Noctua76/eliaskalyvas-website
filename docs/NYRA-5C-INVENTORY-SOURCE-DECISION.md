@@ -1,0 +1,92 @@
+# NYRA Phase 5C — inventory source decision (review proposal)
+
+**Date:** 2026-11-01  
+**Status:** PROPOSED FOR INDEPENDENT REVIEW — NOT ACCEPTED / NOT AUTHORIZED  
+**Repository:** `Noctua76/eliaskalyvas-website`  
+**Reviewed main baseline:** `dea8c5ede7df2d11a2de856d966046ca341f1ed6`  
+**Scope:** non-executable decision record only. No policy, verifier, deployment, GitHub settings, migration, credential, runtime, or production changes.
+
+## Decision sought
+
+**Recommendation: HOLD the existing five-minute full-account integration-inventory trust gate unchanged; stop repeated captures based on the current extraction approach.** First establish whether an independently controlled, owner-authenticated source can *actually* supply complete, correlated, effective permissions across the five required families, with verifiable provenance and an independent signer. No additional capture run or signer implementation is approved by this proposal.
+
+**Do not adopt the proposed `BOUNDED_ACCEPTANCE_WINDOW` (15 minutes) yet.** A longer freshness window cannot repair missing permission evidence, incorrect classification, absent source attestation, or unknown write authority. If complete evidence later becomes demonstrable but repeat refresh within five minutes is infeasible, that bounded, non-publishing exception may be separately reviewed with its explicit 15-to-30-minute stale-observation risk. It is *not* a production policy.
+
+This proposal is **not itself an independent external approval**. It must not be cited as a signed inventory, cryptographic attestation, policy acceptance, owner-risk decision, or authorization to merge/activate.
+
+## Evidence observed, and what it does not prove
+
+The latest local sanitized `SAFE_LOCAL_CLASSIFICATION` reports:
+
+| Diagnostic | Count |
+| --- | ---: |
+| Reviewed detail pages | 27 |
+| Pages with some explicit permissions | 6 |
+| Recognized permission fields | 32 |
+| Pages without explicit permission evidence | 21 |
+| Repository integration overview pages within the above | 4 |
+| Unvisited details | 0 |
+| Navigation/pagination gaps | 0 |
+| Local regression checks | 10 / 10 passing |
+
+Family breakdown: installed GitHub Apps: 5 detail pages, all partially documented (27 fields); authorized GitHub Apps: 8 detail pages, no explicit permissions; authorized OAuth Apps: 7, no explicit permissions; personal access tokens: 3, one partially documented (5 fields); repository integrations: 4 overview pages with no per-integration permission detail.
+
+**Inference boundary:** 27/27 visited is navigation coverage only. `withoutExplicitPermissions` means **UNKNOWN**, not `none`; partial fields cannot be promoted to a complete account-wide permission matrix. The report is `complete:false`, `independentlySigned:false`, `acceptedForTrust:false`, `liveAcceptance:false`, `productionAuthorized:false`. The test suite validates classifier behavior only.
+
+## Existing technical trust contract (unchanged)
+
+`lib/publication/runtime/application-inventory.mjs` requires a separately signed `nyra.authenticated.integration-audit.v1` envelope with:
+
+- fixed owner ID `217035723`, repository ID `1389733212`, repository name `Noctua76/eliaskalyvas-website`;
+- authenticated and complete coverage of five families: installed GitHub Apps, authorized GitHub Apps, authorized OAuth Apps, personal access tokens, and repository integrations;
+- complete pagination, source URLs and per-family capture SHA-256; an empty `outstanding` list;
+- actual immutable identifiers, scopes, repository access, and **eight explicit** permission values (`read`, `write`, or demonstrably `none`) for every integration;
+- observed time derived from the **oldest relied-on source**, age strictly below five minutes, no clock-forward timestamps;
+- verified Ed25519 signature using an independently approved pinned key. Re-signing stale data, a fabricated `complete:true`, or a screenshot alone must never pass.
+
+`lib/publication/runtime/administration-evidence.mjs` additionally requires live protected repository and Environment evidence, a repository-scoped independently provisioned read credential, and a fresh **less-than-60-second** challenged owner AAL2/MFA risk receipt tied to the accepted applications digest. Source absence and changed evidence must remain fail-closed.
+
+## Source feasibility — established limitations
+
+GitHub documents owner-facing Settings views for authorized OAuth Apps, installed GitHub Apps and PATs. API endpoints available to a particular app or installation are not an authoritative export of every OAuth grant, personal token and effective repository capability owned by the account. No documented single complete GitHub-signed account-wide export has been established. Consequently the connected developer App, one repository PAT and the current browser text diagnostic cannot independently certify the whole required trust contract.
+
+This is **not** a claim that a complete account capture is theoretically impossible. It is a finding that **the available evidence does not demonstrate one**.
+
+Official documentation:
+- https://docs.github.com/en/apps/oauth-apps/using-oauth-apps/reviewing-your-authorized-oauth-apps
+- https://docs.github.com/en/apps/using-github-apps/reviewing-and-modifying-installed-github-apps
+- https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
+- https://docs.github.com/en/rest/apps/oauth-applications
+- https://docs.github.com/en/rest/apps/apps
+
+## One controlled source-feasibility gate — BEFORE another capture
+
+A separately designated reviewer must approve a concrete **read-only extraction specification**, not an unbounded new crawler:
+
+1. Enumerate every required account and repository surface, with owner authentication and all list/detail pagination; independently correlate immutable IDs, scopes, all/selected repository coverage, permission semantics, effective rights, disabled/revoked entries and exclusions.
+2. Provide a mapping **for each of the eight permission dimensions** from an authoritative observable field to `read`/`write`/`none`. Missing, hidden, ambiguous or conflicting fields remain **UNKNOWN**; show explicit denial evidence before asserting `none`.
+3. Verify source completeness against independently observed item counts/identifiers. A Settings overview must not count as permission-detail evidence. Treat UI, account-privilege, pagination and schema changes as fail-closed.
+4. Document a secure owner-session procedure: no passwords, cookie stores, bearer tokens, form secrets or private credentials captured in the persistent report, application logs, repository, ChatGPT, or signing input. Scrub **before** persistence; use private source hashes and metadata only.
+5. Nominate a genuine independent capture operator/signing authority, with a separate Ed25519 private key unavailable to delivery jobs, acceptance host, repository or development agent; out-of-band verification of public key ID and digest. The operator must actually inspect the source, not sign an owner-typed JSON assertion.
+6. Execute **one approved** real metadata-only trial and compare it against the existing verifier, including positive completeness and deliberate missing-field, stale, permission-conflict, pagination-gap, wrong-owner and signature-failure negatives. No signed PASS is accepted unless the observed evidence satisfies all constraints.
+7. Record end-to-end acquisition latency, including the *oldest* observation. A successful single fresh trial does **not** prove repeatable five-minute revalidation. Independently demonstrate repeat refresh or keep live acceptance blocked.
+
+### Acceptance verdicts
+
+- **GO to further reviewed live trust planning:** every family/entry and effective permission evidenced, zero unknowns, independent source authentication and signature validated, full five-minute refresh demonstrated, owner-risk and remaining live gates *separately* satisfied.
+- **HOLD:** any unknown field, uncorrelated integration, partial/overview-only view, absent signer/key pin, refresh beyond five minutes, or unverifiable authorization. Neither tests nor a passing admin preflight can override HOLD.
+- **REDESIGN (separate architecture proposal):** if full capture cannot be evidenced, commission a new repo-scoped authority/threat-model design (e.g., strictly bounded GitHub App and deployment principals). Do **not** reinterpret this as an automatic waiver for existing OAuth/PAT or personal-owner authorities. Any replacement trust policy requires its own independent security review, explicit owner authorization, tested migration and a new acceptance contract.
+
+## Operational instruction and stop rule
+
+For now **STOP** repeated `review-existing`, `detail-capture`, manual screenshot harvesting and unnecessary PAT expansion. Do not request OAuth app client secrets, weaken permissions, modify owner account settings or create a signer just to achieve a passing output. Keep all production routes, Pages deployment workflow, `main` trust checks and publication authority unchanged. The previous FRA1 infrastructure is retired; do not resurrect its IP, DNS, credentials or expired trust pins.
+
+The next authorization, if any, is **approval of the specific source-extraction/signer specification for one non-publishing feasibility trial only**. That authorization is *not* approval to merge, dispatch protected workflows, create a new host, provision secrets, publish articles, or activate production.
+
+## External reviewer decision requested
+
+Independently **ACCEPT / REQUEST CHANGES / REJECT** this hold-and-source-feasibility recommendation, with explicit answers to:
+- Does the documented current contract provide any truthful way to treat current 21 unknown pages as complete? (Expected: no.)
+- Is there a concrete owner-authenticated source and separately controlled signer that can prove actual permission semantics for all five families?
+- Can strict five-minute freshness be demonstrated from the oldest observation, rather than a late signature timestamp?
+- If no complete source is available, is a separately reviewed repo-authority redesign needed instead of repeated captures?
