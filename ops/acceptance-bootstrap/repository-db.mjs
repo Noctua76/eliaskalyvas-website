@@ -11,6 +11,8 @@ const run=(args,input)=>execFileSync('docker',args,{encoding:'utf8',input,stdio:
 export function replacementDBCommands(target){validateReplacementTarget(target,{created:true});const label='com.noctua.nyra.acceptance='+hashJSON(target);return {network:['network','create','--internal','--label',label,'nyra-repository-db'],database:['run','-d','--name','nyra-repository-pg','--label',label,'--network','nyra-repository-db','--network-alias','db','--restart','no','--memory','1g','--security-opt','no-new-privileges:true','--env-file','/opt/nyra-5c/private/repository-db.env',IMAGE]};}
 async function main(){
  if(process.env.NYRA_REPOSITORY_DB!=='1'||process.getuid?.()!==0||process.argv[2]!=='--apply')throw Error('DISABLED');
+ // Read the sealed SQL asset before any secret/network/container mutation.
+ const schema=await readFile(new URL('../protected-delivery/schema.sql',import.meta.url),'utf8');
  const t=await privateFile(process.argv[3]);validateReplacementTarget(t,{created:true});
  const command=(f,a)=>execFileSync(f,a,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
  if(command('hostname',[])!==t.hostname||command('systemctl',['is-active','nyra-repository-expiry.timer'])!=='active')throw Error('HOST_OR_TIMER');
@@ -25,7 +27,7 @@ async function main(){
   command('iptables',['-I','INPUT','-i',bridge,'-m','conntrack','--ctstate','NEW','-j','DROP']);command('iptables',['-I','DOCKER-USER','-i',bridge,'!','-o',bridge,'-j','DROP']);
   let ready=false;for(let n=0;n<60;n++){try{run(['exec','nyra-repository-pg','pg_isready','-U','postgres']);ready=true;break;}catch{await new Promise(r=>setTimeout(r,1000));}}if(!ready)throw Error('DB_NOT_READY');
   const psql=['exec','-i','nyra-repository-pg','psql','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1'];
-  run(psql,await readFile(new URL('../protected-delivery/schema.sql',import.meta.url),'utf8'));
+  run(psql,schema);
   run(psql,loginsSQL(passwords.registrar,passwords.broker));
   for(const role of ['registrar','broker'])run(psql,"alter role nyra_accept_"+role+" valid until '"+new Date(t.expiresAt).toISOString()+"';");
   console.log(JSON.stringify({postgres17:true,internalNetwork:true,publicPorts:0,liveAcceptance:false}));

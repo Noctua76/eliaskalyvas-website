@@ -26,9 +26,10 @@ export async function verifyOffline({vendor,download=false}){
   const script=await readFile(join(temp,'bundle/setup.sh'),'utf8');const python=[...script.matchAll(/python3 - <<'PY'\n([\s\S]*?)\nPY/g)].map(x=>x[1]);
   for(const source of python)execFileSync('python3',['-c',"import sys;compile(sys.stdin.read(),'<offline-heredoc>','exec')"],{input:source});
   const timerSource=python.find(x=>x.includes('expiry.timer'));if(!timerSource||timerSource.includes('\\\\n'))throw Error('TIMER_ESCAPING');
+  if(sha(await readFile(join(temp,'bundle/runtime/ops/protected-delivery/schema.sql')))!==sha(await readFile(new URL('../protected-delivery/schema.sql',import.meta.url))))throw Error('SQL_ASSET');
   const imported="await import('file://"+join(temp,'bundle/runtime/ops/acceptance-bootstrap/repository-runtime.mjs')+"'); await import('file://"+join(temp,'bundle/runtime/ops/acceptance-bootstrap/repository-launch.mjs')+"'); await import('file://"+join(temp,'bundle/runtime/ops/acceptance-bootstrap/repository-db.mjs')+"');";
   execFileSync(process.execPath,['--input-type=module','-e',imported],{stdio:['ignore','pipe','pipe']});
-  return {schema:'nyra.offline.bootstrap.proof.v1',runtimeFiles:Object.keys(result.runtimeFiles).length,prerequisiteHashes:true,actualCaddyAdapt:true,actualDockerVersion:true,shellAndPythonSyntax:true,isolatedRuntimeImports:true,hostInstallation:'NOT EXECUTED',testCIDROnly:true,credentialsGenerated:0,providerResourcesCreated:0,realAcceptance:false};
+  return {schema:'nyra.offline.bootstrap.proof.v1',runtimeFiles:Object.keys(result.runtimeFiles).length,prerequisiteHashes:true,actualCaddyAdapt:true,actualDockerVersion:true,shellAndPythonSyntax:true,isolatedRuntimeImports:true,requiredSQLAssets:true,hostInstallation:'NOT EXECUTED',testCIDROnly:true,credentialsGenerated:0,providerResourcesCreated:0,realAcceptance:false};
  }finally{await rm(temp,{recursive:true,force:true});}
 }
 if(process.argv[1]===new URL(import.meta.url).pathname){try{if(process.argv[2]!=='--verify')throw Error('MODE');console.log(JSON.stringify(await verifyOffline({vendor:process.argv[3],download:process.argv[4]==='--fetch-public-pins'})));}catch{console.error('OFFLINE_BOOTSTRAP_VERIFICATION_FAILED');process.exitCode=1;}}

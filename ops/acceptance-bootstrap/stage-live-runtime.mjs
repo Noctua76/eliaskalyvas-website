@@ -12,6 +12,7 @@ export async function stageLiveRuntime({source,destination}){
   for(const m of text.matchAll(/^(?:import|export)[^;\n]*?from\s*['"]([^'"]+)['"]/gm)){if(m[1].startsWith('.')){const full=resolve(dirname(src),m[1]);if(!full.startsWith(source+'/'))throw Error('STAGE_SCOPE');await copy(full.slice(source.length+1));}}
  };
  for(const r of roots)await copy(r);
+ await copy('ops/protected-delivery/schema.sql');
  for(const name of ['shared','release','manifest','event','receipt','dataset']){const p='contracts/nyra-publication/v1.1/'+name+'.schema.json';await mkdir(dirname(join(destination,p)),{recursive:true});await copyFile(join(source,p),join(destination,p));seen.add(p);}
  const p=JSON.parse(await readFile(join(source,'ops/acceptance-bootstrap/runtime/package.json'),'utf8'));if(JSON.stringify(p.dependencies)!==JSON.stringify({ajv:'8.17.1',parse5:'8.0.1',pg:'8.16.3'}))throw Error('RUNTIME_DEPENDENCIES');
  await cp(join(source,'ops/acceptance-bootstrap/runtime/node_modules'),join(destination,'node_modules'),{recursive:true,dereference:false});
