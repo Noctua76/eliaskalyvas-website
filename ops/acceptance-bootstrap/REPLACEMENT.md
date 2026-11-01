@@ -33,7 +33,9 @@ both firewall scopes, secret-file rejection, exact ingress, role mounts, retirem
 absence checks and non-authorizing discovery/operational-policy separation.
 `verify-offline.mjs` checks downloaded **public** binary/package SHA256s, actual
 Docker `--version`, actual Caddy `adapt` of both configs, shell/Python syntax and
-imports of the standalone private graph. It never installs a package or starts a
+imports of the standalone private graph. The actual staged Edge binding is also
+import-tested: acceptance-policy validation is a separate leaf module, preserving
+public exports without importing host SQL/rebuild/process tooling into Edge. It never installs a package or starts a
 listener/container/daemon. CI repeats it on Ubuntu 24.04 and imports the new graph
 under the already pinned Node container with network disabled.
 

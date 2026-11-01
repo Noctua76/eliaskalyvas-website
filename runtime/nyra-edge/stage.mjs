@@ -9,7 +9,7 @@ export const integrationRuntimeFiles=Object.freeze([
  ...['archive','observer','github','dispatch','service','outbox'].map(n=>'lib/publication/integration/'+n+'.mjs'),
  'lib/signals/seo.mjs','src/signals/public-view.mjs','src/signals/model.mjs','src/signals/entries.mjs','src/signals/data.mjs',
  'runtime/nyra-edge/integration.mjs','runtime/nyra-edge/schema-assets.mjs',
- 'lib/publication/integration/policy.mjs','lib/publication/runtime/delivery-policy.mjs',
+ 'lib/publication/integration/acceptance-policy.mjs','lib/publication/integration/policy.mjs','lib/publication/runtime/delivery-policy.mjs',
  'runtime/nyra-edge/repository-binding.mjs','lib/publication/runtime/repository-policy.mjs','lib/publication/runtime/repository-trust.mjs','lib/publication/runtime/administration-evidence.mjs','lib/publication/runtime/acceptance-evidence.mjs',
  'runtime/nyra-edge/editorial.mjs','runtime/nyra-edge/application.mjs','runtime/nyra-edge/final-delivery.mjs','lib/publication/runtime/inspection.mjs'
 ]);

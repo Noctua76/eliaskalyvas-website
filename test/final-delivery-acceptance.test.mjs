@@ -35,6 +35,7 @@ test('Final server binding requires separate private buckets, immutable code and
 });
 test('Self-contained staged package resolves editorial and protected machine dependency graphs without website imports or listeners',async()=>{
  const s=await stageEdgeRuntime({offlineDependencies:true});try{
+  assert.equal(typeof(await import(s.dir+'/runtime/nyra-edge/repository-binding.mjs')).bindRepositoryControlPlane,'function');
   assert.equal(typeof(await import(s.dir+'/runtime/nyra-edge/application.mjs')).createFinalEditorialApplication,'function');
   assert.equal(typeof(await import(s.dir+'/runtime/nyra-edge/final-delivery.mjs')).composeFinalDelivery,'function');
   const entry=await readFile(s.dir+'/index.ts','utf8');assert(entry.includes('createFinalEditorialApplication'));assert(entry.includes('composeFinalDelivery'));assert(!entry.includes('Deno.serve'));
