@@ -32,14 +32,14 @@ export function cleanupUnits(endsAt){
  return {service:'[Unit]\nDescription=NYRA FRA1 live acceptance stop\n[Service]\nType=oneshot\nExecStart=/usr/bin/node '+STAGE+'/ops/acceptance-bootstrap/fra1-launch.mjs --cleanup\n',timer:'[Unit]\nDescription=NYRA FRA1 acceptance deadline\n[Timer]\nOnCalendar='+t.toISOString().slice(0,19).replace('T',' ')+' UTC\nPersistent=true\nUnit=nyra-5c-live-expiry.service\n[Install]\nWantedBy=timers.target\n'};
 }
 async function removeGenerated(){for(const role of ['registrar','broker'])for(const f of ['runtime.json','ipc.json','policy/state.json'])await rm('/var/lib/nyra-5c/'+role+'/'+f,{force:true});for(const role of ['registrar','broker'])await rmdir('/var/lib/nyra-5c/'+role+'/policy').catch(e=>{if(e.code!=='ENOENT')throw e;});await rm('/var/lib/nyra-5c/coordinator/role-ipc.json',{force:true});}
-async function buildOffline(c,a){
+export async function buildOffline(c,a){
  need(a.codeSHA===c.callerSHA&&a.builder?.codeSHA===c.callerSHA&&a.builder.privilege==='build','BUILD_PIN');
  need(cmd('git',['-C',ROOT,'rev-parse','HEAD'])===c.callerSHA&&cmd('git',['-C',ROOT,'status','--porcelain','--untracked-files=all'])==='','CLEAN_CHECKOUT');
  const paths=cmd('git',['-C',ROOT,'ls-files','-z']).split('\0').filter(Boolean),manifest={};for(const p of paths)manifest[p]=createHash('sha256').update(await readFile(join(ROOT,p))).digest('hex');
  const dir=await mkdtemp(join(tmpdir(),'nyra-real-rebuild-'));await chown(dir,c.coordinator.uid,c.coordinator.gid);await chmod(dir,0o700);
  try{
   const config=join(dir,'build.json');await writeFile(config,JSON.stringify({...a,sourceManifest:manifest}),{mode:0o600});await chown(config,c.coordinator.uid,c.coordinator.gid);
-  const args=['run','--rm','--name','nyra-5c-live-builder','--label',LABEL,'--network','none','--user',c.coordinator.uid+':'+c.coordinator.gid,'--cap-drop','ALL','--security-opt','no-new-privileges:true','--read-only','--pids-limit','128','--memory','2g','--tmpfs','/tmp:rw,nosuid,nodev,size=512m','--mount','type=bind,src='+ROOT+',dst=/work,readonly','--mount','type=bind,src='+dir+',dst=/evidence','-w','/work','-e','GITHUB_PAGES_BASE=/'];
+  const args=['run','--rm','--name','nyra-5c-live-builder','--label',c.resourceLabel||LABEL,'--network','none','--user',c.coordinator.uid+':'+c.coordinator.gid,'--cap-drop','ALL','--security-opt','no-new-privileges:true','--read-only','--pids-limit','128','--memory','2g','--tmpfs','/tmp:rw,nosuid,nodev,size=512m','--mount','type=bind,src='+ROOT+',dst=/work,readonly','--mount','type=bind,src='+dir+',dst=/evidence','-w','/work','-e','GITHUB_PAGES_BASE=/'];
   // Public build configuration only; no caller-selected environment variable.
   const allowed=['VITE_OPERATIONS_API_URL','VITE_ADMIN_API_URL','VITE_SUPABASE_URL','VITE_SUPABASE_PUBLISHABLE_KEY','VITE_TURNSTILE_SITE_KEY','VITE_MY_MENTOR_WEBSITE_URL'];
   for(const [k,v]of Object.entries(c.publicBuildEnvironment||{})){need(allowed.includes(k)&&typeof v==='string'&&!/sb_secret_|service_role|sk-proj-|PRIVATE KEY|Bearer /.test(v),'BUILD_ENV');args.push('-e',k+'='+v);}

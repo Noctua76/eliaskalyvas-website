@@ -1,0 +1,19 @@
+{
+  "schema":"nyra.acceptance.replacement.v1",
+  "bootstrapId":"nyra-acceptance-new-run",
+  "hostname":"nyra-repository-acceptance",
+  "provider":"DigitalOcean",
+  "region":"fra1",
+  "origin":"https://nyra-acceptance.eliaskalyvas.gr",
+  "operatorCIDRs":[],
+  "cpu":4,
+  "memoryGiB":8,
+  "maximumHours":24,
+  "optionalResources":false,
+  "reviewedHead":"1dbeb46c4ad7ac39dfc313bf47361bf2868e50ee",
+  "resourceId":null,
+  "ipv4":null,
+  "createdAt":null,
+  "expiresAt":null,
+  "authorization":false
+}

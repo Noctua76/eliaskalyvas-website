@@ -1,6 +1,7 @@
 // Disposable native entry ONLY. No production mount or environment is configured.
 import {createClient} from '@supabase/supabase-js';
 import {Buffer} from 'node:buffer';
+import {createFinalEditorialApplication} from '../../runtime/nyra-edge/application.mjs';
 import {createOIDCVerifier} from '../../lib/publication/runtime/oidc.mjs';
 import {privateAssetStorage} from '../../lib/publication/runtime/adapters.mjs';
 import {privateQuarantineStorage,createQuarantinedAssetRuntime,createPrivateInspectionService,createInspectionMachineHandler,createInspectionAuthorityHandler} from '../../lib/publication/runtime/inspection.mjs';
@@ -14,9 +15,13 @@ const service=createPrivateInspectionService({db,quarantine,accepted,verifier,co
 const owner=createQuarantinedAssetRuntime({db,env:{ALLOWED_ORIGINS:'http://127.0.0.1:55111'},quarantine,codeSHA:c.codeSHA});
 const machine=createInspectionMachineHandler({service,enabled:true});
 const authority=createInspectionAuthorityHandler({db,env:{ALLOWED_ORIGINS:'http://127.0.0.1:55111'}});
+// This assertion exists ONLY in this isolated test entrypoint; it cannot prove
+// live trust acceptance. Production composition requires the approved real gate.
+const editorial=c.finalIntegration===true?createFinalEditorialApplication({db,env:{ALLOWED_ORIGINS:'http://127.0.0.1:55111',NYRA_PRIVATE_ASSET_BUCKET:c.accepted,NYRA_QUARANTINE_BUCKET:c.quarantine},codeSHA:c.codeSHA,assertTrustReady:async()=>true,enabled:true,fetcher:async()=>{throw Error('PAID_PROVIDER_FORBIDDEN');}}):null;
 Deno.serve(async req=>{
  const url=new URL(req.url);
  if(url.pathname.startsWith('/inspection/'))return machine(req);
+ if(editorial)return editorial(req);
  if(url.pathname.startsWith('/publication/'))return authority(req);
  if(url.pathname!=='/upload'||req.method!=='POST')return new Response('not found',{status:404});
  try{

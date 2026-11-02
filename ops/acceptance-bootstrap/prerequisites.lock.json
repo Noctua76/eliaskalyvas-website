@@ -1,0 +1,26 @@
+{
+  "docker": {
+    "version": "29.9.2",
+    "url": "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.2.tgz",
+    "file": "docker-29.9.2.tgz",
+    "sha256": "9ac225999fd5e863f7694c728ef23d480616b1e5639328fa309befd4243d69eb"
+  },
+  "caddy": {
+    "version": "2.11.7",
+    "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_amd64.tar.gz",
+    "file": "caddy_2.11.7_linux_amd64.tar.gz",
+    "sha256": "727b91701a392de6ebc5027509f548bf39979e5216340d0faed8fa5e69c84f8b"
+  },
+  "iptables": {
+    "version": "1.8.10-3ubuntu2",
+    "url": "https://archive.ubuntu.com/ubuntu/pool/main/i/iptables/iptables_1.8.10-3ubuntu2_amd64.deb",
+    "file": "iptables_1.8.10-3ubuntu2_amd64.deb",
+    "sha256": "d341e8ffc42ca035f5aa0fd9a798c8d2b2edb019225dc11f4dac16edf9c57840"
+  },
+  "ufw": {
+    "version": "0.36.2-6",
+    "url": "https://archive.ubuntu.com/ubuntu/pool/main/u/ufw/ufw_0.36.2-6_all.deb",
+    "file": "ufw_0.36.2-6_all.deb",
+    "sha256": "096eb403ecaf6740d160bb306970f025222ef71324319cc1cb78d06dfa462ef1"
+  }
+}

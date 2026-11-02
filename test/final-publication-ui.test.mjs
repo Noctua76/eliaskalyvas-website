@@ -39,3 +39,11 @@ test('NYRA-PR22-01: selecting different file bytes stages false rights and canno
   assert.equal(saved.length,1);assert.notEqual(saved[0].presentation.cover.image_url,a.draft.presentation.cover.image_url);assert.equal(saved[0].presentation.cover.rights_confirmed,false);assert.equal(uploaded,0);assert(document.body.textContent.includes('χωρίς επιβεβαίωση δικαιωμάτων'));
  }finally{await act(async()=>root?.unmount());Object.assign(globalThis,old);dom.window.close();await p.close();}
 });
+
+
+test('Owner public generation comes from independently verified delivery receipts, never held authorization or pending attempts',async()=>{
+ const p=await panel(),dom=new JSDOM('<div id="root"></div>',{url:'https://unit.invalid'}),old={window:globalThis.window,document:globalThis.document,IS_REACT_ACT_ENVIRONMENT:globalThis.IS_REACT_ACT_ENVIRONMENT};let root;
+ try{globalThis.window=dom.window;globalThis.document=dom.window.document;globalThis.IS_REACT_ACT_ENVIRONMENT=true;const {createRoot}=await import('react-dom/client');root=createRoot(document.getElementById('root'));const a=props();a.call=async()=>({assets:[],articles:[],history:[],associated_article_ids:[],verified_live_manifest:null,delivery:{blocked:false,receipts:[{receipt_id:'r1',generation:4,status:'released_verified',verified_live_at:'2026-11-01T00:00:00Z'},{receipt_id:'r2',generation:5,status:'timing_exception',verified_live_at:'2026-11-01T00:01:00Z'}]}});
+  await act(async()=>root.render(React.createElement(p.Panel,a)));await act(async()=>[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Ανανέωση')).click());assert(document.body.textContent.includes('Επαληθευμένη δημόσια γενιά: 4'));assert(!document.body.textContent.includes('Επαληθευμένη δημόσια γενιά: 5'));
+ }finally{await act(async()=>root?.unmount());Object.assign(globalThis,old);dom.window.close();await p.close();}
+});
