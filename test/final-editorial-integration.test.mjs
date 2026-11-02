@@ -27,8 +27,8 @@ async function setup(){
  }
  return {...f,handler,args,send,image,machine,objects,setReady:v=>{ready=v},gateCalls:()=>calls};
 }
-test('Opt-in router is off by default; live entrypoint and public plan stay inactive',async()=>{
- const f=await setup();try{const h=composeEditorialPublication({...f.args,enabled:false});assert.equal((await h(new Request(origin+'/nyra-api/publication/authorize',{method:'POST',body:'{}'}))).status,503);const source=await readFile(new URL('../supabase/functions/nyra-api/index.ts',import.meta.url),'utf8');assert(!source.includes('composeEditorialPublication'));assert.equal(JSON.parse(await readFile(new URL('../ops/protected-delivery/live-acceptance-plan.json',import.meta.url))).approved,false);}finally{await f.pg.close();}
+test('Editorial router and live entrypoint stay inactive with the acceptance routing plan installed',async()=>{
+ const f=await setup();try{const h=composeEditorialPublication({...f.args,enabled:false});assert.equal((await h(new Request(origin+'/nyra-api/publication/authorize',{method:'POST',body:'{}'}))).status,503);const source=await readFile(new URL('../supabase/functions/nyra-api/index.ts',import.meta.url),'utf8');assert(!source.includes('composeEditorialPublication'));const plan=JSON.parse(await readFile(new URL('../ops/protected-delivery/live-acceptance-plan.json',import.meta.url)));assert.equal(plan.approved,true);assert.equal(plan.purpose,'isolated-live-trust-acceptance');}finally{await f.pg.close();}
 });
 test('Persisted work -> private upload -> actual Sharp -> exact preview -> owner action; trust/stale/replay gates remain enforced',async()=>{
  const f=await setup();try{
