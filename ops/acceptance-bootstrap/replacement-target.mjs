@@ -2,6 +2,29 @@
 import {isIP} from 'node:net';
 import {hashJSON} from '../../lib/publication/contract.mjs';
 const need=(v,c)=>{if(!v)throw Error('REPLACEMENT_'+c);};
+// One-time Stage 3 exception: exact owner-approved acceptance target only.
+// The default 24-hour limit remains unchanged for every other target.
+const STAGE3_EXTENSION=Object.freeze({
+ bootstrapId:'nyra-acceptance-20261102-01',
+ hostname:'nyra-acceptance-20261102-01',
+ resourceId:'615221104',
+ ipv4:'139.59.136.219',
+ origin:'https://nyra-acceptance.eliaskalyvas.gr',
+ createdAt:'2026-11-02T21:06:46Z',
+ expiresAt:'2026-11-04T21:05:00Z'
+});
+function approvedStage3Extension(t,start,end){
+ return t.bootstrapId===STAGE3_EXTENSION.bootstrapId&&
+  t.hostname===STAGE3_EXTENSION.hostname&&
+  t.resourceId===STAGE3_EXTENSION.resourceId&&
+  t.ipv4===STAGE3_EXTENSION.ipv4&&
+  t.origin===STAGE3_EXTENSION.origin&&
+  t.expiresAt===STAGE3_EXTENSION.expiresAt&&
+  t.createdAt===STAGE3_EXTENSION.createdAt&&
+  start===Date.parse(STAGE3_EXTENSION.createdAt)&&
+  end-start<=48*60*60*1000;
+}
+
 export function validateReplacementTarget(t,{created=false,allowExpired=false,now=Date.now}={}){
  need(t&&Object.keys(t).sort().join(',')===['schema','bootstrapId','hostname','provider','region','origin','operatorCIDRs','cpu','memoryGiB','maximumHours','optionalResources','reviewedHead','resourceId','ipv4','createdAt','expiresAt','authorization'].sort().join(','),'FIELDS');
  need(t?.schema==='nyra.acceptance.replacement.v1'&&t.provider==='DigitalOcean'&&t.region==='fra1'&&t.authorization===false,'TARGET');
@@ -12,7 +35,7 @@ export function validateReplacementTarget(t,{created=false,allowExpired=false,no
  need(t.reviewedHead==='1dbeb46c4ad7ac39dfc313bf47361bf2868e50ee','REVIEWED_BASE');
  if(created){
   need(typeof t.resourceId==='string'&&/^[1-9][0-9]{0,19}$/.test(t.resourceId)&&isIP(t.ipv4)===4&&!/^(0|10|127|169\.254|192\.168|172\.(1[6-9]|2[0-9]|3[01]))\./.test(t.ipv4)&&t.ipv4!=='201.79.94.104','NEW_RESOURCE');
-  const start=Date.parse(t.createdAt),end=Date.parse(t.expiresAt);need(Number.isFinite(start)&&Number.isFinite(end)&&start<=now()&&(allowExpired||now()<end)&&end>start&&end-start<=86400000,'DEADLINE');
+  const start=Date.parse(t.createdAt),end=Date.parse(t.expiresAt);need(Number.isFinite(start)&&Number.isFinite(end)&&start<=now()&&(allowExpired||now()<end)&&end>start&&(end-start<=86400000||approvedStage3Extension(t,start,end)),'DEADLINE');
  }else need(t.resourceId===null&&t.ipv4===null&&t.createdAt===null&&t.expiresAt===null,'PRECREATE_ONLY');
  return Object.freeze({targetSHA256:hashJSON(t),created,authorization:false,liveAcceptance:false});
 }
