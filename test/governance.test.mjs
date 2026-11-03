@@ -20,6 +20,10 @@ const fFor=(mode='SINGLE_OWNER')=>{
 };
 const verify=f=>verifyLiveProtections({getJSON:f.getJSON,repository:f.policy.repository,environment:f.policy.environment,requiredChecks:REQUIRED_CHECKS,policy:f.policy});
 for(const mode of ['SINGLE_OWNER','OWNER_WITH_REVIEWERS'])test('Governance positive protected main / exact Environment: '+mode,async()=>{const f=fFor(mode),r=await verify(f);assert.equal(r.governanceMode,mode);assert.equal(r.policyVersion,1);});
+test('Governance accepts GitHub-omitted bypass allowances only for independently verified personal repository',async()=>{
+ const f=fFor();delete f.data['/branches/main/protection'].required_pull_request_reviews.bypass_pull_request_allowances;
+ const r=await verify(f);assert.equal(r.governanceMode,'SINGLE_OWNER');
+});
 const negatives={
  'unprotected main':f=>f.data['/branches/main'].protected=false,
  'missing PR gate':f=>delete f.data['/branches/main/protection'].required_pull_request_reviews,
@@ -30,7 +34,11 @@ const negatives={
  'mandatory code-owner review':f=>f.data['/branches/main/protection'].required_pull_request_reviews.require_code_owner_reviews=true,
  'admin bypass':f=>f.data['/branches/main/protection'].enforce_admins.enabled=false,
  'PR bypass actor':f=>f.data['/branches/main/protection'].required_pull_request_reviews.bypass_pull_request_allowances.apps.push({id:1}),
- 'ambiguous bypass evidence':f=>delete f.data['/branches/main/protection'].required_pull_request_reviews.bypass_pull_request_allowances,
+ 'omitted bypass for organization owner':f=>{delete f.data['/branches/main/protection'].required_pull_request_reviews.bypass_pull_request_allowances;f.data[''].owner.type='Organization';},
+ 'omitted bypass for wrong owner':f=>{delete f.data['/branches/main/protection'].required_pull_request_reviews.bypass_pull_request_allowances;f.data[''].owner.id=999;},
+ 'omitted bypass for wrong repository':f=>{delete f.data['/branches/main/protection'].required_pull_request_reviews.bypass_pull_request_allowances;f.data[''].id=999;},
+ 'explicit null bypass':f=>f.data['/branches/main/protection'].required_pull_request_reviews.bypass_pull_request_allowances=null,
+ 'explicit partial bypass':f=>delete f.data['/branches/main/protection'].required_pull_request_reviews.bypass_pull_request_allowances.apps,
  'force push':f=>f.data['/branches/main/protection'].allow_force_pushes.enabled=true,
  'deletion':f=>f.data['/branches/main/protection'].allow_deletions.enabled=true,
  'unresolved conversations':f=>f.data['/branches/main/protection'].required_conversation_resolution.enabled=false,
