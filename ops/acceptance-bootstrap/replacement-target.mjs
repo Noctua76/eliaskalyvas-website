@@ -10,6 +10,7 @@ const STAGE3_EXTENSION=Object.freeze({
  resourceId:'615221104',
  ipv4:'139.59.136.219',
  origin:'https://nyra-acceptance.eliaskalyvas.gr',
+ createdAt:'2026-11-02T21:06:46Z',
  expiresAt:'2026-11-04T21:05:00Z'
 });
 function approvedStage3Extension(t,start,end){
@@ -19,8 +20,8 @@ function approvedStage3Extension(t,start,end){
   t.ipv4===STAGE3_EXTENSION.ipv4&&
   t.origin===STAGE3_EXTENSION.origin&&
   t.expiresAt===STAGE3_EXTENSION.expiresAt&&
-  start>=Date.parse('2026-11-02T00:00:00Z')&&
-  start<Date.parse('2026-11-03T00:00:00Z')&&
+  t.createdAt===STAGE3_EXTENSION.createdAt&&
+  start===Date.parse(STAGE3_EXTENSION.createdAt)&&
   end-start<=48*60*60*1000;
 }
 
