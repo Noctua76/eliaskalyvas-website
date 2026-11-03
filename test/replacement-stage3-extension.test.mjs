@@ -13,7 +13,7 @@ const reviewed=()=>({
  cpu:4,memoryGiB:8,maximumHours:24,optionalResources:false,
  reviewedHead:'1dbeb46c4ad7ac39dfc313bf47361bf2868e50ee',
  resourceId:'615221104',ipv4:'139.59.136.219',
- createdAt:'2026-11-02T22:28:31Z',
+ createdAt:'2026-11-02T21:06:46Z',
  expiresAt:'2026-11-04T21:05:00Z',
  authorization:false
 });
@@ -33,6 +33,8 @@ test('24h contract remains enforced for all other hosts and mutated extension de
  t=>{t.expiresAt='2026-11-04T21:05:01Z';},
  t=>{t.expiresAt='2026-11-05T21:05:00Z';},
  t=>{t.origin='https://other.eliaskalyvas.gr';},
+ t=>{t.createdAt='2026-11-02T21:06:45Z';},
+ t=>{t.createdAt='2026-11-02T21:06:47Z';},
  t=>{t.createdAt='2026-11-01T21:05:00Z';},
  t=>{t.createdAt='2026-11-03T20:00:00Z';},
  t=>{t.authorization=true;},
