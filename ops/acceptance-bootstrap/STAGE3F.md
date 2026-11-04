@@ -12,7 +12,7 @@ Only three new files: `stage3f-github-readback.mjs`, this document, and
 | Binding | Approved value |
 | --- | --- |
 | Installed source / remote main required by readback | `29a73458d4cd941e5ed514db56dc2c553d041bda` |
-| Helper SHA-256 (raw bytes) | `0ee1d3c4880b1aed754728a49567645e4e5b9c00649be87bab7d779b1c1594e8` |
+| Helper SHA-256 (raw bytes) | `0da0c185c7fd3bd191f656cc1976836d0a5234bcb0c891062fcf28f563571069` |
 | Historical capture (canonical record digest; original evaluator source remains unchanged) | `5eb0c2c03f546214d684b48f15f2f415a2d78141eef874a8db67319595e86cf8` |
 | Governance (canonical JSON digest) | `ec4b711e09bb448c74719e935ac2e3ca1e7675a8e75115526d67b9394d4e4a42` |
 | Existing runtime protection fingerprint | `7bc1012c7309e172fda6a0616e670e9fd6a305f3325ca34eb5655e4f34759d97` |
@@ -32,7 +32,9 @@ Their existing AJV dependency tree is reused and bound into the approved preflig
 context. No npm install, pg/sharp import requirement, dependency copy, or new runtime
 package is introduced. Preflight hashes the installed dependency tree and repeats
 that check before issuance and before credential commit; compare its fingerprint
-with the accepted host inventory during independent review.
+with the accepted host inventory during independent review. Before any issuance,
+preflight also verifies same-filesystem credential handover and imports the
+reviewed reader components as the coordinator with fetch explicitly denied.
 
 ## Mandatory compatibility gate
 
@@ -81,7 +83,7 @@ source. No source/pin rollover is authorized here.
 
    ```sh
    cd /root/nyra-github-app
-   printf '%s\n' '0ee1d3c4880b1aed754728a49567645e4e5b9c00649be87bab7d779b1c1594e8  stage3f-github-readback.mjs' | sha256sum -c -
+   printf '%s\n' '0da0c185c7fd3bd191f656cc1976836d0a5234bcb0c891062fcf28f563571069  stage3f-github-readback.mjs' | sha256sum -c -
    ```
 
    Identify the existing accepted capture without re-running historical acceptance
@@ -105,7 +107,8 @@ source. No source/pin rollover is authorized here.
 
    Expected (not claimed as observed on the host):
    `LOCAL_READ_ONLY_PREFLIGHT_PASS`, exact source above, `stagedFiles:57`,
-   actual helper/dependency/context digests, unchanged host expiry,
+   actual helper/dependency/context and input/launch/provisioning marker digests,
+   unchanged host expiry,
    `networkRequests:0`, `authorization:false`. The default preflight never issues
    a token or creates an attempt. It requires more than 62 minutes remaining;
    the current window therefore closes for this procedure before 20:03 UTC.
