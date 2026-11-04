@@ -10,7 +10,7 @@ test('exact UTC 14d deadline rendered as persistent systemd timer with no comman
  assert.deepEqual(a,b);assert.equal(a.calendar,'2026-11-20 09:00:00 UTC');
  assert.match(a.timer,/OnCalendar=2026-11-20 09:00:00 UTC/);
  assert.match(a.timer,/Persistent=true/);
- assert.match(a.service,/ExecStart=\/usr\/bin\/node \/usr\/local\/lib\/nyra-continuation\/retirement-v1\.mjs/);
+ assert.match(a.service,/ExecStart=\/usr\/local\/bin\/node \/usr\/local\/lib\/nyra-continuation\/retirement-v1\.mjs/);
  assert.equal(a.enforcementVerified,false);assert.equal(a.installApproved,false);assert.equal(a.providerDeletionScheduled,false);
 });
 test('reject past deadline, altered lifetime pin, missing digest and unsafe shell command',()=>{
