@@ -48,11 +48,18 @@ async function launch(path){
    children.push(spawn('docker',replacementRoleArgs(role,users[role].uid,users[role].gid,{target:c.target,policyGroupID}),{stdio:['pipe','pipe','ignore']}));
   }
   await save('/var/lib/nyra-5c/coordinator/role-ipc.json',keys,users.coordinator);
-  const cc={...c,callerSHA:caller,origin:c.target.origin,windowStartsAt:c.target.createdAt,windowEndsAt:c.target.expiresAt,roleIPCFile:'/var/lib/nyra-5c/coordinator/role-ipc.json',policyStateFile:'/var/lib/nyra-5c/policy/state.json'};
+  const session=c.target.schema==='nyra.acceptance.replacement.v2'?c.acceptanceSession:null;
+  if(session){
+   need(Object.keys(session).sort().join(',')==='authorization,endsAt,startsAt','SESSION_FIELDS');
+   const a=Date.parse(session.startsAt),b=Date.parse(session.endsAt),now=Date.now();
+   need(session.authorization===true&&Number.isFinite(a)&&Number.isFinite(b)&&a>=Date.parse(c.target.createdAt)&&a<=now&&now<b&&b<=Date.parse(c.target.expiresAt)&&b-a<=86400000,'SESSION_AUTH_OR_WINDOW');
+   // Per-session authorization remains subject to separately checked Administration, Owner/MFA and policy gates.
+  }
+  const cc={...c,callerSHA:caller,origin:c.target.origin,windowStartsAt:session?.startsAt??c.target.createdAt,windowEndsAt:session?.endsAt??c.target.expiresAt,roleIPCFile:'/var/lib/nyra-5c/coordinator/role-ipc.json',policyStateFile:'/var/lib/nyra-5c/policy/state.json'};
   await save('/var/lib/nyra-5c/coordinator/repository.json',cc,users.coordinator);
   coordinator=spawn('setpriv',['--reuid='+users.coordinator.uid,'--regid='+users.coordinator.gid,'--init-groups','--no-new-privs',process.execPath,STAGE+'/ops/acceptance-bootstrap/repository-runtime.mjs','/var/lib/nyra-5c/coordinator/repository.json'],{env:{PATH:process.env.PATH,NYRA_REPOSITORY_ACCEPTANCE:'1'},stdio:['ignore','ignore','ignore',children[0].stdin,children[0].stdout,children[1].stdin,children[1].stdout,'pipe','pipe']});
   builder=privatePort({role:'registrar',key:Buffer.from(keys.builder,'hex'),side:'worker',input:coordinator.stdio[8],output:coordinator.stdio[7],onCall:(op,a)=>{need(op==='build','ROOT_OPERATION');return buildOffline({...c,callerSHA:caller,coordinator:users.coordinator,resourceLabel:'com.noctua.nyra.acceptance='+hashJSON(c.target)},a);},timeout:180000});
-  await new Promise((ok,no)=>{timer=setTimeout(()=>{coordinator.kill('SIGTERM');no(Error('EXPIRED'));},Date.parse(c.target.expiresAt)-Date.now());for(const child of children){child.once('error',no);child.once('exit',()=>{if(coordinator.exitCode===null){coordinator.kill('SIGTERM');no(Error('ROLE_EXIT'));}});}coordinator.once('error',no);coordinator.once('exit',code=>code===0?ok():no(Error('COORDINATOR_EXIT')));process.once('SIGTERM',()=>coordinator.kill('SIGTERM'));process.once('SIGINT',()=>coordinator.kill('SIGTERM'));});
+  await new Promise((ok,no)=>{timer=setTimeout(()=>{coordinator.kill('SIGTERM');no(Error('EXPIRED'));},Date.parse(session?.endsAt??c.target.expiresAt)-Date.now());for(const child of children){child.once('error',no);child.once('exit',()=>{if(coordinator.exitCode===null){coordinator.kill('SIGTERM');no(Error('ROLE_EXIT'));}});}coordinator.once('error',no);coordinator.once('exit',code=>code===0?ok():no(Error('COORDINATOR_EXIT')));process.once('SIGTERM',()=>coordinator.kill('SIGTERM'));process.once('SIGINT',()=>coordinator.kill('SIGTERM'));});
  }finally{
   clearTimeout(timer);if(coordinator?.exitCode===null){coordinator.kill('SIGTERM');await new Promise(ok=>{const t=setTimeout(()=>{coordinator.kill('SIGKILL');ok();},5000);coordinator.once('exit',()=>{clearTimeout(t);ok();});});}builder?.close();for(const child of children)child.stdin.end();
   // On a failed/expired run preserve the private DB/evidence for retirement
