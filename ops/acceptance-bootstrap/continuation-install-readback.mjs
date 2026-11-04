@@ -2,6 +2,7 @@
 // Never installs/starts/enables systemd, never executes Docker or contacts a provider.
 const need=(x,c)=>{if(!x)throw Error('CONTINUATION_INSTALL_'+c);};
 const sha=x=>typeof x==='string'&&/^[0-9a-f]{64}$/.test(x);
+const gitSHA=x=>typeof x==='string'&&/^[0-9a-f]{40}$/.test(x);
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).sort().join(',')===keys.slice().sort().join(',');
 const timestamp=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(x)&&!Number.isNaN(Date.parse(x))&&new Date(Date.parse(x)).toISOString()===x;
 export function assessContinuationInstallation(proposal,observation,{now=Date.now}={}){
@@ -13,7 +14,7 @@ export function assessContinuationInstallation(proposal,observation,{now=Date.no
  const expectedCommand=proposal.service.match(/^ExecStart=(.+)$/m)?.[1];
  const checks=Object.freeze({
   hostIdentity:observation.bootstrapId===proposal.bootstrapId&&observation.hostIdentitySHA256===proposal.hostIdentitySHA256&&observation.hostMachineIdVerified===true,
-  provenance:sha(observation.sourceSHA)&&observation.sourceClean===true&&observation.providerIdentityAuthenticated===true&&typeof observation.providerResourceId==='string'&&/^[1-9][0-9]{0,19}$/.test(observation.providerResourceId)&&observation.providerResourceId!=='615221104',
+  provenance:gitSHA(observation.sourceSHA)&&observation.sourceClean===true&&observation.providerIdentityAuthenticated===true&&typeof observation.providerResourceId==='string'&&/^[1-9][0-9]{0,19}$/.test(observation.providerResourceId)&&observation.providerResourceId!=='615221104',
   cleanup:observation.cleanupSHA256===proposal.cleanupSHA256&&observation.cleanupRootOwned===true&&observation.cleanupNotSymlink===true,
   manifest:observation.manifestRootOwned===true&&observation.manifestNotSymlink===true&&observation.manifestPermissions==='0600',
   exactUnits:observation.serviceSHA256===proposal.serviceSHA256&&observation.timerSHA256===proposal.timerSHA256&&observation.serviceRootOwned===true&&observation.timerRootOwned===true&&observation.serviceNotSymlink===true&&observation.timerNotSymlink===true,
