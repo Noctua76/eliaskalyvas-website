@@ -29,7 +29,12 @@ async function main(){
   const psql=['exec','-i','nyra-repository-pg','psql','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1'];
   run(psql,schema);
   run(psql,loginsSQL(passwords.registrar,passwords.broker));
-  for(const role of ['registrar','broker'])run(psql,"alter role nyra_accept_"+role+" valid until '"+new Date(t.expiresAt).toISOString()+"';");
+  // A 14-day host is NOT a 14-day login lease. New sessions require
+  // separately reviewed database-role renewal after fresh owner/trust checks.
+  const roleExpiresAt=t.schema==='nyra.acceptance.replacement.v2'
+   ?new Date(Math.min(Date.parse(t.expiresAt),Date.now()+86400000)).toISOString()
+   :new Date(t.expiresAt).toISOString();
+  for(const role of ['registrar','broker'])run(psql,"alter role nyra_accept_"+role+" valid until '"+roleExpiresAt+"';");
   console.log(JSON.stringify({postgres17:true,internalNetwork:true,publicPorts:0,liveAcceptance:false}));
  }catch{cleanupReplacement(t,{apply:true});throw Error('REPLACEMENT_DB_CLOSED');}
 }
