@@ -14,7 +14,7 @@ test('reject old host, old provider ID, changed machine, extended deadline, unkn
 function docker({removeFails=false,inspectMismatch=false}={}){
  const states={container:new Map([['c123',{Labels:{'com.noctua.nyra.acceptance':'a'.repeat(64)}}]]),network:new Map(),volume:new Map()},calls=[];
  const run=a=>{calls.push(a);const listing=a[0]==='ps'||a[0]==='network'&&a[1]==='ls'||a[0]==='volume'&&a[1]==='ls';
- if(listing){const kind=a[0]==='ps'?'container':a[0],f=a.find(x=>x.startsWith('label='));return [...states[kind]].filter(([id,row])=>!f||f===label&&row.Labels['com.noctua.nyra.acceptance']==='a'.repeat(64)).map(([id])=>id).join('\n');}
+ if(listing){const kind=a[0]==='ps'?'container':a[0],f=a.find(x=>x.startsWith('label='));return [...states[kind]].filter(([id,row])=>!f||f==='label='+label&&row.Labels['com.noctua.nyra.acceptance']==='a'.repeat(64)).map(([id])=>id).join('\n');}
  if(a[1]==='inspect'){const row=states[a[0]].get(a[2]);const Labels={...row.Labels};if(inspectMismatch)Labels['com.noctua.nyra.acceptance']='b'.repeat(64);return JSON.stringify([a[0]==='container'?{Config:{Labels}}:{Labels}]);}
  const kind=a[0]==='rm'?'container':a[0];if(!removeFails)states[kind].delete(a.at(-1));return '';};return {run,calls};}
 test('only target-labelled resource removed, independent readback, no provider claim',()=>{const d=docker();const r=retireDocker(manifest(),{...ctx,run:d.run});assert.equal(r.removed.length,1);assert.equal(r.retirementComplete,false);assert.equal(r.providerDestroyed,false);assert.deepEqual(d.calls.filter(a=>a[0]==='rm'),[['rm','-f','c123']]);});
