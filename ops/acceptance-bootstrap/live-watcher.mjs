@@ -1,6 +1,7 @@
 // Phase 5C: private coordinator-side registration watcher. NO listener,
 // dispatch permission, bearer input, policy selection, or Github job auth.
 // A separate owner-approved live policy controls each exact role/job.
+import {validateAcceptanceWindow} from './replacement-target.mjs';
 const need=(v,c)=>{if(!v)throw Error('WATCHER_'+c);};
 const DECIMAL=/^[1-9][0-9]{0,19}$/;
 const HEX40=/^[a-f0-9]{40}$/;
@@ -23,11 +24,10 @@ function valid(run,head,owner,window){
 }
 export function createLiveWatcher({
  getJSON,registrars,policies,assertAdministration,callerSHA,
- ownerId='217035723',windowStartsAt,windowEndsAt,now=Date.now
+ ownerId='217035723',windowStartsAt,windowEndsAt,acceptanceTarget,now=Date.now
 }){
  need(typeof getJSON==='function'&&typeof assertAdministration==='function'&&HEX40.test(callerSHA),'CONFIG');
- const start=Date.parse(windowStartsAt),end=Date.parse(windowEndsAt);
- need(Number.isFinite(start)&&Number.isFinite(end)&&start<end&&end-start<=86400000,'WINDOW');
+ const {start,end}=validateAcceptanceWindow({acceptanceTarget,windowStartsAt,windowEndsAt,now});
  need(roles.every(role=>registrars?.[role]?.register&&registrars[role].revoke&&
   typeof policies?.[role]?.jobName==='string'&&policies[role].jobName.length>0&&
   policies[role].repository===repo&&policies[role].ownerId===ownerId&&

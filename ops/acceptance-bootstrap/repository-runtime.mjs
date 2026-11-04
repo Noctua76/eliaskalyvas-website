@@ -53,7 +53,7 @@ export async function createRepositoryRuntime({config:c,ports,buildPort,adminTok
   }
   return r.signed;
  }]));
- const composition=composeTrustAcceptance({origin:c.origin,getJSON,registrars,policies:c.policies,assertAdministration,assertOwnerDecision:assertAdministration,brokerAcceptors,persistSignedEvidence:async row=>{await persist({kind:'observation',...row});observedRoles.add(row.role);return true;},evidencePublicKey:c.evidencePublicKey,evidenceKeyId:c.evidenceKeyId,callerSHA:c.callerSHA,windowStartsAt:c.windowStartsAt,windowEndsAt:c.windowEndsAt,enabled:true,now});
+ const composition=composeTrustAcceptance({origin:c.origin,getJSON,registrars,policies:c.policies,assertAdministration,assertOwnerDecision:assertAdministration,brokerAcceptors,persistSignedEvidence:async row=>{await persist({kind:'observation',...row});observedRoles.add(row.role);return true;},evidencePublicKey:c.evidencePublicKey,evidenceKeyId:c.evidenceKeyId,callerSHA:c.callerSHA,windowStartsAt:c.windowStartsAt,windowEndsAt:c.windowEndsAt,acceptanceTarget:c.target,enabled:true,now});
  return {binding,composition,assertAdministration,assertComplete:()=>assertAcceptanceCompletion({mode:c.mode,observedRoles:[...observedRoles],inventory:!!approvedInventory,consumed}),async query(op,a){
   if(op==='github')return getJSON(a.url);
   if(op==='administration'){need(roles.includes(a.privilege),'POLICY');return assertAdministration(c.policies[a.privilege],a.operation??'identity');}

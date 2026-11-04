@@ -6,9 +6,10 @@ import {bootstrapPlan} from './plan.mjs';
 export function cleanupPlan(config,{execute=(args)=>execFileSync('docker',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}),apply=false}={}){
  return cleanupByDigest(bootstrapPlan(config).planSHA256,{execute,apply});
 }
-export function cleanupByDigest(planSHA256,{execute=(args)=>execFileSync('docker',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}),apply=false}={}){
- if(!/^[a-f0-9]{64}$/.test(planSHA256))throw Error('CLEANUP_SCOPE');
- const plan={planSHA256},label='com.noctua.nyra.acceptance='+planSHA256,removed=[];
+export function cleanupByDigest(planSHA256,options={}){return cleanupByDigests([planSHA256],options);}
+export function cleanupByDigests(planSHA256s,{execute=(args)=>execFileSync('docker',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}),apply=false}={}){
+ if(!Array.isArray(planSHA256s)||planSHA256s.length<1||planSHA256s.length>2||new Set(planSHA256s).size!==planSHA256s.length||planSHA256s.some(x=>!/^[a-f0-9]{64}$/.test(x)))throw Error('CLEANUP_SCOPE');
+ const plan={planSHA256:planSHA256s[0]},removed=[];
  const resources=[
   ['container',['ps','-aq','--no-trunc'],['rm','-f']],
   ['network',['network','ls','-q','--no-trunc'],['network','rm']],
@@ -19,12 +20,13 @@ export function cleanupByDigest(planSHA256,{execute=(args)=>execFileSync('docker
   if(ids.some(id=>!(/^[A-Za-z0-9][A-Za-z0-9_.-]*$/).test(id)))throw Error('CLEANUP_RESOURCE');
   return ids;
  };
- for(const [kind,list,remove] of resources){
+ for(const [kind,list,remove] of resources)for(const planSHA256 of planSHA256s){
+  const label='com.noctua.nyra.acceptance='+planSHA256;
   const ids=listIds([...list,'--filter','label='+label]);
   for(const id of ids){
    const rows=JSON.parse(execute([kind,'inspect',id]));
    const labels=kind==='container'?rows[0]?.Config?.Labels:rows[0]?.Labels;
-   if(labels?.['com.noctua.nyra.acceptance']!==plan.planSHA256)throw Error('CLEANUP_SCOPE');
+   if(labels?.['com.noctua.nyra.acceptance']!==planSHA256)throw Error('CLEANUP_SCOPE');
    if(apply){
     execute([...remove,id]);
     // Re-read full IDs/names independently of the plan label: a resource

@@ -4,8 +4,8 @@ import {spawn,execFileSync} from 'node:child_process';
 import {readFile,writeFile,chown,lstat,rm,open} from 'node:fs/promises';
 import {randomBytes} from 'node:crypto';
 import {privateFile} from './owner-source.mjs';
-import {validateReplacementTarget} from './replacement-target.mjs';
-import {cleanupByDigest} from './cleanup.mjs';
+import {validateReplacementTarget,cleanupTargetLineage,expiryTimerForTarget,validateExtensionReceipt} from './replacement-target.mjs';
+import {cleanupByDigests} from './cleanup.mjs';
 import {privatePort} from './private-port.mjs';
 import {buildOffline,IMAGE,ROOT,STAGE} from './fra1-launch.mjs';
 import {reviewedAcceptancePolicies} from '../../lib/publication/integration/live-acceptance.mjs';
@@ -20,12 +20,13 @@ export function replacementRoleArgs(role,uid,gid,{target,policyGroupID}){
  args.push('--mount','type=bind,src=/var/lib/nyra-5c/policy,dst=/run/role/policy,readonly','-e','NYRA_5C_LIVE_ROLE=1',IMAGE,'node','/app/ops/acceptance-bootstrap/live-role-worker.mjs');return args;
 }
 export function cleanupReplacement(target,{execute,apply=false}={}){
- validateReplacementTarget(target,{created:true,allowExpired:true});return cleanupByDigest(hashJSON(target),{execute,apply});
+ validateReplacementTarget(target,{created:true,allowExpired:true});return {...cleanupByDigests(cleanupTargetLineage(target).map(t=>hashJSON(t)),{execute,apply}),planSHA256:hashJSON(target),lineageSHA256s:cleanupTargetLineage(target).map(t=>hashJSON(t))};
 }
 async function launch(path){
  need(process.getuid?.()===0&&process.env.NYRA_REPOSITORY_LAUNCH==='1','DISABLED');
  const c=await privateFile(path);need(c.githubReadCredential==='/var/lib/nyra-5c/coordinator/admin-read.json'&&c.ownerKeyFile==='/var/lib/nyra-5c/coordinator/owner-public.json'&&c.evidenceKeyFile==='/var/lib/nyra-5c/coordinator/evidence-public.json'&&c.evidenceDirectory==='/var/lib/nyra-5c/coordinator/evidence','PRIVATE_PATHS');validateReplacementTarget(c.target,{created:true});need(run('hostname',[])===c.target.hostname,'HOST');
- need(run('systemctl',['is-active','nyra-repository-expiry.timer'])==='active','TIMER');
+ const expiry=expiryTimerForTarget(c.target);need(run('systemctl',['is-active',expiry])==='active','TIMER');
+ if(expiry==='nyra-repository-extension-expiry.timer')validateExtensionReceipt(c.target,c,await privateFile('/etc/nyra-acceptance/extension-20261105.json'));
  need(run('docker',['network','inspect','-f','{{.Internal}}','nyra-repository-db'])==='true','NETWORK');
  // Private roles can reach only their internal DB network, never the host.
  const net=JSON.parse(run('docker',['network','inspect','nyra-repository-db']))[0],bridge='br-'+net.Id.slice(0,12);

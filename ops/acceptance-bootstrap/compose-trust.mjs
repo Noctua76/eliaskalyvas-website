@@ -62,7 +62,7 @@ export async function verifyPinnedObservation(envelope,{publicKey,keyId,policy,n
 export function composeTrustAcceptance({
  getJSON,registrars,policies,assertAdministration,assertOwnerDecision,
  brokerAcceptors,persistSignedEvidence,evidencePublicKey,evidenceKeyId,
- callerSHA,windowStartsAt,windowEndsAt,enabled=false,origin,now=Date.now
+ callerSHA,windowStartsAt,windowEndsAt,acceptanceTarget,enabled=false,origin,now=Date.now
 }){
  need(typeof assertAdministration==='function'&&
   typeof assertOwnerDecision==='function'&&
@@ -80,7 +80,7 @@ export function composeTrustAcceptance({
   need(await assertOwnerDecision(policy)===true,'OWNER_GATE');
  };
  const watcher=createLiveWatcher({getJSON,registrars,policies,
-  assertAdministration:gate,callerSHA,windowStartsAt,windowEndsAt,now});
+  assertAdministration:gate,callerSHA,windowStartsAt,windowEndsAt,acceptanceTarget,now});
  const acceptedReceipts=new Set();
  const acceptors=Object.fromEntries(ROLES.map(role=>[role,async token=>{
   need(enabled===true,'DISABLED');
