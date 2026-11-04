@@ -1,4 +1,9 @@
-# Controlled continuation: current-window alignment first; extension is contingency
+# Historical operation outline — superseded by final NO-GO readiness decision
+
+**Current status:** See `extension-20261105-final-readiness.md`. Owner reports
+57/57 alignment, successful renewal and authenticated readback at 19:40:27Z.
+Do not repeat Section A. This outline is not a complete executable migration
+package and is NOT approved for timer/source/config/DB mutation.
 
 **Branch-only preparation. No merge, live replacement, timer change, credential
 issuance, Owner/MFA action, dispatch, launch or production change was performed.**
@@ -11,7 +16,7 @@ is exactly **2026-11-05T21:05:00Z (23:05 Athens)**, not an automatic entitlement
 | --- | --- |
 | `ops/acceptance-bootstrap/runtime-align-29a73458.py` | `3a3bb4ad022be42e30d59ac5f80412ddcc995394974e23d9b4d3cc6b85ce03da` |
 | `ops/acceptance-bootstrap/extension-20261105.mjs` | `1147b2f2b555e0a28c8b04384f1217ce639e4164896aa468cc8636f23e4dec51` |
-| `ops/acceptance-bootstrap/extension-readonly-inventory.py` | `08f7f1a02a8270020737327fc6213a871717cc839c14d9e83e3ffc393315a4f6` |
+| `ops/acceptance-bootstrap/extension-readonly-inventory.py` | `0b03fc8a5eaacd7be1557b5086f9277a92438afc35e87b3b578ccd2d8d04a277` |
 | Existing PR31 helper — unchanged | `b661247f53664f1ed016528188d3f5486a7faa0b58f53beab02fbf89d84fffc9` |
 
 Source base: `29a73458d4cd941e5ed514db56dc2c553d041bda`. Exact branch head and
@@ -23,7 +28,7 @@ Read `extension-20261105-dependencies.md` (full matrix and host findings),
 `extension-20261105-time-references.tsv` (315 source references), and
 `extension-20261105-source-delta.md` (every affected source hash).
 
-## A. Priority: restore source29 Stage 3F compatibility without extension
+## A. Historical alignment procedure — COMPLETED, DO NOT REPEAT
 
 Owner-reported live facts: candidate/source 57/57; live/source 55/57; PR31 syntax
 and file hash pass, preflight stops at STAGED_BYTES. No issuance was attempted.
@@ -131,13 +136,14 @@ new source requires new delta/full-byte verification, not relabelled old evidenc
 After separately approved transfer of the pinned inventory script (root0600):
 
 ```sh
-unshare --net -- /usr/bin/python3 /root/nyra-github-app/extension-readonly-inventory.py --collect
+/usr/bin/python3 /root/nyra-github-app/extension-readonly-inventory.py --collect
 systemctl cat nyra-repository-expiry.timer nyra-repository-expiry.service
 systemctl list-timers --all --no-pager
 systemctl list-unit-files 'nyra*' --no-pager
 ```
 
-The collector does only local reads and read-only PostgreSQL SELECT/pg_dump.
+The collector must run in the host network namespace; it rejects unshare --net
+before making any firewall assessment. The collector does only local reads and read-only PostgreSQL SELECT/pg_dump.
 It prints no Docker Env, token, password, key, Auth identity, VITE value or process
 argv. It captures target digests, source/57 comparisons, immutable file/DB/schema
 identity, role expiry/attributes, firewall, old timer next trigger, possible cleanup
