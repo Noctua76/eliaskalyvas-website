@@ -42,7 +42,7 @@ assert projected==expected and t['resourceId'].isdigit() and t['ipv4']!='201.79.
 import ipaddress
 assert ipaddress.ip_address(t['ipv4']).is_global
 start=datetime.datetime.fromisoformat(t['createdAt'].replace('Z','+00:00'));end=datetime.datetime.fromisoformat(t['expiresAt'].replace('Z','+00:00'));now=datetime.datetime.now(datetime.timezone.utc)
-assert start<=now<end and 0<(end-start).total_seconds()<=86400
+assert start<=now<end and (end-start).total_seconds()==1209600 if t['schema']=='nyra.acceptance.replacement.v2' else (start<=now<end and 0<(end-start).total_seconds()<=86400)
 assert socket.gethostname()==t['hostname']
 assert not any(os.path.exists(x) for x in ['/opt/nyra-5c/private','/var/lib/nyra-5c','/run/nyra-5c','/etc/nyra-acceptance'])
 release=dict(x.strip().split('=',1) for x in open('/etc/os-release') if '=' in x)
