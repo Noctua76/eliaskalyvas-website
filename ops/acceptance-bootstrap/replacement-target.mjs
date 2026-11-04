@@ -4,7 +4,7 @@ import {hashJSON} from '../../lib/publication/contract.mjs';
 const need=(v,c)=>{if(!v)throw Error('REPLACEMENT_'+c);};
 // One-time Stage 3 exception: exact owner-approved acceptance target only.
 // The default 24-hour limit remains unchanged for every other target.
-const STAGE3_EXTENSION=Object.freeze({
+export const STAGE3_EXTENSION=Object.freeze({
  bootstrapId:'nyra-acceptance-20261102-01',
  hostname:'nyra-acceptance-20261102-01',
  resourceId:'615221104',
@@ -19,10 +19,10 @@ function approvedStage3Extension(t,start,end){
   t.resourceId===STAGE3_EXTENSION.resourceId&&
   t.ipv4===STAGE3_EXTENSION.ipv4&&
   t.origin===STAGE3_EXTENSION.origin&&
-  t.expiresAt===STAGE3_EXTENSION.expiresAt&&
+  [STAGE3_EXTENSION.expiresAt,'2026-11-05T21:05:00Z'].includes(t.expiresAt)&&
   t.createdAt===STAGE3_EXTENSION.createdAt&&
   start===Date.parse(STAGE3_EXTENSION.createdAt)&&
-  end-start<=48*60*60*1000;
+  end-start<=(t.expiresAt===STAGE3_EXTENSION.expiresAt?48:72)*60*60*1000;
 }
 
 export function validateReplacementTarget(t,{created=false,allowExpired=false,now=Date.now}={}){
@@ -39,6 +39,32 @@ export function validateReplacementTarget(t,{created=false,allowExpired=false,no
  }else need(t.resourceId===null&&t.ipv4===null&&t.createdAt===null&&t.expiresAt===null,'PRECREATE_ONLY');
  return Object.freeze({targetSHA256:hashJSON(t),created,authorization:false,liveAcceptance:false});
 }
+// Host lifetime is distinct from individual credential/Owner/OIDC TTLs.
+// This exception is usable only with the entire independently validated target.
+export function validateAcceptanceWindow({acceptanceTarget,windowStartsAt,windowEndsAt,now=Date.now}){
+ const start=Date.parse(windowStartsAt),end=Date.parse(windowEndsAt);
+ need(Number.isFinite(start)&&Number.isFinite(end)&&start<end,'ACCEPTANCE_WINDOW');
+ if(acceptanceTarget){validateReplacementTarget(acceptanceTarget,{created:true,now});need(windowStartsAt===acceptanceTarget.createdAt&&windowEndsAt===acceptanceTarget.expiresAt,'ACCEPTANCE_TARGET_WINDOW');}
+ need(end-start<=86400000||(acceptanceTarget&&approvedStage3Extension(acceptanceTarget,start,end)),'ACCEPTANCE_WINDOW');
+ return {start,end};
+}
+export function expiryTimerForTarget(t){
+ validateReplacementTarget(t,{created:true,allowExpired:true});
+ return t.expiresAt==='2026-11-05T21:05:00Z'&&approvedStage3Extension(t,Date.parse(t.createdAt),Date.parse(t.expiresAt))?'nyra-repository-extension-expiry.timer':'nyra-repository-expiry.timer';
+}
+export function cleanupTargetLineage(t){
+ validateReplacementTarget(t,{created:true,allowExpired:true});
+ if(!approvedStage3Extension(t,Date.parse(t.createdAt),Date.parse(t.expiresAt)))return [t];
+ // Immutable original DB labels are preserved; later role labels may be new.
+ return [STAGE3_EXTENSION.expiresAt,'2026-11-05T21:05:00Z'].map(expiresAt=>({...t,expiresAt}));
+}
+export function validateExtensionReceipt(t,launch,receipt){
+ need(receipt?.schema==='nyra.acceptance.extension.commit.v1'&&receipt.status==='COMMITTED'&&receipt.generation===2&&receipt.authorization===false,'EXTENSION_COMMIT');
+ need(receipt.previousDeadline===STAGE3_EXTENSION.expiresAt&&receipt.deadline===t.expiresAt&&t.expiresAt==='2026-11-05T21:05:00Z','EXTENSION_DEADLINE');
+ need(receipt.targetSHA256===hashJSON(t)&&receipt.previousTargetSHA256===hashJSON({...t,expiresAt:STAGE3_EXTENSION.expiresAt})&&receipt.launchSHA256===hashJSON(launch)&&receipt.sourceSHA===launch.configuration.repositoryTrust.sourceSHA&&/^[a-f0-9]{64}$/.test(receipt.planSHA256),'EXTENSION_PINS');
+ return receipt;
+}
+
 export function assessReplacementHost(t,o,{now=Date.now}={}){
  validateReplacementTarget(t,{created:true,now});
  const ok={identity:o.hostname===t.hostname&&o.providerResourceId===t.resourceId&&o.providerRegion==='fra1'&&o.publicIPv4===t.ipv4,

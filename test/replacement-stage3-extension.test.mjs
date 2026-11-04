@@ -31,7 +31,7 @@ test('24h contract remains enforced for all other hosts and mutated extension de
  t=>{t.bootstrapId='nyra-other-acceptance';},
  t=>{t.hostname='nyra-other-acceptance';},
  t=>{t.expiresAt='2026-11-04T21:05:01Z';},
- t=>{t.expiresAt='2026-11-05T21:05:00Z';},
+ t=>{t.expiresAt='2026-11-06T21:05:00Z';},
  t=>{t.origin='https://other.eliaskalyvas.gr';},
  t=>{t.createdAt='2026-11-02T21:06:45Z';},
  t=>{t.createdAt='2026-11-02T21:06:47Z';},

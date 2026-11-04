@@ -1,5 +1,6 @@
 // PRIVATE UNIX socket only. This process is NOT started by import/CI/workflows.
 // All keys/config are owner-provisioned AFTER explicit infrastructure approval.
+import {validateReplacementTarget,expiryTimerForTarget} from './replacement-target.mjs';
 import {signingKeySHA256} from '../../lib/publication/runtime/repository-policy.mjs';
 import {createServer} from 'node:http';
 import {open,readFile,lstat,chmod,chown} from 'node:fs/promises';
@@ -9,9 +10,19 @@ import {existingOwnerMFA,createOwnerRiskSource,signedDecisionJournal} from '../.
 import {hashJSON} from '../../lib/publication/contract.mjs';
 import {evidenceSigner} from '../../lib/publication/runtime/acceptance-evidence.mjs';
 export async function privateFile(path){const stat=await lstat(path);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||(stat.mode&0o077)||stat.uid!==process.getuid())throw Error('PRIVATE_FILE');return JSON.parse(await readFile(path,'utf8'));}
+export function ownerProcessLifetime(config,{now=Date.now}={}){
+ const remaining=Date.parse(config.policy.windowEndsAt)-now();if(!(remaining>0))throw Error('OWNER_SOURCE_WINDOW');
+ const t=config.acceptanceTarget;
+ if(t){validateReplacementTarget(t,{created:true,now});if(t.expiresAt!==config.policy.windowEndsAt)throw Error('OWNER_SOURCE_WINDOW');}
+ if(remaining<=86400000)return remaining;
+ if(!t||expiryTimerForTarget(t)!=='nyra-repository-extension-expiry.timer')throw Error('OWNER_SOURCE_WINDOW');
+ // Preserve independent <=24h process lifetime. Restart still requires fresh
+ // real Owner/MFA authorization; host extension never extends session/receipt.
+ return 86400000;
+}
 export async function startOwnerSource(config){
  if(process.env.NYRA_ACCEPTANCE_OWNER_SOURCE!=='1')throw Error('OWNER_SOURCE_DISABLED');
- const end=Date.parse(config.policy.windowEndsAt)-Date.now();if(!(end>0&&end<=86400000))throw Error('OWNER_SOURCE_WINDOW');
+ const end=ownerProcessLifetime(config);
  const dir=await lstat(dirname(config.socket));if(!dir.isDirectory()||(dir.mode&0o077)||dir.uid!==process.getuid()||dirname(config.socket)!==dirname(config.journal))throw Error('PRIVATE_DIRECTORY');
  const signing=await privateFile(config.signingKey),privateKey=await crypto.subtle.importKey('jwk',signing.privateKey,'Ed25519',false,['sign']),publicKey=await crypto.subtle.importKey('jwk',signing.publicKey,'Ed25519',false,['verify']);
  if(config.policy.repositoryTrust&&config.signingKey!=='/var/lib/nyra-5c/owner/owner-key.json')throw Error('OWNER_REPOSITORY_KEY_PATH');
