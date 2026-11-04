@@ -48,7 +48,9 @@ async function launch(path){
    children.push(spawn('docker',replacementRoleArgs(role,users[role].uid,users[role].gid,{target:c.target,policyGroupID}),{stdio:['pipe','pipe','ignore']}));
   }
   await save('/var/lib/nyra-5c/coordinator/role-ipc.json',keys,users.coordinator);
-  const session=c.target.schema==='nyra.acceptance.replacement.v2'?c.acceptanceSession:null;
+  const v2=c.target.schema==='nyra.acceptance.replacement.v2';
+  const session=v2?c.acceptanceSession:null;
+  if(v2)need(session&&typeof session==='object','SESSION_REQUIRED');
   if(session){
    need(Object.keys(session).sort().join(',')==='authorization,endsAt,startsAt','SESSION_FIELDS');
    const a=Date.parse(session.startsAt),b=Date.parse(session.endsAt),now=Date.now();
