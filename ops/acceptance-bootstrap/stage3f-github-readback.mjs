@@ -58,7 +58,7 @@ export async function commitCredential({canonical,pending,archive,expected,uid})
  return privateBytes(canonical,uid);
 }
 async function stagedFiles(){
- need(run('git',['-C',ROOT,'rev-parse','HEAD'])===PIN.source&&run('git',['-C',ROOT,'status','--porcelain','--untracked-files=all'])==='','EXACT_CLEAN_SOURCE');
+ need(run('git',['--no-optional-locks','-C',ROOT,'rev-parse','HEAD'])===PIN.source&&run('git',['--no-optional-locks','-C',ROOT,'status','--porcelain','--untracked-files=all'])==='','EXACT_CLEAN_SOURCE');
  const roots=['repository-db','repository-launch','repository-runtime','replacement-target','live-role-worker','fra1-runtime','fra1-launch'].map(n=>'ops/acceptance-bootstrap/'+n+'.mjs'),seen=new Set();
  const visit=async p=>{if(seen.has(p))return;need(!p.startsWith('/')&&!p.split('/').includes('..'),'STAGED_PATH');seen.add(p);const text=await readFile(ROOT+'/'+p,'utf8');for(const m of text.matchAll(/^(?:import|export)[^;\n]*?from\s*['"]([^'"]+)['"]/gm))if(m[1].startsWith('.'))await visit(resolve(ROOT,dirname(p),m[1]).slice(ROOT.length+1));};
  for(const p of roots)await visit(p);await visit('ops/protected-delivery/schema.sql');for(const n of ['shared','release','manifest','event','receipt','dataset'])seen.add('contracts/nyra-publication/v1.1/'+n+'.schema.json');

@@ -12,7 +12,7 @@ Only three new files: `stage3f-github-readback.mjs`, this document, and
 | Binding | Approved value |
 | --- | --- |
 | Installed source / remote main required by readback | `29a73458d4cd941e5ed514db56dc2c553d041bda` |
-| Helper SHA-256 (raw bytes) | `0da0c185c7fd3bd191f656cc1976836d0a5234bcb0c891062fcf28f563571069` |
+| Helper SHA-256 (raw bytes) | `b661247f53664f1ed016528188d3f5486a7faa0b58f53beab02fbf89d84fffc9` |
 | Historical capture (canonical record digest; original evaluator source remains unchanged) | `5eb0c2c03f546214d684b48f15f2f415a2d78141eef874a8db67319595e86cf8` |
 | Governance (canonical JSON digest) | `ec4b711e09bb448c74719e935ac2e3ca1e7675a8e75115526d67b9394d4e4a42` |
 | Existing runtime protection fingerprint | `7bc1012c7309e172fda6a0616e670e9fd6a305f3325ca34eb5655e4f34759d97` |
@@ -33,6 +33,7 @@ context. No npm install, pg/sharp import requirement, dependency copy, or new ru
 package is introduced. Preflight hashes the installed dependency tree and repeats
 that check before issuance and before credential commit; compare its fingerprint
 with the accepted host inventory during independent review. Before any issuance,
+Git status runs with optional locks disabled to avoid index refresh writes. The
 preflight also verifies same-filesystem credential handover and imports the
 reviewed reader components as the coordinator with fetch explicitly denied.
 
@@ -83,7 +84,7 @@ source. No source/pin rollover is authorized here.
 
    ```sh
    cd /root/nyra-github-app
-   printf '%s\n' '0da0c185c7fd3bd191f656cc1976836d0a5234bcb0c891062fcf28f563571069  stage3f-github-readback.mjs' | sha256sum -c -
+   printf '%s\n' 'b661247f53664f1ed016528188d3f5486a7faa0b58f53beab02fbf89d84fffc9  stage3f-github-readback.mjs' | sha256sum -c -
    ```
 
    Identify the existing accepted capture without re-running historical acceptance
