@@ -28,7 +28,7 @@ function approvedStage3Extension(t,start,end){
 // v2 is the NEW 14-day host contract; v1 remains strictly legacy/24h.
 // Host lifespan is not a protected session or a credential lease.
 export const CONTINUATION_HOST_MS=14*24*60*60*1000;
-const exactUTC=s=>typeof s==='string'&&/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$/.test(s)&&Number.isFinite(Date.parse(s))&&new Date(Date.parse(s)).toISOString().replace('.000Z','Z')===s;
+const exactUTC=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(s)&&Number.isFinite(Date.parse(s))&&new Date(Date.parse(s)).toISOString().replace('.000Z','Z')===s;
 export function validateReplacementTarget(t,{created=false,allowExpired=false,now=Date.now}={}){
  need(t&&Object.keys(t).sort().join(',')===['schema','bootstrapId','hostname','provider','region','origin','operatorCIDRs','cpu','memoryGiB','maximumHours','optionalResources','reviewedHead','resourceId','ipv4','createdAt','expiresAt','authorization'].sort().join(','),'FIELDS');
  const continuation=t?.schema==='nyra.acceptance.replacement.v2';
