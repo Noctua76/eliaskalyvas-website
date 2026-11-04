@@ -23,7 +23,7 @@ export function renderContinuationExpiryUnits({lifetime,cleanupCommand,cleanupSH
  const service=[
   '[Unit]','Description=NYRA exact-host retirement (reviewed cleanup dependency)','ConditionPathExists='+cleanupCommand,
   '[Service]','Type=oneshot','User=root','Group=root','UMask=0077',
-  'ExecStart=/usr/bin/node '+cleanupCommand,
+  'ExecStart=/usr/local/bin/node '+cleanupCommand,
   'NoNewPrivileges=true','ProtectSystem=strict','ProtectHome=read-only','PrivateTmp=true',
   'StandardOutput=journal','StandardError=journal',''
  ].join('\n');
