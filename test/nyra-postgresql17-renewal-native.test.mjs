@@ -36,7 +36,8 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
   assert.equal(docker(['network','inspect','-f','{{.Internal}}',net]),'true');
   assert(['{}','null'].includes(docker(['inspect','-f','{{json .HostConfig.PortBindings}}',name])));
   admin("create role nyra_accept_registrar login password '"+old.registrar+"'; "+
-        "create role nyra_accept_broker login password '"+old.broker+"';");
+        "create role nyra_accept_broker login password '"+old.broker+"'; "+
+        "grant connect on database postgres to nyra_accept_registrar,nyra_accept_broker;");
   assert.equal(login('nyra_accept_registrar',old.registrar),'nyra_accept_registrar');
   assert.equal(login('nyra_accept_broker',old.broker),'nyra_accept_broker');
   const now=Math.floor(Date.now()/1000)*1000,created=new Date(now-1000).toISOString();
