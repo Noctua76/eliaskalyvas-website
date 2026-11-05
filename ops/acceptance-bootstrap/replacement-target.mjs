@@ -42,7 +42,7 @@ export function validateReplacementTarget(t,{created=false,allowExpired=false,no
  if(created){
   need(typeof t.resourceId==='string'&&/^[1-9][0-9]{0,19}$/.test(t.resourceId)&&isIP(t.ipv4)===4&&!/^(0|10|127|169\.254|192\.168|172\.(1[6-9]|2[0-9]|3[01]))\./.test(t.ipv4)&&t.ipv4!=='201.79.94.104','NEW_RESOURCE');
   const start=Date.parse(t.createdAt),end=Date.parse(t.expiresAt);need(Number.isFinite(start)&&Number.isFinite(end)&&start<=now()&&(allowExpired||now()<end)&&end>start&&
-   (continuation?(exactUTC(t.createdAt)&&exactUTC(t.expiresAt)&&end-start===CONTINUATION_HOST_MS&&t.resourceId!=='615221104'):(end-start<=86400000||approvedStage3Extension(t,start,end))),'DEADLINE');
+   (continuation?(exactUTC(t.createdAt)&&exactUTC(t.expiresAt)&&start%1000===0&&end%1000===0&&end-start===CONTINUATION_HOST_MS&&t.resourceId!=='615221104'):(end-start<=86400000||approvedStage3Extension(t,start,end))),'DEADLINE');
  }else need(t.resourceId===null&&t.ipv4===null&&t.createdAt===null&&t.expiresAt===null,'PRECREATE_ONLY');
  return Object.freeze({targetSHA256:hashJSON(t),created,authorization:false,liveAcceptance:false});
 }
