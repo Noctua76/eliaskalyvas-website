@@ -25,7 +25,9 @@ test('native Docker exact-label retirement removes target container/network/volu
   assert.match(image,/^sha256:[a-f0-9]{64}$/);
   docker(['network','create','--label',label,target.network]);
   docker(['volume','create','--label',label,target.volume]);
-  docker(['create','--name',target.container,'--label',label,image,'/bin/true']);
+  docker(['create','--name',target.container,'--label',label,'--mount','type=volume,dst=/nyra-ci-temporary',image,'/bin/true']);
+  const anonymousVolume=JSON.parse(docker(['inspect',target.container]))[0].Mounts.find(x=>x.Type==='volume')?.Name;
+  assert(anonymousVolume,'Expected temporary anonymous Docker volume');
   docker(['network','create',control.network]);
   docker(['volume','create',control.volume]);
   docker(['create','--name',control.container,image,'/bin/true']);
@@ -33,6 +35,7 @@ test('native Docker exact-label retirement removes target container/network/volu
   assert.equal(dry.resources.length,3);
   const done=cleanupByDigest(digest,{apply:true});
   assert.equal(done.resources.length,3);
+  assert.throws(()=>docker(['volume','inspect',anonymousVolume]),'Scoped anonymous volume survived container retirement');
   assert(done.resources.every(x=>x.removed===true));
   for(const [kind,name] of [['container',target.container],['network',target.network],['volume',target.volume]])
    assert.throws(()=>docker([kind,'inspect',name]));
