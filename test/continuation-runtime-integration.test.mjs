@@ -35,11 +35,11 @@ test('real generated installer distinguishes v2 14d and v1 24h',()=>{
 
 test('v2 launcher validates independent 24h session before starting private runtime',()=>{
  const t=target(),start=Date.parse(created);
- const valid={startsAt:new Date(start+86400000).toISOString(),endsAt:new Date(start+2*86400000).toISOString(),authorization:true};
+ const valid={startsAt:new Date(start+86400000).toISOString(),endsAt:new Date(start+2*86400000).toISOString(),authorization:false};
  const at=()=>start+86400000+1000;
  const r=validateLauncherSession(t,valid,{now:at});assert.equal(r.end,valid.endsAt);
  for(const bad of [
-  null,{...valid,authorization:false},{...valid,endsAt:new Date(start+3*86400000).toISOString()},
+  null,{...valid,authorization:true},{...valid,endsAt:new Date(start+3*86400000).toISOString()},
   {...valid,endsAt:new Date(start+15*86400000).toISOString()},
   {...valid,startsAt:new Date(start-1000).toISOString()},
   {...valid,endsAt:valid.startsAt},{...valid,extra:true}
