@@ -75,7 +75,21 @@ async function main(){
   const net=JSON.parse(run(['network','inspect','nyra-repository-db']))[0],bridge='br-'+net.Id.slice(0,12);
   command('iptables',['-I','INPUT','-i',bridge,'-m','conntrack','--ctstate','NEW','-j','DROP']);command('iptables',['-I','DOCKER-USER','-i',bridge,'!','-o',bridge,'-j','DROP']);
   let ready=false;for(let n=0;n<60;n++){try{run(['exec','nyra-repository-pg','pg_isready','-U','postgres']);ready=true;break;}catch{await new Promise(r=>setTimeout(r,1000));}}if(!ready)throw Error('DB_NOT_READY');
-  const psql=['exec','-i','nyra-repository-pg','psql','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1'];
+  // The pinned Supabase image may boot socket-only. Acceptance workers use
+  // TCP inside the --internal Docker network, so a local socket check alone
+  // cannot establish DB readiness. Never publish a host port.
+  const privileged=['exec','-i','nyra-repository-pg','psql','-X','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1'];
+  const psql=['exec','-i','nyra-repository-pg','psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1'];
+  if(run(psql,'SHOW listen_addresses;').trim()!=='*'){
+   run(privileged,"ALTER SYSTEM SET listen_addresses = '*';");
+   run(['restart','nyra-repository-pg']);
+  }
+  ready=false;
+  for(let n=0;n<60;n++){try{run(['exec','nyra-repository-pg','pg_isready','-h','127.0.0.1','-p','5432','-U','postgres','-d','postgres']);ready=true;break;}catch{await new Promise(r=>setTimeout(r,1000));}}
+  if(!ready||run(psql,'SHOW listen_addresses;').trim()!=='*')throw Error('DB_TCP_NOT_READY');
+  const current=JSON.parse(run(['inspect','-f','{{json .HostConfig.PortBindings}}','nyra-repository-pg']));
+  if(current&&Object.keys(current).length)throw Error('DB_PORT_PUBLISHED');
+  if(run(['network','inspect','-f','{{.Internal}}','nyra-repository-db'])!=='true')throw Error('DB_NETWORK_NOT_INTERNAL');
   run(psql,schema);
   run(psql,loginsSQL(passwords.registrar,passwords.broker));
   // A 14-day host is NOT a 14-day login lease. New sessions require
