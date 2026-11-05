@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {validateReplacementTarget,CONTINUATION_HOST_MS} from '../ops/acceptance-bootstrap/replacement-target.mjs';
 import {renderUbuntuSetup,renderCanonicalExpiryTimer,renderCanonicalExpiryService} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
 import {validateLauncherSession} from '../ops/acceptance-bootstrap/repository-launch.mjs';
-import {replacementRoleExpiry} from '../ops/acceptance-bootstrap/repository-db.mjs';
+import {replacementRoleExpiry,replacementRenewalWindow} from '../ops/acceptance-bootstrap/repository-db.mjs';
 const created='2026-11-06T09:00:00Z',expiry='2026-11-20T09:00:00Z';
 const target=()=>({schema:'nyra.acceptance.replacement.v2',bootstrapId:'nyra-acceptance-20261106-02',hostname:'nyra-acceptance-20261106-02',provider:'DigitalOcean',region:'fra1',origin:'https://nyra-acceptance.eliaskalyvas.gr',operatorCIDRs:['203.0.113.10/32'],cpu:4,memoryGiB:8,maximumHours:336,optionalResources:false,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',resourceId:'615221105',ipv4:'93.184.216.34',createdAt:created,expiresAt:expiry,authorization:false});
 const now=()=>Date.parse(created)+1000;
@@ -60,4 +60,28 @@ test('v2 PostgreSQL credentials expire within 24h, never at 14-day host retireme
  const late=replacementRoleExpiry(t,{now:()=>Date.parse(expiry)-3600000});
  assert.equal(late,new Date(Date.parse(expiry)).toISOString());
  assert.throws(()=>replacementRoleExpiry(t,{now:()=>Date.parse(expiry)+1}),/REPLACEMENT_DEADLINE/);
+});
+
+test('later PostgreSQL renewal is bound to one non-authorizing session and cannot gain 14-day standing login',()=>{
+ const t=target(),day=86400000,begin=Date.parse(created)+2*day;
+ const session={schema:'nyra.acceptance.pg-session.v1',bootstrapId:t.bootstrapId,
+  providerResourceId:t.resourceId,sessionId:'d7df28d6-04c1-4b34-a32a-076c6d5be033',
+  startsAt:new Date(begin).toISOString(),endsAt:new Date(begin+day).toISOString(),authorization:false};
+ const current=()=>begin+1000;
+ const v=replacementRenewalWindow(t,session,{now:current});
+ assert.equal(v.roleValidUntil,session.endsAt);
+ assert.equal(v.authorized,false);
+ assert.notEqual(v.roleValidUntil,t.expiresAt);
+ for(const mutate of [
+  x=>x.authorization=true,
+  x=>x.providerResourceId='615221104',
+  x=>x.bootstrapId='nyra-acceptance-20261102-01',
+  x=>x.sessionId='anonymous',
+  x=>x.endsAt=new Date(begin+2*day).toISOString(),
+  x=>x.endsAt=t.expiresAt,
+  x=>x.startsAt=new Date(begin+2000).toISOString(),
+  x=>x.extra='untrusted',
+  x=>x.endsAt='2026-11-09T09:00:00+00:00'
+ ]){const bad={...session};mutate(bad);assert.throws(()=>replacementRenewalWindow(t,bad,{now:current}),/DB_RENEWAL_/);}
+ assert.throws(()=>replacementRenewalWindow(t,session,{now:()=>begin+day}),/DB_RENEWAL_WINDOW/);
 });
