@@ -22,11 +22,11 @@ export function mainAcceptanceBoundary({bootstrapHead,mainSHA,approvedPublicPlan
 }
 // Canonical installable expiry service and calendar template.
 export function renderCanonicalExpiryService(){
- return '[Unit]\\nDescription=NYRA acceptance deadline cleanup\\nAfter=docker.service\\nAssertPathExists=/usr/local/sbin/nyra-repository-expire\\n[Service]\\nType=oneshot\\nTimeoutStartSec=180\\nExecStart=/usr/local/sbin/nyra-repository-expire\\nStandardOutput=journal\\nStandardError=journal\\n';
+ return '[Unit]\nDescription=NYRA acceptance deadline cleanup\nAfter=docker.service\nAssertPathExists=/usr/local/sbin/nyra-repository-expire\n[Service]\nType=oneshot\nTimeoutStartSec=180\nExecStart=/usr/local/sbin/nyra-repository-expire\nStandardOutput=journal\nStandardError=journal\n';
 }
 export function renderCanonicalExpiryTimer(calendar='@@DEADLINE@@'){
- need(calendar==='@@DEADLINE@@'||/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2} UTC$/.test(calendar),'EXPIRY_CALENDAR');
- return '[Unit]\\nDescription=NYRA acceptance deadline\\n[Timer]\\nOnCalendar='+calendar+'\\nAccuracySec=1s\\nPersistent=true\\nUnit=nyra-repository-expiry.service\\n[Install]\\nWantedBy=timers.target\\n';
+ need(calendar==='@@DEADLINE@@'||/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$/.test(calendar),'EXPIRY_CALENDAR');
+ return '[Unit]\nDescription=NYRA acceptance deadline\n[Timer]\nOnCalendar='+calendar+'\nAccuracySec=1s\nPersistent=true\nUnit=nyra-repository-expiry.service\n[Install]\nWantedBy=timers.target\n';
 }
 export function renderUbuntuSetup(target,lock){
  validateReplacementTarget(target);need(['docker','caddy','ufw','iptables'].every(k=>/^[a-f0-9]{64}$/.test(lock[k]?.sha256)&&/^[A-Za-z0-9_.+-]+$/.test(lock[k]?.file)),'PREREQUISITES');
