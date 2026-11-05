@@ -9,6 +9,15 @@ import {loginsSQL,IMAGE} from './db-stage.mjs';
 import {hashJSON} from '../../lib/publication/contract.mjs';
 const run=(args,input)=>execFileSync('docker',args,{encoding:'utf8',input,stdio:[input?'pipe':'ignore','pipe','pipe'],timeout:120000}).trim();
 export function replacementDBCommands(target){validateReplacementTarget(target,{created:true});const label='com.noctua.nyra.acceptance='+hashJSON(target);return {network:['network','create','--internal','--label',label,'nyra-repository-db'],database:['run','-d','--name','nyra-repository-pg','--label',label,'--network','nyra-repository-db','--network-alias','db','--restart','no','--memory','1g','--security-opt','no-new-privileges:true','--env-file','/opt/nyra-5c/private/repository-db.env',IMAGE]};}
+// Independent login lease: host lifetime never authorizes 14-day database credentials.
+export function replacementRoleExpiry(target,{now=Date.now}={}){
+ validateReplacementTarget(target,{created:true,now});
+ const t=now();
+ if(!Number.isFinite(t))throw Error('DB_ROLE_CLOCK');
+ return new Date(target.schema==='nyra.acceptance.replacement.v2'
+  ?Math.min(Date.parse(target.expiresAt),t+86400000)
+  :Date.parse(target.expiresAt)).toISOString();
+}
 async function main(){
  if(process.env.NYRA_REPOSITORY_DB!=='1'||process.getuid?.()!==0||process.argv[2]!=='--apply')throw Error('DISABLED');
  // Read the sealed SQL asset before any secret/network/container mutation.
@@ -31,9 +40,7 @@ async function main(){
   run(psql,loginsSQL(passwords.registrar,passwords.broker));
   // A 14-day host is NOT a 14-day login lease. New sessions require
   // separately reviewed database-role renewal after fresh owner/trust checks.
-  const roleExpiresAt=t.schema==='nyra.acceptance.replacement.v2'
-   ?new Date(Math.min(Date.parse(t.expiresAt),Date.now()+86400000)).toISOString()
-   :new Date(t.expiresAt).toISOString();
+  const roleExpiresAt=replacementRoleExpiry(t);
   for(const role of ['registrar','broker'])run(psql,"alter role nyra_accept_"+role+" valid until '"+roleExpiresAt+"';");
   console.log(JSON.stringify({postgres17:true,internalNetwork:true,publicPorts:0,liveAcceptance:false}));
  }catch{cleanupReplacement(t,{apply:true});throw Error('REPLACEMENT_DB_CLOSED');}
