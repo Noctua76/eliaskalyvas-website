@@ -5,6 +5,8 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {stageLiveRuntime} from './stage-live-runtime.mjs';
 import {validateReplacementTarget} from './replacement-target.mjs';
+import {renderCanonicalExpiryService,renderCanonicalExpiryTimer} from './canonical-expiry.mjs';
+export {renderCanonicalExpiryService,renderCanonicalExpiryTimer} from './canonical-expiry.mjs';
 import {hashJSON} from '../../lib/publication/contract.mjs';
 const nodeImage='library/node@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94';
 const postgresImage='supabase/postgres@sha256:f371b5f3f2ac0a05703f33d6e6134515fb2498cab708fb948a0aeb7481467c00';
@@ -19,14 +21,6 @@ export function mainAcceptanceBoundary({bootstrapHead,mainSHA,approvedPublicPlan
  need(/^[a-f0-9]{40}$/.test(bootstrapHead)&&/^[a-f0-9]{40}$/.test(mainSHA),'SOURCE');
  const reasons=[];if(bootstrapHead!==mainSHA)reasons.push('REVIEWED_BOOTSTRAP_NOT_ON_PROTECTED_MAIN');if(!approvedPublicPlan)reasons.push('LIVE_PUBLIC_PLAN_NOT_INSTALLED_ON_PROTECTED_MAIN');
  return {canAcceptPR26OnMain:reasons.length===0,reasons,dispatchAuthorized:false,publicationAuthorized:false};
-}
-// Canonical installable expiry service and calendar template.
-export function renderCanonicalExpiryService(){
- return '[Unit]\nDescription=NYRA acceptance deadline cleanup\nAfter=docker.service\nAssertPathExists=/usr/local/sbin/nyra-repository-expire\n[Service]\nType=oneshot\nTimeoutStartSec=180\nExecStart=/usr/local/sbin/nyra-repository-expire\nStandardOutput=journal\nStandardError=journal\n';
-}
-export function renderCanonicalExpiryTimer(calendar='@@DEADLINE@@'){
- need(calendar==='@@DEADLINE@@'||/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$/.test(calendar),'EXPIRY_CALENDAR');
- return '[Unit]\nDescription=NYRA acceptance deadline\n[Timer]\nOnCalendar='+calendar+'\nAccuracySec=1s\nPersistent=true\nUnit=nyra-repository-expiry.service\n[Install]\nWantedBy=timers.target\n';
 }
 export function renderUbuntuSetup(target,lock){
  validateReplacementTarget(target);need(['docker','caddy','ufw','iptables'].every(k=>/^[a-f0-9]{64}$/.test(lock[k]?.sha256)&&/^[A-Za-z0-9_.+-]+$/.test(lock[k]?.file)),'PREREQUISITES');
