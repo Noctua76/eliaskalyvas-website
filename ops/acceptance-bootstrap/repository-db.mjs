@@ -23,7 +23,7 @@ export function replacementRoleExpiry(target,{now=Date.now}={}){
 // Actual issuance additionally requires live trusted authorization and PG readback.
 export function replacementRenewalWindow(target,session,{now=Date.now}={}){
  validateReplacementTarget(target,{created:true,now});
- const stamp=s=>typeof s==='string'&&/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$/.test(s)&&Number.isFinite(Date.parse(s));
+ const stamp=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(s)&&Number.isFinite(Date.parse(s));
  const fields=['schema','bootstrapId','providerResourceId','sessionId','startsAt','endsAt','authorization'];
  if(!session||typeof session!=='object'||Array.isArray(session)||
     Object.keys(session).sort().join(',')!==fields.sort().join(','))throw Error('DB_RENEWAL_FIELDS');
@@ -44,7 +44,7 @@ export function replacementRenewalWindow(target,session,{now=Date.now}={}){
 // Administration/Owner/AAL2 authorization independently before executing SQL.
 export function replacementRenewalSQL(lease,passwords){
  if(!lease||lease.authorized!==false||typeof lease.roleValidUntil!=='string'||
-  !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(lease.roleValidUntil)||
+  !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(lease.roleValidUntil)||
   !passwords||!['registrar','broker'].every(r=>/^[a-f0-9]{48}$/.test(passwords[r]))||
   Object.keys(passwords).sort().join(',')!=='broker,registrar')throw Error('DB_RENEWAL_SQL_SCOPE');
  const valid=lease.roleValidUntil;
