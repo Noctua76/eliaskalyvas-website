@@ -40,6 +40,24 @@ export function replacementRenewalWindow(target,session,{now=Date.now}={}){
   roleValidUntil:new Date(Math.min(end,t+86400000,Date.parse(target.expiresAt))).toISOString(),
   authorized:false});
 }
+// Prepared-only replacement of existing scoped logins; caller MUST prove fresh
+// Administration/Owner/AAL2 authorization independently before executing SQL.
+export function replacementRenewalSQL(lease,passwords){
+ if(!lease||lease.authorized!==false||typeof lease.roleValidUntil!=='string'||
+  !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(lease.roleValidUntil)||
+  !passwords||!['registrar','broker'].every(r=>/^[a-f0-9]{48}$/.test(passwords[r]))||
+  Object.keys(passwords).sort().join(',')!=='broker,registrar')throw Error('DB_RENEWAL_SQL_SCOPE');
+ const valid=lease.roleValidUntil;
+ const lines=['BEGIN;','SET LOCAL TIME ZONE \'UTC\';'];
+ for(const role of ['registrar','broker'])
+  lines.push("ALTER ROLE nyra_accept_"+role+" PASSWORD '"+passwords[role]+"' VALID UNTIL '"+valid+"';");
+ // Terminate any existing sessions using previously issued credentials.
+ lines.push("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename IN ('nyra_accept_registrar','nyra_accept_broker') AND pid <> pg_backend_pid();");
+ lines.push('COMMIT;');
+ // Independent postgres 17 role-validity readback: no secrets in returned rows.
+ lines.push("SELECT rolname, to_char(rolvaliduntil AT TIME ZONE 'UTC', 'YYYY-MM-DD\\\"T\\\"HH24:MI:SS.MS\\\"Z\\\"') FROM pg_authid WHERE rolname IN ('nyra_accept_registrar','nyra_accept_broker') ORDER BY rolname;");
+ return lines.join('\\n')+'\\n';
+}
 async function main(){
  if(process.env.NYRA_REPOSITORY_DB!=='1'||process.getuid?.()!==0||process.argv[2]!=='--apply')throw Error('DISABLED');
  // Read the sealed SQL asset before any secret/network/container mutation.
