@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {validateReplacementTarget,CONTINUATION_HOST_MS} from '../ops/acceptance-bootstrap/replacement-target.mjs';
 import {renderUbuntuSetup} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
+import {validateLauncherSession} from '../ops/acceptance-bootstrap/repository-launch.mjs';
 const created='2026-11-06T09:00:00Z',expiry='2026-11-20T09:00:00Z';
 const target=()=>({schema:'nyra.acceptance.replacement.v2',bootstrapId:'nyra-acceptance-20261106-02',hostname:'nyra-acceptance-20261106-02',provider:'DigitalOcean',region:'fra1',origin:'https://nyra-acceptance.eliaskalyvas.gr',operatorCIDRs:['203.0.113.10/32'],cpu:4,memoryGiB:8,maximumHours:336,optionalResources:false,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',resourceId:'615221105',ipv4:'93.184.216.34',createdAt:created,expiresAt:expiry,authorization:false});
 const now=()=>Date.parse(created)+1000;
@@ -30,4 +31,17 @@ test('real generated installer distinguishes v2 14d and v1 24h',()=>{
  const script=renderUbuntuSetup(t,lock);
  assert.match(script,/1209600/);assert.match(script,/nyra-repository-expiry.timer/);
  assert.match(script,/Persistent=true/);assert.match(script,/\/usr\/local\/bin\/node/);
+});
+
+test('v2 launcher validates independent 24h session before starting private runtime',()=>{
+ const t=target(),start=Date.parse(created);
+ const valid={startsAt:new Date(start+86400000).toISOString(),endsAt:new Date(start+2*86400000).toISOString(),authorization:true};
+ const at=()=>start+86400000+1000;
+ const r=validateLauncherSession(t,valid,{now:at});assert.equal(r.end,valid.endsAt);
+ for(const bad of [
+  null,{...valid,authorization:false},{...valid,endsAt:new Date(start+3*86400000).toISOString()},
+  {...valid,endsAt:new Date(start+15*86400000).toISOString()},
+  {...valid,startsAt:new Date(start-1000).toISOString()},
+  {...valid,endsAt:valid.startsAt},{...valid,extra:true}
+ ])assert.throws(()=>validateLauncherSession(t,bad,{now:at}),/REPLACEMENT_LAUNCH_/);
 });
