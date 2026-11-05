@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {validateReplacementTarget,CONTINUATION_HOST_MS} from '../ops/acceptance-bootstrap/replacement-target.mjs';
 import {renderUbuntuSetup,renderCanonicalExpiryTimer,renderCanonicalExpiryService} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
 import {validateLauncherSession} from '../ops/acceptance-bootstrap/repository-launch.mjs';
-import {replacementRoleExpiry,replacementRenewalWindow} from '../ops/acceptance-bootstrap/repository-db.mjs';
+import {replacementRoleExpiry,replacementRenewalWindow,replacementRenewalSQL} from '../ops/acceptance-bootstrap/repository-db.mjs';
 const created='2026-11-06T09:00:00Z',expiry='2026-11-20T09:00:00Z';
 const target=()=>({schema:'nyra.acceptance.replacement.v2',bootstrapId:'nyra-acceptance-20261106-02',hostname:'nyra-acceptance-20261106-02',provider:'DigitalOcean',region:'fra1',origin:'https://nyra-acceptance.eliaskalyvas.gr',operatorCIDRs:['203.0.113.10/32'],cpu:4,memoryGiB:8,maximumHours:336,optionalResources:false,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',resourceId:'615221105',ipv4:'93.184.216.34',createdAt:created,expiresAt:expiry,authorization:false});
 const now=()=>Date.parse(created)+1000;
@@ -84,4 +84,23 @@ test('later PostgreSQL renewal is bound to one non-authorizing session and canno
   x=>x.endsAt='2026-11-09T09:00:00+00:00'
  ]){const bad={...session};mutate(bad);assert.throws(()=>replacementRenewalWindow(t,bad,{now:current}),/DB_RENEWAL_/);}
  assert.throws(()=>replacementRenewalWindow(t,session,{now:()=>begin+day}),/DB_RENEWAL_WINDOW/);
+});
+
+test('scoped PostgreSQL renewal SQL rotates both role passwords, disconnects old sessions and reads UTC validity',()=>{
+ const t=target(),day=86400000,begin=Date.parse(created)+2*day;
+ const session={schema:'nyra.acceptance.pg-session.v1',bootstrapId:t.bootstrapId,providerResourceId:t.resourceId,
+  sessionId:'d7df28d6-04c1-4b34-a32a-076c6d5be033',startsAt:new Date(begin).toISOString(),
+  endsAt:new Date(begin+day).toISOString(),authorization:false};
+ const lease=replacementRenewalWindow(t,session,{now:()=>begin+1000});
+ const sql=replacementRenewalSQL(lease,{registrar:'a'.repeat(48),broker:'b'.repeat(48)});
+ assert.match(sql,/^BEGIN;\n/);
+ assert.match(sql,/ALTER ROLE nyra_accept_registrar PASSWORD/);
+ assert.match(sql,/ALTER ROLE nyra_accept_broker PASSWORD/);
+ assert.equal((sql.match(/VALID UNTIL/g)||[]).length,2);
+ assert.match(sql,/pg_terminate_backend/);
+ assert.match(sql,/FROM pg_authid/);
+ assert.match(sql,/COMMIT;\nSELECT rolname/);
+ assert(!sql.includes(t.expiresAt));
+ assert.throws(()=>replacementRenewalSQL({...lease,authorized:true},{registrar:'a'.repeat(48),broker:'b'.repeat(48)}),/DB_RENEWAL_SQL_SCOPE/);
+ assert.throws(()=>replacementRenewalSQL(lease,{registrar:"a' OR 1=1",broker:'b'.repeat(48)}),/DB_RENEWAL_SQL_SCOPE/);
 });
