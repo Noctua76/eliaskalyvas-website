@@ -23,7 +23,7 @@ test('canonical installer source has one active expiry name and rejects stale al
  assert.match(script,/nyra-repository-expiry\.timer/);
  assert.match(script,/nyra-continuation-expiry\.timer/);
  assert.match(script,/os\.path\.lexists\(os\.path\.join\(base,name\)\)/);
- assert.match(script,/AccuracySec=1s/);
+ assert.match(renderCanonicalExpiryTimer(),/^AccuracySec=1s$/m);
 });
 
 test('native systemd unit parser validates canonical source-generated expiry service and timer',{skip:process.platform!=='linux',timeout:20000},async()=>{
