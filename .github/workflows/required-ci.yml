@@ -33,6 +33,8 @@ jobs:
         run: npm ci --ignore-scripts --prefix ops/acceptance-bootstrap/runtime
       - name: Essential regression suite
         run: npm test
+        env:
+          NYRA_NATIVE_DOCKER: '1'
 
   production-build:
     name: nyra-required-production-build
