@@ -30,7 +30,7 @@ test('real generated installer distinguishes v2 14d and v1 24h',()=>{
  const t=target();for(const k of ['resourceId','ipv4','createdAt','expiresAt'])t[k]=null;
  const lock=JSON.parse(readFileSync(new URL('../ops/acceptance-bootstrap/prerequisites.lock.json',import.meta.url),'utf8'));
  const script=renderUbuntuSetup(t,lock);
- assert.match(script,/1209600/);assert.match(script,/nyra-repository-expiry.timer/);
+ assert.match(script,/1209600/);assert.match(script,/start.microsecond==0 and end.microsecond==0/);assert.match(script,/nyra-repository-expiry.timer/);
  assert.match(script,/Persistent=true/);assert.match(script,/\/usr\/local\/bin\/node/);
 });
 
