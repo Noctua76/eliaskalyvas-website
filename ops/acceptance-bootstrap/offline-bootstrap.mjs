@@ -29,8 +29,8 @@ set -euo pipefail
 umask 077
 test "\${1:-}" = --install-host
 test "$(id -u)" = 0
-test "$(sha256sum manifest.json | cut -d ' ' -f 1)" = "\${2:?reviewed manifest SHA256 required}"
 cd -- "$(dirname -- "$0")"
+test "$(sha256sum manifest.json | cut -d ' ' -f 1)" = "\${2:?reviewed manifest SHA256 required}"
 python3 - <<'PY'
 import json,os,stat,datetime,socket
 expected=json.loads(${JSON.stringify(JSON.stringify(target))})
