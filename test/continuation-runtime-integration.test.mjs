@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {validateReplacementTarget,CONTINUATION_HOST_MS} from '../ops/acceptance-bootstrap/replacement-target.mjs';
 import {renderUbuntuSetup} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
 import {validateLauncherSession} from '../ops/acceptance-bootstrap/repository-launch.mjs';
+import {replacementRoleExpiry} from '../ops/acceptance-bootstrap/repository-db.mjs';
 const created='2026-11-06T09:00:00Z',expiry='2026-11-20T09:00:00Z';
 const target=()=>({schema:'nyra.acceptance.replacement.v2',bootstrapId:'nyra-acceptance-20261106-02',hostname:'nyra-acceptance-20261106-02',provider:'DigitalOcean',region:'fra1',origin:'https://nyra-acceptance.eliaskalyvas.gr',operatorCIDRs:['203.0.113.10/32'],cpu:4,memoryGiB:8,maximumHours:336,optionalResources:false,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',resourceId:'615221105',ipv4:'93.184.216.34',createdAt:created,expiresAt:expiry,authorization:false});
 const now=()=>Date.parse(created)+1000;
@@ -47,4 +48,14 @@ test('v2 launcher validates independent 24h session before starting private runt
   {...valid,startsAt:'2026-11-07T09:00:00+00:00'},
   {...valid,endsAt:'2026-11-08T09:00:00'}
  ])assert.throws(()=>validateLauncherSession(t,bad,{now:at}),/REPLACEMENT_LAUNCH_/);
+});
+
+test('v2 PostgreSQL credentials expire within 24h, never at 14-day host retirement',()=>{
+ const t=target(),start=Date.parse(created);
+ const soon=replacementRoleExpiry(t,{now:()=>start+1000});
+ assert.equal(soon,new Date(start+1000+86400000).toISOString());
+ assert.notEqual(soon,new Date(Date.parse(t.expiresAt)).toISOString());
+ const late=replacementRoleExpiry(t,{now:()=>Date.parse(expiry)-3600000});
+ assert.equal(late,new Date(Date.parse(expiry)).toISOString());
+ assert.throws(()=>replacementRoleExpiry(t,{now:()=>Date.parse(expiry)+1}),/REPLACEMENT_DEADLINE/);
 });
