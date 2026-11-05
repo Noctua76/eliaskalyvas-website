@@ -10,7 +10,7 @@ export function cleanupByDigest(planSHA256,{execute=(args)=>execFileSync('docker
  if(!/^[a-f0-9]{64}$/.test(planSHA256))throw Error('CLEANUP_SCOPE');
  const plan={planSHA256},label='com.noctua.nyra.acceptance='+planSHA256,removed=[];
  const resources=[
-  ['container',['ps','-aq','--no-trunc'],['rm','-f']],
+  ['container',['ps','-aq','--no-trunc'],['rm','-f','-v']],
   ['network',['network','ls','-q','--no-trunc'],['network','rm']],
   ['volume',['volume','ls','-q'],['volume','rm']]
  ];
