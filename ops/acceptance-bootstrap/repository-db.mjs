@@ -18,6 +18,28 @@ export function replacementRoleExpiry(target,{now=Date.now}={}){
   ?Math.min(Date.parse(target.expiresAt),t+86400000)
   :Date.parse(target.expiresAt)).toISOString();
 }
+// Compute a NEW credential lease only for a fully identified, independent
+// protected session. This is a time/scope guard, NOT Owner or OIDC authority.
+// Actual issuance additionally requires live trusted authorization and PG readback.
+export function replacementRenewalWindow(target,session,{now=Date.now}={}){
+ validateReplacementTarget(target,{created:true,now});
+ const stamp=s=>typeof s==='string'&&/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$/.test(s)&&Number.isFinite(Date.parse(s));
+ const fields=['schema','bootstrapId','providerResourceId','sessionId','startsAt','endsAt','authorization'];
+ if(!session||typeof session!=='object'||Array.isArray(session)||
+    Object.keys(session).sort().join(',')!==fields.sort().join(','))throw Error('DB_RENEWAL_FIELDS');
+ if(session.schema!=='nyra.acceptance.pg-session.v1'||session.authorization!==false||
+    session.bootstrapId!==target.bootstrapId||session.providerResourceId!==target.resourceId||
+    typeof session.sessionId!=='string'||!/^[a-f0-9]{8}-[a-f0-9-]{27,}$/.test(session.sessionId)||
+    !stamp(session.startsAt)||!stamp(session.endsAt))throw Error('DB_RENEWAL_IDENTITY');
+ const start=Date.parse(session.startsAt),end=Date.parse(session.endsAt),t=now();
+ if(!Number.isFinite(t)||start<Date.parse(target.createdAt)||start>t||
+    t>=end||start>=end||end-start>86400000||end>Date.parse(target.expiresAt))
+    throw Error('DB_RENEWAL_WINDOW');
+ return Object.freeze({sessionId:session.sessionId,bootstrapId:target.bootstrapId,
+  startsAt:session.startsAt,endsAt:session.endsAt,
+  roleValidUntil:new Date(Math.min(end,t+86400000,Date.parse(target.expiresAt))).toISOString(),
+  authorized:false});
+}
 async function main(){
  if(process.env.NYRA_REPOSITORY_DB!=='1'||process.getuid?.()!==0||process.argv[2]!=='--apply')throw Error('DISABLED');
  // Read the sealed SQL asset before any secret/network/container mutation.
