@@ -6,7 +6,7 @@ import {signingKeySHA256} from '../lib/publication/runtime/repository-policy.mjs
 import {verifyExtensionAuthority} from '../ops/acceptance-bootstrap/continuation-extension-authority.mjs';
 const t0='2026-11-06T09:00:00Z',old='2026-11-20T09:00:00Z',next='2026-11-27T09:00:00Z';
 const clock=()=>Date.parse('2026-11-16T09:00:10Z');
-const target={schema:'nyra.acceptance.replacement.v2',authorization:false,bootstrapId:'nyra-acceptance-20261106-02',resourceId:'615221105',expiresAt:old};
+const target={schema:'nyra.acceptance.replacement.v2',authorization:false,bootstrapId:'nyra-acceptance-20261106-02',hostname:'nyra-acceptance-20261106-02',provider:'DigitalOcean',region:'fra1',origin:'https://nyra-acceptance.eliaskalyvas.gr',operatorCIDRs:['203.0.113.10/32'],cpu:4,memoryGiB:8,maximumHours:336,optionalResources:false,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',resourceId:'615221105',ipv4:'93.184.216.34',createdAt:t0,expiresAt:old};
 const machineId='a'.repeat(32),generation='b'.repeat(64);
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const {publicKey,privateKey}=generateKeyPairSync('ed25519');
