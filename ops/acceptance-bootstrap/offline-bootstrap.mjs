@@ -20,6 +20,14 @@ export function mainAcceptanceBoundary({bootstrapHead,mainSHA,approvedPublicPlan
  const reasons=[];if(bootstrapHead!==mainSHA)reasons.push('REVIEWED_BOOTSTRAP_NOT_ON_PROTECTED_MAIN');if(!approvedPublicPlan)reasons.push('LIVE_PUBLIC_PLAN_NOT_INSTALLED_ON_PROTECTED_MAIN');
  return {canAcceptPR26OnMain:reasons.length===0,reasons,dispatchAuthorized:false,publicationAuthorized:false};
 }
+// Canonical installable expiry service and calendar template.
+export function renderCanonicalExpiryService(){
+ return '[Unit]\\nDescription=NYRA acceptance deadline cleanup\\nAfter=docker.service\\nAssertPathExists=/usr/local/sbin/nyra-repository-expire\\n[Service]\\nType=oneshot\\nTimeoutStartSec=180\\nExecStart=/usr/local/sbin/nyra-repository-expire\\nStandardOutput=journal\\nStandardError=journal\\n';
+}
+export function renderCanonicalExpiryTimer(calendar='@@DEADLINE@@'){
+ need(calendar==='@@DEADLINE@@'||/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2} UTC$/.test(calendar),'EXPIRY_CALENDAR');
+ return '[Unit]\\nDescription=NYRA acceptance deadline\\n[Timer]\\nOnCalendar='+calendar+'\\nAccuracySec=1s\\nPersistent=true\\nUnit=nyra-repository-expiry.service\\n[Install]\\nWantedBy=timers.target\\n';
+}
 export function renderUbuntuSetup(target,lock){
  validateReplacementTarget(target);need(['docker','caddy','ufw','iptables'].every(k=>/^[a-f0-9]{64}$/.test(lock[k]?.sha256)&&/^[A-Za-z0-9_.+-]+$/.test(lock[k]?.file)),'PREREQUISITES');
  const hashes=Object.values(lock).map(x=>x.sha256+'  vendor/'+x.file).join('\n');
@@ -138,7 +146,7 @@ install -m 0644 expiry.service /etc/systemd/system/nyra-repository-expiry.servic
 python3 - <<'PY'
 import json,datetime
 x=json.load(open('target.created.json'));end=datetime.datetime.fromisoformat(x['expiresAt'].replace('Z','+00:00')).strftime('%Y-%m-%d %H:%M:%S UTC')
-open('/etc/systemd/system/nyra-repository-expiry.timer','w').write('[Unit]\\nDescription=NYRA acceptance deadline\\n[Timer]\\nOnCalendar='+end+'\\nAccuracySec=1s\\nPersistent=true\\nUnit=nyra-repository-expiry.service\\n[Install]\\nWantedBy=timers.target\\n')
+template=open('expiry.timer.template').read()\nassert template.count('@@DEADLINE@@')==1\nopen('/etc/systemd/system/nyra-repository-expiry.timer','w').write(template.replace('@@DEADLINE@@',end))
 PY
 systemd-analyze verify /etc/systemd/system/nyra-repository-expiry.service /etc/systemd/system/nyra-repository-expiry.timer
 systemctl daemon-reload
@@ -179,7 +187,7 @@ export async function prepareOfflineBootstrap({target,vendor,destination}){
   'caddy.service':'[Unit]\nDescription=NYRA bounded acceptance HTTPS\nAfter=network-online.target\n[Service]\nUser=nyra-caddy\nGroup=nyra-caddy\nSupplementaryGroups=nyra-ingress\nEnvironment=XDG_DATA_HOME=/var/lib/nyra-caddy\nEnvironment=XDG_CONFIG_HOME=/var/lib/nyra-caddy\nExecStart=/usr/local/bin/caddy run --config /etc/nyra-acceptance/Caddyfile --adapter caddyfile\nAmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nPrivateTmp=true\nReadWritePaths=/var/lib/nyra-caddy\n[Install]\nWantedBy=multi-user.target\n',
   'runtime.service':'[Unit]\nDescription=NYRA explicitly authorized private acceptance\nAfter=docker.service\nRequires=docker.service\n[Service]\nType=simple\nEnvironment=NYRA_REPOSITORY_LAUNCH=1\nExecStart=/usr/local/bin/node /opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/repository-launch.mjs --run /opt/nyra-5c/private/launch.json\nTimeoutStopSec=15\nKillMode=control-group\nRestart=no\n',
   'owner.service':'[Unit]\nDescription=NYRA private existing owner MFA source\nAfter=network-online.target\n[Service]\nUser=nyra-owner\nGroup=nyra-owner\nSupplementaryGroups=nyra-receipts\nEnvironment=NYRA_ACCEPTANCE_OWNER_SOURCE=1\nExecStart=/usr/local/bin/node /opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/owner-source.mjs /var/lib/nyra-5c/owner/source.json\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nReadWritePaths=/var/lib/nyra-5c/owner /run/nyra-owner-receipts\nRestart=no\n',
-  'expiry.service':'[Unit]\nDescription=NYRA acceptance deadline cleanup\nAfter=docker.service\nAssertPathExists=/usr/local/sbin/nyra-repository-expire\n[Service]\nType=oneshot\nTimeoutStartSec=180\nExecStart=/usr/local/sbin/nyra-repository-expire\nStandardOutput=journal\nStandardError=journal\n',
+  'expiry.service':renderCanonicalExpiryService(),\n  'expiry.timer.template':renderCanonicalExpiryTimer(),
   'expire.sh':renderReplacementExpiry()
  };
  for(const [name,text]of Object.entries(files))await writeFile(join(dest,name),text,{flag:'wx',mode:name.endsWith('.sh')?0o700:0o600});
