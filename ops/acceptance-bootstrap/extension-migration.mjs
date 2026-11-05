@@ -3,7 +3,7 @@
 // NOT a host executable until the sealed trust adapters and native systemd
 // recovery journal are installed and independently accepted.
 import {createHash} from 'node:crypto';
-import {renderCanonicalExpiryTimer} from './offline-bootstrap.mjs';
+import {renderCanonicalExpiryTimer} from './canonical-expiry.mjs';
 import {verifyExtensionAuthority} from './continuation-extension-authority.mjs';
 const need=(v,c)=>{if(!v)throw Error('EXTENSION_MIGRATION_'+c);};
 const sha=s=>createHash('sha256').update(s).digest('hex');
