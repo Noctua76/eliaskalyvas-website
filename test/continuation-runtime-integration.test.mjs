@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {validateReplacementTarget,CONTINUATION_HOST_MS} from '../ops/acceptance-bootstrap/replacement-target.mjs';
-import {renderUbuntuSetup} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
+import {renderUbuntuSetup,renderCanonicalExpiryTimer,renderCanonicalExpiryService} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
 import {validateLauncherSession} from '../ops/acceptance-bootstrap/repository-launch.mjs';
 import {replacementRoleExpiry} from '../ops/acceptance-bootstrap/repository-db.mjs';
 const created='2026-11-06T09:00:00Z',expiry='2026-11-20T09:00:00Z';
@@ -32,7 +32,9 @@ test('real generated installer distinguishes v2 14d and v1 24h',()=>{
  const lock=JSON.parse(readFileSync(new URL('../ops/acceptance-bootstrap/prerequisites.lock.json',import.meta.url),'utf8'));
  const script=renderUbuntuSetup(t,lock);
  assert.match(script,/1209600/);assert.match(script,/start.microsecond==0 and end.microsecond==0/);assert.match(script,/nyra-repository-expiry.timer/);
- assert.match(script,/Persistent=true/);assert.match(script,/\/usr\/local\/bin\/node/);
+ assert.match(script,/expiry\.timer\.template/);assert.match(script,/\/usr\/local\/bin\/node/);
+ const timer=renderCanonicalExpiryTimer();assert.match(timer,/^Persistent=true$/m);assert.match(timer,/^AccuracySec=1s$/m);
+ assert.match(timer,/^Unit=nyra-repository-expiry\.service$/m);assert.match(renderCanonicalExpiryService(),/^AssertPathExists=\/usr\/local\/sbin\/nyra-repository-expire$/m);
 });
 
 test('v2 launcher validates independent 24h session before starting private runtime',()=>{
