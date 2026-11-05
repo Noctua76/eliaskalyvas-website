@@ -43,6 +43,8 @@ test('v2 launcher validates independent 24h session before starting private runt
   null,{...valid,authorization:true},{...valid,endsAt:new Date(start+3*86400000).toISOString()},
   {...valid,endsAt:new Date(start+15*86400000).toISOString()},
   {...valid,startsAt:new Date(start-1000).toISOString()},
-  {...valid,endsAt:valid.startsAt},{...valid,extra:true}
+  {...valid,endsAt:valid.startsAt},{...valid,extra:true},
+  {...valid,startsAt:'2026-11-07T09:00:00+00:00'},
+  {...valid,endsAt:'2026-11-08T09:00:00'}
  ])assert.throws(()=>validateLauncherSession(t,bad,{now:at}),/REPLACEMENT_LAUNCH_/);
 });
