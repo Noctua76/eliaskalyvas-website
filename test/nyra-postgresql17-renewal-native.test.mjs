@@ -34,6 +34,21 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
   assert(ready,'PostgreSQL 17 did not initialize in disposable container');
   const version=Number(admin('show server_version_num;'));
   assert(version>=170000&&version<180000,'Expected PostgreSQL 17');
+  // The image can accept local Unix-socket connections before exposing its
+  // TCP listener. Prove the same transport used by the authentication tests.
+  // Set the listener on loopback INSIDE the disposable container only:
+  // Docker still publishes no host ports and its network remains internal.
+  if(admin('show listen_addresses;')!=='127.0.0.1'||admin('show port;')!=='5432'){
+   admin("ALTER SYSTEM SET listen_addresses = '127.0.0.1';");
+   admin("ALTER SYSTEM SET port = '5432';");
+   docker(['restart',name]);
+  }
+  let tcpReady=false;
+  for(let i=0;i<100;i++){
+   try{docker(['exec',name,'pg_isready','-h','127.0.0.1','-p','5432','-U','postgres','-d','postgres']);tcpReady=true;break;}
+   catch{await delay(500);}
+  }
+  assert(tcpReady,'PostgreSQL TCP listener not ready on container loopback:5432');
   assert.equal(docker(['network','inspect','-f','{{.Internal}}',net]),'true');
   assert(['{}','null'].includes(docker(['inspect','-f','{{json .HostConfig.PortBindings}}',name])));
   admin("create role nyra_accept_registrar login password '"+old.registrar+"'; "+
