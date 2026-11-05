@@ -72,7 +72,7 @@ test('replacement host expiry script parses, checks actual UTC deadline, preserv
  try{
   const file=join(dir,'expire.sh');await writeFile(file,script);execFileSync('bash',['-n',file]);
   assert.match(script,/total_seconds\(\)==1209600/);
-  assert.match(script,/cleanup_rc=0/);assert.match(script,/trap retirement_record EXIT/);assert.match(script,/\/var\/lib\/nyra-retirement\/status\.log/);assert.match(script,/sync -f/);assert.match(script,/stop_rc=0/);assert.match(script,/systemctl is-active --quiet/);assert.match(script,/test \"\$stop_rc\" -ne 0/);
+  assert.match(script,/cleanup_rc=0/);assert.match(script,/trap retirement_record EXIT/);assert.match(script,/\/var\/lib\/nyra-retirement\/status\.log/);assert.match(script,/sync -f/);assert.match(script,/stop_rc=0/);assert.match(script,/private_rc=0/);assert.match(script,/test ! -e/);assert.match(script,/systemctl is-active --quiet/);assert.match(script,/test \"\$stop_rc\" -ne 0/);
   assert.match(script,/LOCAL_RETIREMENT_PARTIAL_/);
   assert.match(script,/LOCAL_SCOPED_CLEANUP_COMPLETE_/);
   assert.match(script,/stat -c/);
