@@ -25,7 +25,7 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
   docker(['network','create','--internal',net]);network=true;
   docker(['run','-d','--name',name,'--network',net,'--restart','no',
    '--security-opt','no-new-privileges:true','-e','POSTGRES_PASSWORD='+secret(),
-   '-e','POSTGRES_DB=postgres',IMAGE]);container=true;
+   '-e','POSTGRES_DB=postgres',IMAGE,'postgres','-c','listen_addresses=127.0.0.1']);container=true;
   let ready=false;
   for(let i=0;i<100;i++){
    try{docker(['exec',name,'pg_isready','-U','postgres','-d','postgres']);ready=true;break;}
@@ -34,15 +34,12 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
   assert(ready,'PostgreSQL 17 did not initialize in disposable container');
   const version=Number(admin('show server_version_num;'));
   assert(version>=170000&&version<180000,'Expected PostgreSQL 17');
-  // The image can accept local Unix-socket connections before exposing its
-  // TCP listener. Prove the same transport used by the authentication tests.
-  // Set the listener on loopback INSIDE the disposable container only:
-  // Docker still publishes no host ports and its network remains internal.
-  if(admin('show listen_addresses;')!=='127.0.0.1'||admin('show port;')!=='5432'){
-   admin("ALTER SYSTEM SET listen_addresses = '127.0.0.1';");
-   admin("ALTER SYSTEM SET port = '5432';");
-   docker(['restart',name]);
-  }
+  // Configure loopback TCP when the disposable PostgreSQL server starts.
+  // ALTER SYSTEM is deliberately not used: Supabase's image can restrict the
+  // postgres login from changing postmaster-only settings after startup.
+  // Never expose a host port and keep the Docker network internal.
+  assert.equal(admin('show listen_addresses;'),'127.0.0.1');
+  assert.equal(admin('show port;'),'5432');
   let tcpReady=false;
   for(let i=0;i<100;i++){
    try{docker(['exec',name,'pg_isready','-h','127.0.0.1','-p','5432','-U','postgres','-d','postgres']);tcpReady=true;break;}
