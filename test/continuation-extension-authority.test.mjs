@@ -4,6 +4,7 @@ import {generateKeyPairSync,sign,createHash} from 'node:crypto';
 import {hashJSON} from '../lib/publication/contract.mjs';
 import {signingKeySHA256} from '../lib/publication/runtime/repository-policy.mjs';
 import {verifyExtensionAuthority} from '../ops/acceptance-bootstrap/continuation-extension-authority.mjs';
+import {migrateExtensionGeneration} from '../ops/acceptance-bootstrap/extension-migration.mjs';
 const t0='2026-11-06T09:00:00Z',old='2026-11-20T09:00:00Z',next='2026-11-27T09:00:00Z';
 const clock=()=>Date.parse('2026-11-16T09:00:10Z');
 const target={schema:'nyra.acceptance.replacement.v2',authorization:false,bootstrapId:'nyra-acceptance-20261106-02',hostname:'nyra-acceptance-20261106-02',provider:'DigitalOcean',region:'fra1',origin:'https://nyra-acceptance.eliaskalyvas.gr',operatorCIDRs:['203.0.113.10/32'],cpu:4,memoryGiB:8,maximumHours:336,optionalResources:false,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',resourceId:'615221105',ipv4:'93.184.216.34',createdAt:t0,expiresAt:old};
@@ -39,4 +40,45 @@ test('extension authority refuses self approval, malformed signed record, forged
  await assert.rejects(valid(e),/EXTENSION_AUTH_SIGNATURE/);
  await assert.rejects(verifyExtensionAuthority({target,envelope:envelope(record()),ownerPublicJWK:jwk,ownerKeyId:keyId,expectedKeySHA256:'f'.repeat(64),machineId,previousGenerationSHA256:generation,now:clock}),/EXTENSION_AUTH_KEY_PIN/);
  await assert.rejects(verifyExtensionAuthority({target,envelope:envelope(record()),ownerPublicJWK:jwk,ownerKeyId:keyId,expectedKeySHA256:pin,machineId,previousGenerationSHA256:generation,now:()=>Date.parse('2026-11-16T09:06:00Z')}),/EXTENSION_AUTH_FRESHNESS/);
+});
+
+test('generation migration stages and independently reads new expiry while old timer stays armed',async()=>{
+ const oldGeneration={enabled:true,active:true,service:'nyra-repository-expiry.service',deadline:old,generationSHA256:generation};
+ let candidate,staged=false,active=false,committed=false;
+ const hooks={
+  target,envelope:envelope(record()),ownerPublicJWK:jwk,ownerKeyId:keyId,
+  expectedKeySHA256:pin,machineId,now:clock,
+  readCurrent:async()=>oldGeneration,replaySeen:async()=>false,
+  assertFreshOwnerMFA:async()=>true,assertFreshAdministration:async()=>true,
+  stageCandidate:async x=>{candidate=x;staged=true;},
+  readCandidate:async()=>({sha256:candidate.candidateSHA256,enabled:true,active:true,deadline:next,
+   unit:'nyra-repository-expiry.service',originalStillArmed:true}),
+  activate:async x=>{assert.equal(x.retainOldUntilVerified,true);active=true;},
+  readEffective:async()=>({enabled:active,active,deadline:next,sha256:candidate.candidateSHA256,unit:'nyra-repository-expiry.service'}),
+  commitReceipt:async x=>{assert.equal(x.replayProtection,true);committed=true;return true;},
+  rollback:async()=>{throw Error('MUST_NOT_ROLLBACK');}
+ };
+ const result=await migrateExtensionGeneration(hooks);
+ assert.equal(result.newDeadline,next);assert.equal(result.credentialsExtended,false);
+ assert.equal(result.originalTimerRetirementAuthorized,false);
+ assert(staged&&active&&committed);
+});
+test('generation migration refuses replay, absent AAL2 and failed staging, rolls back original timer',async()=>{
+ const oldGeneration={enabled:true,active:true,service:'nyra-repository-expiry.service',deadline:old,generationSHA256:generation};
+ let recovered=0,stageCalls=0;
+ const hooks={target,envelope:envelope(record()),ownerPublicJWK:jwk,ownerKeyId:keyId,
+  expectedKeySHA256:pin,machineId,now:clock,readCurrent:async()=>oldGeneration,
+  replaySeen:async()=>false,assertFreshOwnerMFA:async()=>true,assertFreshAdministration:async()=>true,
+  stageCandidate:async()=>{stageCalls++;},readCandidate:async()=>({active:false}),
+  activate:async()=>{throw Error('MUST_NOT_ACTIVATE');},
+  readEffective:async()=>{throw Error('MUST_NOT_READ');},
+  commitReceipt:async()=>{throw Error('MUST_NOT_COMMIT');},
+  rollback:async()=>{recovered++;}
+ };
+ await assert.rejects(migrateExtensionGeneration({...hooks,replaySeen:async()=>true}),/EXTENSION_MIGRATION_REPLAY/);
+ await assert.rejects(migrateExtensionGeneration({...hooks,assertFreshOwnerMFA:async()=>false}),/EXTENSION_MIGRATION_OWNER_AAL2/);
+ assert.equal(stageCalls,0);
+ await assert.rejects(migrateExtensionGeneration(hooks),/EXTENSION_MIGRATION_CANDIDATE_READBACK/);
+ assert.equal(recovered,1);
+ await assert.rejects(migrateExtensionGeneration({...hooks,rollback:async()=>{throw Error('CRASH');}}),/EXTENSION_MIGRATION_ROLLBACK_UNVERIFIED/);
 });
