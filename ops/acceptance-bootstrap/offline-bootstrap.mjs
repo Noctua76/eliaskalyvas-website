@@ -45,6 +45,13 @@ start=datetime.datetime.fromisoformat(t['createdAt'].replace('Z','+00:00'));end=
 assert (start<=now<end and start.microsecond==0 and end.microsecond==0 and (end-start).total_seconds()==1209600) if t['schema']=='nyra.acceptance.replacement.v2' else (start<=now<end and 0<(end-start).total_seconds()<=86400)
 assert socket.gethostname()==t['hostname']
 assert not any(os.path.exists(x) for x in ['/opt/nyra-5c/private','/var/lib/nyra-5c','/run/nyra-5c','/etc/nyra-acceptance'])
+# No parallel expiry schedule, stale host service, or masked/shadowed timer.
+# A clean host has no pre-existing NYRA expiry units in any systemd load path.
+for name in ['nyra-continuation-expiry.service','nyra-continuation-expiry.timer',
+             'nyra-repository-expiry.service','nyra-repository-expiry.timer']:
+ for base in ['/etc/systemd/system','/run/systemd/system','/usr/local/lib/systemd/system','/usr/lib/systemd/system','/lib/systemd/system']:
+  assert not os.path.lexists(os.path.join(base,name)), ('EXISTING_EXPIRY_UNIT',name)
+
 release=dict(x.strip().split('=',1) for x in open('/etc/os-release') if '=' in x)
 assert release['ID'].strip('"')=='ubuntu' and release['VERSION_ID'].strip('"')=='24.04' and os.uname().machine=='x86_64'
 PY
