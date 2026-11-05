@@ -16,9 +16,10 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
  const old={registrar:secret(),broker:secret()},fresh={registrar:secret(),broker:secret()};
  let network=false,container=false;
  const admin=(sql)=>docker(['exec','-i',name,'psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'],sql);
+ let lastAuthFailure='';
  const login=(user,password)=>{
   try{return docker(['exec','-e','PGPASSWORD='+password,name,'psql','-X','-h','127.0.0.1','-U',user,'-d','postgres','-t','-A','-c','select current_user']);}
-  catch{return null;}
+  catch(e){lastAuthFailure=String(e?.stderr??'').replace(/(?:PGPASSWORD|password=)[^\\s]+/gi,'[REDACTED]').slice(0,240);return null;}
  };
  try{
   docker(['network','create','--internal',net]);network=true;
@@ -38,8 +39,8 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
   admin("create role nyra_accept_registrar login password '"+old.registrar+"'; "+
         "create role nyra_accept_broker login password '"+old.broker+"'; "+
         "grant connect on database postgres to nyra_accept_registrar,nyra_accept_broker;");
-  assert.equal(login('nyra_accept_registrar',old.registrar),'nyra_accept_registrar');
-  assert.equal(login('nyra_accept_broker',old.broker),'nyra_accept_broker');
+  assert.equal(login('nyra_accept_registrar',old.registrar),'nyra_accept_registrar',lastAuthFailure);
+  assert.equal(login('nyra_accept_broker',old.broker),'nyra_accept_broker',lastAuthFailure);
   const now=Math.floor(Date.now()/1000)*1000,created=new Date(now-1000).toISOString();
   const target={schema:'nyra.acceptance.replacement.v2',
    bootstrapId:'nyra-acceptance-20261106-02',hostname:'nyra-acceptance-20261106-02',
