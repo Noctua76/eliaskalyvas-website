@@ -3,12 +3,14 @@
 import {createHash} from 'node:crypto';
 import {verifyEvidence} from '../../lib/publication/runtime/acceptance-evidence.mjs';
 import {signingKeySHA256} from '../../lib/publication/runtime/repository-policy.mjs';
+import {validateReplacementTarget} from './replacement-target.mjs';
 const need=(x,k)=>{if(!x)throw Error('EXTENSION_AUTH_'+k);};
 const digest=x=>createHash('sha256').update(x).digest('hex');
 const utc=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(x)&&Number.isFinite(Date.parse(x));
 const keys=(x,k)=>x&&typeof x==='object'&&!Array.isArray(x)&&Object.keys(x).sort().join(',')===k.slice().sort().join(',');
 export async function verifyExtensionAuthority({target,envelope,ownerPublicJWK,ownerKeyId,expectedKeySHA256,machineId,previousGenerationSHA256,now=Date.now}){
  need(target?.schema==='nyra.acceptance.replacement.v2'&&target.authorization===false,'TARGET');
+ validateReplacementTarget(target,{created:true,now});
  need(/^[a-f0-9]{64}$/.test(expectedKeySHA256)&&signingKeySHA256(ownerPublicJWK)===expectedKeySHA256,'KEY_PIN');
  let key;
  try{key=await crypto.subtle.importKey('jwk',ownerPublicJWK,'Ed25519',false,['verify']);}
