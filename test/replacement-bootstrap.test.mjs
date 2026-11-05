@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {repositoryTrustFixture} from './fixtures/repository-trust.mjs';
 import {validateReplacementTarget,assessReplacementHost} from '../ops/acceptance-bootstrap/replacement-target.mjs';
-import {renderUbuntuSetup,replacementCaddy,mainAcceptanceBoundary} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
+import {renderUbuntuSetup,replacementCaddy,mainAcceptanceBoundary,renderReplacementExpiry} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
 import {reviewedAcceptancePolicies} from '../lib/publication/integration/live-acceptance.mjs';
 import {reviewedIntegrationPolicy} from '../lib/publication/integration/policy.mjs';
 import {replacementRoleArgs,cleanupReplacement} from '../ops/acceptance-bootstrap/repository-launch.mjs';
@@ -65,4 +65,19 @@ test('Scoped probe broker cannot consume inventory registered under an older tru
 test('Target-configurable ingress rejects the retired origin and unexpected routes before any private acceptance',async()=>{
  const {createIngressHandler}=await import('../ops/acceptance-bootstrap/live-ingress.mjs');let accepts=0;const handler=createIngressHandler({origin:target().origin,enabled:true,watcher:{isReady:async()=>false},acceptors:Object.fromEntries(['build','inspection','publication'].map(r=>[r,async()=>{accepts++;}]))});
  assert.equal((await handler(new Request('https://nyra-5c.eliaskalyvas.gr/ready/build/1/1'))).status,404);assert.equal((await handler(new Request(target().origin+'/owner'))).status,404);assert.equal((await handler(new Request(target().origin+'/ready/build/1/1'))).status,200);assert.equal(accepts,0);
+});
+
+test('replacement host expiry script parses, checks actual UTC deadline, preserves signed evidence and reports partial cleanup',async()=>{
+ const script=renderReplacementExpiry(),dir=await mkdtemp(join(tmpdir(),'nyra-expiry-test-'));
+ try{
+  const file=join(dir,'expire.sh');await writeFile(file,script);execFileSync('bash',['-n',file]);
+  assert.match(script,/total_seconds\(\)==1209600/);
+  assert.match(script,/cleanup_rc=0/);
+  assert.match(script,/LOCAL_RETIREMENT_PARTIAL_/);
+  assert.match(script,/LOCAL_SCOPED_CLEANUP_COMPLETE_/);
+  assert.match(script,/stat -c/);
+  assert(!script.includes('rm -rf -- "/var/lib/nyra-5c/coordinator/evidence"'));
+  assert(!script.includes('doctl '));
+  assert(!script.includes('api.digitalocean.com'));
+ }finally{await rm(dir,{recursive:true,force:true});}
 });
