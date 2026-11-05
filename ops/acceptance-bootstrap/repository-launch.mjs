@@ -29,8 +29,9 @@ export function validateLauncherSession(target,session,{now=Date.now}={}){
  if(target?.schema!=='nyra.acceptance.replacement.v2')return {start:target.createdAt,end:target.expiresAt};
  need(session&&typeof session==='object'&&!Array.isArray(session),'SESSION_REQUIRED');
  need(Object.keys(session).sort().join(',')==='authorization,endsAt,startsAt','SESSION_FIELDS');
+ const utc=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(s)&&Number.isFinite(Date.parse(s));
  const a=Date.parse(session.startsAt),b=Date.parse(session.endsAt),t=now();
- need(session.authorization===false&&Number.isFinite(a)&&Number.isFinite(b)&&Number.isFinite(t)&&
+ need(session.authorization===false&&utc(session.startsAt)&&utc(session.endsAt)&&Number.isFinite(a)&&Number.isFinite(b)&&Number.isFinite(t)&&
   a>=Date.parse(target.createdAt)&&a<=t&&t<b&&b<=Date.parse(target.expiresAt)&&b-a<=86400000,
   'SESSION_AUTH_OR_WINDOW');
  return Object.freeze({start:session.startsAt,end:session.endsAt});
