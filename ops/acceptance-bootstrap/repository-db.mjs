@@ -48,7 +48,7 @@ export function replacementRenewalSQL(lease,passwords){
   !passwords||!['registrar','broker'].every(r=>/^[a-f0-9]{48}$/.test(passwords[r]))||
   Object.keys(passwords).sort().join(',')!=='broker,registrar')throw Error('DB_RENEWAL_SQL_SCOPE');
  const valid=lease.roleValidUntil;
- const lines=['BEGIN;','SET LOCAL TIME ZONE \'UTC\';'];
+ const lines=['BEGIN;','SET LOCAL TIME ZONE \'UTC\';',"SET LOCAL password_encryption = 'scram-sha-256';"];
  for(const role of ['registrar','broker'])
   lines.push("ALTER ROLE nyra_accept_"+role+" PASSWORD '"+passwords[role]+"' VALID UNTIL '"+valid+"';");
  // Terminate any existing sessions using previously issued credentials.
@@ -90,6 +90,13 @@ async function main(){
   const current=JSON.parse(run(['inspect','-f','{{json .HostConfig.PortBindings}}','nyra-repository-pg']));
   if(current&&Object.keys(current).length)throw Error('DB_PORT_PUBLISHED');
   if(run(['network','inspect','-f','{{.Internal}}','nyra-repository-db'])!=='true')throw Error('DB_NETWORK_NOT_INTERNAL');
+  // The exact private registrar/broker TCP logins must never inherit trust auth.
+  const hba=run(psql,'SHOW hba_file;').trim();
+  if(!/^\/[A-Za-z0-9_./-]+$/.test(hba)||hba.includes('..'))throw Error('DB_HBA_PATH');
+  run(['exec','--user','root','nyra-repository-pg','sh','-ec',"set -eu\np=\"$1\"\ntest -f \"$p\" && test ! -L \"$p\"\nif grep -qx \"# NYRA_PRIVATE_SCRAM_V1\" \"$p\"; then exit 0; fi\nt=$(mktemp \"$p.nyra.XXXXXX\")\ntrap 'rm -f -- \"$t\"' EXIT\nprintf \"%s\\n\" \"# NYRA_PRIVATE_SCRAM_V1\" \"host all nyra_accept_registrar 0.0.0.0/0 scram-sha-256\" \"host all nyra_accept_broker 0.0.0.0/0 scram-sha-256\" \"host all nyra_accept_registrar ::/0 scram-sha-256\" \"host all nyra_accept_broker ::/0 scram-sha-256\" > \"$t\"\ncat -- \"$p\" >> \"$t\"\nchown --reference=\"$p\" \"$t\"\nchmod --reference=\"$p\" \"$t\"\nmv -f -- \"$t\" \"$p\"\ntrap - EXIT",'nyra-hba',hba]);
+  if(run(privileged,'SELECT pg_reload_conf();')!=='t')throw Error('DB_HBA_RELOAD');
+  const hbaRules=run(privileged,"SELECT count(*) FROM pg_hba_file_rules WHERE type='host' AND auth_method='scram-sha-256' AND user_name && ARRAY['nyra_accept_registrar','nyra_accept_broker'];");
+  if(Number(hbaRules)<4)throw Error('DB_HBA_NOT_VERIFIED');
   run(psql,schema);
   run(psql,loginsSQL(passwords.registrar,passwords.broker));
   // A 14-day host is NOT a 14-day login lease. New sessions require

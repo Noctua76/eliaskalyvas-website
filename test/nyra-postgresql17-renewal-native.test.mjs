@@ -58,7 +58,15 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
   assert(tcpReady,'PostgreSQL TCP listener not ready on container loopback:5432');
   assert.equal(docker(['network','inspect','-f','{{.Internal}}',net]),'true');
   assert(['{}','null'].includes(docker(['inspect','-f','{{json .HostConfig.PortBindings}}',name])));
-  admin("create role nyra_accept_registrar login password '"+old.registrar+"'; "+
+  // Enforce SCRAM on the disposable image instead of accepting trust auth.
+  const hba=admin('SHOW hba_file;').trim();
+  assert(/^\/[A-Za-z0-9_./-]+$/.test(hba)&&!hba.includes('..'));
+  docker(['exec','--user','root',name,'sh','-ec',"set -eu\np=\"$1\"\ntest -f \"$p\" && test ! -L \"$p\"\nif grep -qx \"# NYRA_PRIVATE_SCRAM_V1\" \"$p\"; then exit 0; fi\nt=$(mktemp \"$p.nyra.XXXXXX\")\ntrap 'rm -f -- \"$t\"' EXIT\nprintf \"%s\\n\" \"# NYRA_PRIVATE_SCRAM_V1\" \"host all nyra_accept_registrar 0.0.0.0/0 scram-sha-256\" \"host all nyra_accept_broker 0.0.0.0/0 scram-sha-256\" \"host all nyra_accept_registrar ::/0 scram-sha-256\" \"host all nyra_accept_broker ::/0 scram-sha-256\" > \"$t\"\ncat -- \"$p\" >> \"$t\"\nchown --reference=\"$p\" \"$t\"\nchmod --reference=\"$p\" \"$t\"\nmv -f -- \"$t\" \"$p\"\ntrap - EXIT",'nyra-hba',hba]);
+  const superSQL=sql=>docker(['exec','-i',name,'psql','-X','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'],sql);
+  assert.equal(superSQL('SELECT pg_reload_conf();'),'t');
+  const rules=superSQL("SELECT count(*) FROM pg_hba_file_rules WHERE type='host' AND auth_method='scram-sha-256' AND user_name && ARRAY['nyra_accept_registrar','nyra_accept_broker'];");
+  assert(Number(rules)>=4,'SCRAM HBA rules not present');
+  admin("SET password_encryption='scram-sha-256'; create role nyra_accept_registrar login password '"+old.registrar+"'; "+
         "create role nyra_accept_broker login password '"+old.broker+"'; "+
         "grant connect on database postgres to nyra_accept_registrar,nyra_accept_broker;");
   assert.equal(login('nyra_accept_registrar',old.registrar),'nyra_accept_registrar',lastAuthFailure);
