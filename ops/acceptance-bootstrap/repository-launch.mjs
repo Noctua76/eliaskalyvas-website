@@ -23,13 +23,14 @@ export function cleanupReplacement(target,{execute,apply=false}={}){
  validateReplacementTarget(target,{created:true,allowExpired:true});return cleanupByDigest(hashJSON(target),{execute,apply});
 }
 // Session time contract must be checked BEFORE creating private files, locks or Docker roles.
-// This is not an authorization receipt; real Administration/Owner/MFA gates remain mandatory.
+// Time-only, NON-AUTHORIZING session proposal; never accept authorization:true as proof.
+// Real Administration and Owner/MFA gates must separately validate fresh signed evidence.
 export function validateLauncherSession(target,session,{now=Date.now}={}){
  if(target?.schema!=='nyra.acceptance.replacement.v2')return {start:target.createdAt,end:target.expiresAt};
  need(session&&typeof session==='object'&&!Array.isArray(session),'SESSION_REQUIRED');
  need(Object.keys(session).sort().join(',')==='authorization,endsAt,startsAt','SESSION_FIELDS');
  const a=Date.parse(session.startsAt),b=Date.parse(session.endsAt),t=now();
- need(session.authorization===true&&Number.isFinite(a)&&Number.isFinite(b)&&Number.isFinite(t)&&
+ need(session.authorization===false&&Number.isFinite(a)&&Number.isFinite(b)&&Number.isFinite(t)&&
   a>=Date.parse(target.createdAt)&&a<=t&&t<b&&b<=Date.parse(target.expiresAt)&&b-a<=86400000,
   'SESSION_AUTH_OR_WINDOW');
  return Object.freeze({start:session.startsAt,end:session.endsAt});
