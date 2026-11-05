@@ -133,6 +133,7 @@ import json,datetime
 x=json.load(open('target.created.json'));end=datetime.datetime.fromisoformat(x['expiresAt'].replace('Z','+00:00')).strftime('%Y-%m-%d %H:%M:%S UTC')
 open('/etc/systemd/system/nyra-repository-expiry.timer','w').write('[Unit]\\nDescription=NYRA acceptance deadline\\n[Timer]\\nOnCalendar='+end+'\\nPersistent=true\\nUnit=nyra-repository-expiry.service\\n[Install]\\nWantedBy=timers.target\\n')
 PY
+systemd-analyze verify /etc/systemd/system/nyra-repository-expiry.service /etc/systemd/system/nyra-repository-expiry.timer
 systemctl daemon-reload
 systemctl enable --now nyra-repository-expiry.timer
 systemctl is-enabled --quiet nyra-repository-expiry.timer
