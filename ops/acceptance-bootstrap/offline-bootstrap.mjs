@@ -160,6 +160,10 @@ import subprocess,json,datetime,os
 def prop(unit,name):
  return subprocess.check_output(['systemctl','show',unit,'--property='+name,'--value'],text=True).strip()
 t=json.load(open('target.created.json'))
+expected_calendar=datetime.datetime.fromisoformat(t['expiresAt'].replace('Z','+00:00')).strftime('%Y-%m-%d %H:%M:%S UTC')
+expected_timer=open('expiry.timer.template').read().replace('@@DEADLINE@@',expected_calendar)
+assert open('/etc/systemd/system/nyra-repository-expiry.timer').read()==expected_timer
+assert open('/etc/systemd/system/nyra-repository-expiry.service').read()==open('expiry.service').read()
 assert prop('nyra-repository-expiry.timer','Unit')=='nyra-repository-expiry.service'
 assert prop('nyra-repository-expiry.timer','Persistent')=='yes'
 assert prop('nyra-repository-expiry.timer','FragmentPath')=='/etc/systemd/system/nyra-repository-expiry.timer'
