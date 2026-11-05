@@ -22,7 +22,8 @@ test('v2 refuses 24h host, 21-day host, retired ID, altered owner baseline and u
   t=>t.expiresAt='2026-11-27T09:00:00Z',
   t=>t.resourceId='615221104',t=>t.bootstrapId='nyra-acceptance-20261102-01',
   t=>t.reviewedHead='1dbeb46c4ad7ac39dfc313bf47361bf2868e50ee',
-  t=>t.authorization=true,t=>t.createdAt='2026-11-06T09:00:00+00:00'
+  t=>t.authorization=true,t=>t.createdAt='2026-11-06T09:00:00+00:00',
+  t=>{t.createdAt='2026-11-06T09:00:00.123Z';t.expiresAt='2026-11-20T09:00:00.123Z';}
  ]){const t=target();mutate(t);assert.throws(()=>validateReplacementTarget(t,{created:true,now}));}
 });
 test('real generated installer distinguishes v2 14d and v1 24h',()=>{
