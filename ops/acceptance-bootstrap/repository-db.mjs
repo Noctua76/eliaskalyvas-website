@@ -79,7 +79,7 @@ async function main(){
   // TCP inside the --internal Docker network, so a local socket check alone
   // cannot establish DB readiness. Never publish a host port.
   const privileged=['exec','-i','nyra-repository-pg','psql','-X','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1'];
-  const psql=['exec','-i','nyra-repository-pg','psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1'];
+  const psql=['exec','-i','nyra-repository-pg','psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'];
   if(run(psql,'SHOW listen_addresses;').trim()!=='*'){
    run(privileged,"ALTER SYSTEM SET listen_addresses = '*';");
    run(['restart','nyra-repository-pg']);
