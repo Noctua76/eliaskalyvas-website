@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {mkdtemp,writeFile,chmod,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {randomBytes} from 'node:crypto';
 import {renderCanonicalExpiryService,renderCanonicalExpiryTimer} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
 import {validateReplacementTarget} from '../ops/acceptance-bootstrap/replacement-target.mjs';
 const start='2026-11-06T09:00:00Z',end='2026-11-20T09:00:00Z';
@@ -41,4 +42,36 @@ test('native systemd unit parser validates canonical source-generated expiry ser
   execFileSync('systemd-analyze',['verify',service,timer],{encoding:'utf8',timeout:15000});
   assert.throws(()=>renderCanonicalExpiryTimer('2026-11-23 09:00:00; shutdown -h now'),/OFFLINE_BOOTSTRAP_EXPIRY_CALENDAR/);
  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('native disposable systemd timer install, restart and effective readback on Ubuntu CI',{skip:process.env.NYRA_NATIVE_SYSTEMD!=='1'||process.platform!=='linux',timeout:60000},async()=>{
+ const id='nyra-ci-'+randomBytes(6).toString('hex'),service=id+'.service',timer=id+'.timer';
+ const root='/etc/systemd/system',dir=await mkdtemp(join(tmpdir(),id+'-'));
+ const servicePath=join(root,service),timerPath=join(root,timer);
+ const sudo=args=>execFileSync('sudo',args,{encoding:'utf8',timeout:15000}).trim();
+ const date=new Date(Math.ceil(Date.now()/1000)*1000+14*86400000);
+ const calendar=date.toISOString().slice(0,19).replace('T',' ')+' UTC';
+ try{
+  const localService=join(dir,service),localTimer=join(dir,timer);
+  await writeFile(localService,renderCanonicalExpiryService().replaceAll('/usr/local/sbin/nyra-repository-expire','/usr/bin/true'));
+  await writeFile(localTimer,renderCanonicalExpiryTimer(calendar).replace('Unit=nyra-repository-expiry.service','Unit='+service));
+  sudo(['install','-m','0644',localService,servicePath]);
+  sudo(['install','-m','0644',localTimer,timerPath]);
+  sudo(['systemd-analyze','verify',servicePath,timerPath]);
+  sudo(['systemctl','daemon-reload']);
+  sudo(['systemctl','enable','--now',timer]);
+  assert.equal(sudo(['systemctl','is-enabled',timer]),'enabled');
+  assert.equal(sudo(['systemctl','is-active',timer]),'active');
+  assert.equal(sudo(['systemctl','show',timer,'--property=Persistent','--value']),'yes');
+  let next=sudo(['systemctl','show',timer,'--property=NextElapseUSecRealtime','--value']);
+  assert(next.includes(calendar),next);
+  sudo(['systemctl','restart',timer]);
+  next=sudo(['systemctl','show',timer,'--property=NextElapseUSecRealtime','--value']);
+  assert(next.includes(calendar),next);
+ }finally{
+  try{sudo(['systemctl','disable','--now',timer]);}catch{}
+  try{sudo(['rm','-f',servicePath,timerPath]);}catch{}
+  try{sudo(['systemctl','daemon-reload']);}catch{}
+  await rm(dir,{recursive:true,force:true});
+ }
 });
