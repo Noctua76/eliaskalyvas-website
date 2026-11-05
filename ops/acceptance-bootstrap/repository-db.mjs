@@ -55,7 +55,7 @@ export function replacementRenewalSQL(lease,passwords){
  lines.push("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename IN ('nyra_accept_registrar','nyra_accept_broker') AND pid <> pg_backend_pid();");
  lines.push('COMMIT;');
  // Independent postgres 17 role-validity readback: no secrets in returned rows.
- lines.push("SELECT rolname, to_char(rolvaliduntil AT TIME ZONE 'UTC', 'YYYY-MM-DD\\"T\\"HH24:MI:SS.MS\\"Z\\"') FROM pg_authid WHERE rolname IN ('nyra_accept_registrar','nyra_accept_broker') ORDER BY rolname;");
+ lines.push("SELECT rolname, to_char(rolvaliduntil AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') FROM pg_authid WHERE rolname IN ('nyra_accept_registrar','nyra_accept_broker') ORDER BY rolname;");
  return lines.join('\n')+'\n';
 }
 async function main(){
