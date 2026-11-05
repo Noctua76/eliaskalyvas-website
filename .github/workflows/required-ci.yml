@@ -35,6 +35,7 @@ jobs:
         run: npm test
         env:
           NYRA_NATIVE_DOCKER: '1'
+          NYRA_NATIVE_SYSTEMD: '1'
 
   production-build:
     name: nyra-required-production-build
