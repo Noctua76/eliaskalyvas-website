@@ -34,12 +34,10 @@ test('native Docker exact-label retirement removes target container/network/volu
   const done=cleanupByDigest(digest,{apply:true});
   assert.equal(done.resources.length,3);
   assert(done.resources.every(x=>x.removed===true));
-  assert.equal(docker(['ps','-aq','--filter','name=^'+target.container+'$']),'');
-  assert.equal(docker(['network','ls','-q','--filter','name=^'+target.network+'$']),'');
-  assert.equal(docker(['volume','ls','-q','--filter','name=^'+target.volume+'$']),'');
-  assert.notEqual(docker(['ps','-aq','--filter','name=^'+control.container+'$']),'');
-  assert.notEqual(docker(['network','ls','-q','--filter','name=^'+control.network+'$']),'');
-  assert.notEqual(docker(['volume','ls','-q','--filter','name=^'+control.volume+'$']),'');
+  for(const [kind,name] of [['container',target.container],['network',target.network],['volume',target.volume]])
+   assert.throws(()=>docker([kind,'inspect',name]));
+  for(const [kind,name] of [['container',control.container],['network',control.network],['volume',control.volume]])
+   assert.doesNotThrow(()=>docker([kind,'inspect',name]));
   assert.equal(done.manualRequired.some(x=>x.includes('provider Droplet')),true);
  }finally{
   for(const x of [target.container,control.container]){try{docker(['rm','-f',x]);}catch{}}
