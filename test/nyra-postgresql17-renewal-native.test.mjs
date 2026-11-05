@@ -41,6 +41,12 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
   if(admin('show listen_addresses;')!=='127.0.0.1'){
    docker(['exec','-i',name,'psql','-X','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1'], "ALTER SYSTEM SET listen_addresses = '127.0.0.1';");
    docker(['restart',name]);
+   let socketReady=false;
+   for(let i=0;i<100;i++){
+    try{docker(['exec',name,'pg_isready','-U','postgres','-d','postgres']);socketReady=true;break;}
+    catch{await delay(500);}
+   }
+   assert(socketReady,'PostgreSQL socket did not return after disposable restart');
   }
   assert.equal(admin('show listen_addresses;'),'127.0.0.1');
   assert.equal(admin('show port;'),'5432');
