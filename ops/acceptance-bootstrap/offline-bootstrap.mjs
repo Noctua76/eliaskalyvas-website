@@ -135,7 +135,26 @@ open('/etc/systemd/system/nyra-repository-expiry.timer','w').write('[Unit]\\nDes
 PY
 systemctl daemon-reload
 systemctl enable --now nyra-repository-expiry.timer
+systemctl is-enabled --quiet nyra-repository-expiry.timer
 systemctl is-active --quiet nyra-repository-expiry.timer
+# Validate the *effective* systemd trigger and the exact installed executable.
+test "$(sha256sum /usr/local/sbin/nyra-repository-expire | cut -d ' ' -f 1)" = "$(sha256sum expire.sh | cut -d ' ' -f 1)"
+python3 - <<'PY'
+import subprocess,json,datetime,os
+def prop(unit,name):
+ return subprocess.check_output(['systemctl','show',unit,'--property='+name,'--value'],text=True).strip()
+t=json.load(open('target.created.json'))
+assert prop('nyra-repository-expiry.timer','Unit')=='nyra-repository-expiry.service'
+assert prop('nyra-repository-expiry.timer','Persistent')=='yes'
+assert prop('nyra-repository-expiry.timer','FragmentPath')=='/etc/systemd/system/nyra-repository-expiry.timer'
+assert prop('nyra-repository-expiry.service','FragmentPath')=='/etc/systemd/system/nyra-repository-expiry.service'
+when=prop('nyra-repository-expiry.timer','NextElapseUSecRealtime')
+assert when.endswith(' UTC')
+actual=datetime.datetime.strptime(when.split(' ',1)[1],'%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=datetime.timezone.utc)
+expected=datetime.datetime.fromisoformat(t['expiresAt'].replace('Z','+00:00'))
+assert actual==expected
+assert os.path.realpath('/usr/local/sbin/nyra-repository-expire')=='/usr/local/sbin/nyra-repository-expire'
+PY
 printf '%s\\n' 'HOST_BASE_ONLY_NO_CREDENTIALS_NO_DISPATCH: perform provider-firewall/DNS/TLS preflight next'
 `;
 }
