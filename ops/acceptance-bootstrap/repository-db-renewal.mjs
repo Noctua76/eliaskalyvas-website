@@ -50,10 +50,10 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
  need(typeof assertTrust==='function','TRUST_ADAPTER');
  need(process.getuid?.()===0,'ROOT');
  const lease=assertRenewalHostBoundary({target,session,host:command('hostname',[]),
-  timerActive:command('systemctl',['is-active','nyra-repository-expiry.timer'])==='active',
+  timerActive:command('systemctl',['show','nyra-repository-expiry.timer','--property=ActiveState','--value'])==='active',
   networkInternal:docker(['network','inspect','-f','{{.Internal}}','nyra-repository-db'])==='true',
   roleContainers:docker(['ps','-aq','--filter','name=^nyra-5c-live-']).split('\n').filter(Boolean).length,
-  serviceActive:command('systemctl',['is-active','nyra-repository-runtime.service'])==='active',now});
+  serviceActive:command('systemctl',['show','nyra-repository-runtime.service','--property=ActiveState','--value'])==='active',now});
  need(paths?.journal==='/opt/nyra-5c/private/renewal-state.json','JOURNAL_PATH');
  const state=await sealed(paths.journal).catch(e=>{
   if(e?.code==='ENOENT')return null;
