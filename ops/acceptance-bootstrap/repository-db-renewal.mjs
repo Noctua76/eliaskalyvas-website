@@ -5,6 +5,7 @@
 import {execFileSync} from 'node:child_process';
 import {readFile,open,writeFile,rename,rm,lstat,chown,chmod} from 'node:fs/promises';
 import {randomBytes,randomUUID} from 'node:crypto';
+import {dirname} from 'node:path';
 import {readRepositoryAdministration,administrationReader} from '../../lib/publication/runtime/administration-evidence.mjs';
 import {createRepositoryTrustGate} from '../../lib/publication/runtime/repository-trust.mjs';
 import {reviewedAcceptancePolicies} from '../../lib/publication/integration/live-acceptance.mjs';
@@ -39,6 +40,8 @@ async function durableState(path,obj){
  await rename(next,path);
  const f=await open(path,'r');
  try{await f.sync();}finally{await f.close();}
+ const dir=await open(dirname(path),'r');
+ try{await dir.sync();}finally{await dir.close();}
 }
 export function assertRenewalHostBoundary({target,session,host,timerActive,networkInternal,roleContainers,serviceActive,now=Date.now}){
  validateReplacementTarget(target,{created:true,now});
@@ -67,23 +70,31 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
  need(await assertTrust(lease)===true,'OWNER_ADMINISTRATION');
  const users=Object.fromEntries(['registrar','broker'].map(r=>[r,uid(r)]));
  const secrets={registrar:randomBytes(24).toString('hex'),broker:randomBytes(24).toString('hex')};
- const staged={};
+ const staged={},oldPasswords={};
  const rolePaths={registrar:'/var/lib/nyra-5c/registrar/pg.json',broker:'/var/lib/nyra-5c/broker/pg.json'};
- for(const role of ['registrar','broker']){
-  const old=await sealed(rolePaths[role],users[role].uid);
-  need(old.user==='nyra_accept_'+role&&old.host==='db'&&old.port===5432&&old.database==='postgres','ROLE_SCOPE');
-  staged[role]=await atomicSealed(rolePaths[role],{...old,password:secrets[role]},users[role]);
- }
  const pending={schema:'nyra.acceptance.db-renewal-state.v1',bootstrapId:target.bootstrapId,
   sessionId:lease.sessionId,startsAt:lease.startsAt,endsAt:lease.endsAt,roleValidUntil:lease.roleValidUntil,status:'pending'};
- let dbChanged=false;
+ const auth=(role,password)=>{
+  const cmd=['exec','-i','nyra-repository-pg','sh','-ec',
+   'IFS= read -r pw; export PGPASSWORD="$pw"; exec psql -X -h 127.0.0.1 -p 5432 -U "$1" -d postgres -t -A -c "select current_user"',
+   'nyra-auth','nyra_accept_'+role];
+  try{return docker(cmd,password+'\n')==='nyra_accept_'+role;}
+  catch{return false;}
+ };
+ let dbChanged=false,journalStarted=false;
  try{
-  await durableState(paths.journal,pending);
-  // Recheck Owner and Administration immediately before committing SQL.
+  // Stage both role-specific secrets under private owners before touching SQL.
+  // Failure in either preparation path MUST remove the other staged secret.
+  for(const role of ['registrar','broker']){
+   const old=await sealed(rolePaths[role],users[role].uid);
+   need(old.user==='nyra_accept_'+role&&old.host==='db'&&old.port===5432&&old.database==='postgres','ROLE_SCOPE');
+   oldPasswords[role]=old.password;
+   staged[role]=await atomicSealed(rolePaths[role],{...old,password:secrets[role]},users[role]);
+  }
+  await durableState(paths.journal,pending);journalStarted=true;
   need(await assertTrust(lease)===true,'TRUST_RECHECK');
   const args=['exec','-i','nyra-repository-pg','psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'];
-  const sql=replacementRenewalSQL(lease,secrets);
-  const response=docker(args,sql);
+  const response=docker(args,replacementRenewalSQL(lease,secrets));
   dbChanged=true;
   const actual=response.split('\n').map(x=>x.trim()).filter(x=>x.startsWith('nyra_accept_'));
   need(JSON.stringify(actual)===JSON.stringify(['nyra_accept_broker|'+lease.roleValidUntil,'nyra_accept_registrar|'+lease.roleValidUntil]),'SERVER_VALIDITY');
@@ -93,12 +104,18 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
    const check=await sealed(rolePaths[role],users[role].uid);
    need(check.password===secrets[role]&&check.user==='nyra_accept_'+role,'CREDENTIAL_READBACK');
   }
-  // A matching committed lease is required before the next launcher starts.
+  for(const role of ['registrar','broker']){
+   need(auth(role,secrets[role]),'NEW_PASSWORD_REJECTED');
+   need(!auth(role,oldPasswords[role]),'OLD_PASSWORD_SURVIVED');
+  }
+  need(!auth('registrar',secrets.broker)&&!auth('broker',secrets.registrar),'CROSS_ROLE_CREDENTIAL');
   await durableState(paths.journal,{...pending,status:'complete'});
   return Object.freeze({status:'POSTGRESQL_RENEWAL_COMMITTED',sessionId:lease.sessionId,
-   roleValidUntil:lease.roleValidUntil,ownerAndAdministrationRechecked:true,credentialsReturned:false});
+   roleValidUntil:lease.roleValidUntil,ownerAndAdministrationRechecked:true,
+   newLoginVerified:true,oldLoginRejected:true,credentialsReturned:false});
  }catch{
-  await durableState(paths.journal,{...pending,status:dbChanged?'db-updated':'pending'});
+  if(journalStarted||dbChanged)
+   await durableState(paths.journal,{...pending,status:dbChanged?'db-updated':'pending'});
   throw Error('NYRA_DB_RENEWAL_FAILED_CLOSED');
  }finally{
   for(const p of Object.values(staged))await rm(p,{force:true});
