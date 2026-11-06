@@ -25,15 +25,37 @@ for(const role of ['registrar','broker']){
   'IFS= read -r pw; export PGPASSWORD="$pw"; exec psql -X -h 127.0.0.1 -U "$1" -d postgres -t -A -c "select current_user"','nyra-auth',c.user],c.password+'\n'),c.user);
 }
 assert.equal(cmd('systemctl',['show','nyra-repository-runtime.service','--property=ActiveState','--value']),'inactive');
-const {cleanupReplacement}=await import('file:///opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/repository-launch.mjs');
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 // A deliberately unrelated resource must survive exact target retirement.
 const sentinel='nyra-native-unrelated';cmd('docker',['network','create','--internal',sentinel]);
 try{
- cleanupReplacement(before.target,{apply:true});
+ // Advance ONLY this disposable guest's clock to test the real installed
+ // expiry timer/service. This is accelerated expiry, not 14 elapsed days.
+ cmd('timedatectl',['set-ntp','false']);
+ cmd('timedatectl',['set-time',new Date(Date.parse(before.target.expiresAt)+2000).toISOString()]);
+ let retired=false;
+ for(let i=0;i<60;i++){
+  if(cmd('docker',['ps','-aq','--filter','name=^nyra-repository-pg$'])===''){retired=true;break;}
+  await delay(1000);
+ }
+ assert(retired,'Installed expiry timer did not retire the exact database');
+ let completed=false;
+ for(let i=0;i<60;i++){
+  const state=cmd('systemctl',['show','nyra-repository-expiry.service','--property=ActiveState','--value']);
+  if(state==='inactive'){completed=true;break;}
+  if(state==='failed')throw Error('INSTALLED_EXPIRY_SERVICE_FAILED');
+  await delay(1000);
+ }
+ assert(completed,'Expiry service did not finish');
+ assert.equal(cmd('systemctl',['show','nyra-repository-expiry.service','--property=Result','--value']),'success');
+ const audit=await readFile('/var/lib/nyra-retirement/db-renewal-audit.jsonl','utf8');
+ assert(audit.includes('CREDENTIALS_VERIFIED'));
+ for(const role of ['registrar','broker'])await assert.rejects(readFile('/var/lib/nyra-5c/'+role+'/pg.json'),e=>e.code==='ENOENT');
  assert.equal(cmd('docker',['ps','-aq','--filter','name=^nyra-repository-pg$']),'');
  assert.equal(cmd('docker',['network','ls','--filter','name=^nyra-repository-db$','--format','{{.Name}}']),'');
  assert.equal(cmd('docker',['network','inspect','-f','{{.Name}}',sentinel]),sentinel);
 }finally{cmd('docker',['network','rm',sentinel]);}
 console.log(JSON.stringify({status:'NATIVE_REBOOT_AND_EXACT_RETIREMENT_PASS',previousBootId:before.bootId,
  currentBootId:bootId,actualReboot:true,expiryTimerPersisted:true,postgres17Persisted:true,
- realSCRAMAfterReboot:true,unrelatedResourcePreserved:true,providerMutation:false,realOwnerAuthorization:false}));
+ realSCRAMAfterReboot:true,installedExpiryServiceExecuted:true,acceleratedGuestClock:true,
+ auditPreserved:true,unrelatedResourcePreserved:true,providerMutation:false,realOwnerAuthorization:false}));
