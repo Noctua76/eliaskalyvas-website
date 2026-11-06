@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFile,writeFile,mkdir,rm} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,rm,rmdir} from 'node:fs/promises';
 import {createHash,generateKeyPairSync,sign} from 'node:crypto';
 import {renderCanonicalExpiryTimer} from '../ops/acceptance-bootstrap/canonical-expiry.mjs';
 import {createSystemdExtensionAdapters} from '../ops/acceptance-bootstrap/extension-host.mjs';
@@ -75,6 +75,6 @@ test('native root systemd: signed +7d candidate, old timer still armed, durable 
   for(const p of [candidate,original,service,journal,targetFile])
    try{await rm(p,{force:true});}catch{}
   try{sh('systemctl',['daemon-reload']);}catch{}
-  if(createdDir)try{await rm('/etc/nyra-acceptance',{recursive:false});}catch{}
+  if(createdDir)await rmdir('/etc/nyra-acceptance');
  }
 });
