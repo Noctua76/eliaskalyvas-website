@@ -16,7 +16,7 @@ jobs:
   regression:
     name: nyra-required-regression
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -38,6 +38,8 @@ jobs:
           NYRA_NATIVE_SYSTEMD: '1'
       - name: Native isolated extension systemd acceptance
         run: sudo env NYRA_NATIVE_EXTENSION=1 "$(command -v node)" --test test/nyra-extension-systemd-native.test.mjs
+      - name: Native isolated Ubuntu bootstrap installation
+        run: sudo env NYRA_NATIVE_BOOTSTRAP=1 "$(command -v node)" --test test/nyra-bootstrap-native.test.mjs
           NYRA_NATIVE_POSTGRES: '1'
 
   production-build:
