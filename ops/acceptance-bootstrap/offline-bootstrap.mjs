@@ -86,6 +86,7 @@ cat > /etc/systemd/system/docker.service <<'UNIT'
 [Unit]
 After=network-online.target
 [Service]
+Type=notify
 ExecStart=/usr/local/bin/dockerd --iptables=true --userland-proxy=false
 Restart=on-failure
 Delegate=yes
@@ -93,7 +94,20 @@ Delegate=yes
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable --now docker
+systemctl enable docker
+# Restart even on disposable CI images which already have a running distro
+# daemon. The effective server must be the pinned installed executable.
+if ! systemctl restart docker; then
+ journalctl -u docker --no-pager -n 40 >&2
+ exit 1
+fi
+ready=false
+for attempt in $(seq 1 60); do
+ if docker info >/dev/null 2>&1; then ready=true; break; fi
+ sleep 1
+done
+test "$ready" = true
+test "$(docker version --format '{{.Server.Version}}')" = '${lock.docker.version}'
 docker pull ${nodeImage}
 docker pull ${postgresImage}
 nodecopy=$(docker create --network none ${nodeImage})

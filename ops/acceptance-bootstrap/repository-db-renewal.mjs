@@ -97,7 +97,6 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
  need(paths?.journal==='/opt/nyra-5c/private/renewal-state.json','JOURNAL_PATH');
  const state=await sealed(paths.journal).catch(e=>{
   if(e?.code==='ENOENT')return null;
-  if(String(e?.message??'').includes('ENOENT'))return null;
   throw e;
  });
  const usedSessionIds=renewalHistory(state,target,session);
@@ -120,7 +119,8 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
  const staged={},oldPasswords={},directories={};
  const audit=status=>auditRenewal({status,bootstrapId:target.bootstrapId,providerResourceId:target.resourceId,
   targetSHA256:hashJSON(target),sessionId:lease.sessionId,roleValidUntil:lease.roleValidUntil,
-  approvalSHA256:trust.approvalSHA256,repositoryTrustSHA256:trust.repositoryTrustSHA256});
+  approvalSHA256:trust.approvalSHA256,repositoryTrustSHA256:trust.repositoryTrustSHA256,
+  ownerApproval:trust.ownerApproval??null});
  const rolePaths={registrar:'/var/lib/nyra-5c/registrar/pg.json',broker:'/var/lib/nyra-5c/broker/pg.json'};
  const pending={schema:'nyra.acceptance.db-renewal-state.v1',bootstrapId:target.bootstrapId,
   targetSHA256:hashJSON(target),usedSessionIds:[...usedSessionIds,lease.sessionId],
@@ -248,7 +248,7 @@ export async function runHostRenewal(){
  return applyAuthorizedRenewal({target,session,assertTrust:async()=>{
   await gate.assert(policies.build,'db-renewal');
   await verify();
-  return {verified:true,approvalSHA256:hashJSON(envelope),repositoryTrustSHA256:gate.repositoryTrustSHA256};
+  return {verified:true,approvalSHA256:hashJSON(envelope),repositoryTrustSHA256:gate.repositoryTrustSHA256,ownerApproval:envelope};
  },paths:{journal:'/opt/nyra-5c/private/renewal-state.json'}});
 }
 if(process.argv[1]===new URL(import.meta.url).pathname){

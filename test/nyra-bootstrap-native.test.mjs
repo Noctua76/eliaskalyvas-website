@@ -1,4 +1,4 @@
-// Real disposable Ubuntu 24.04 host-base installer exercise on a CI runner.
+// Real disposable Ubuntu 24.04 pinned installation and PostgreSQL renewal.
 // SYNTHETIC provider ID/CIDR: this is NOT DigitalOcean or Owner acceptance.
 // No secrets, protected dispatch, production publication, or DNS mutation.
 import test from 'node:test';
@@ -16,7 +16,7 @@ const command=(file,args,opts={})=>execFileSync(file,args,{encoding:'utf8',timeo
  stdio:['ignore','pipe','pipe'],...opts}).trim();
 const utc=ms=>new Date(Math.floor(ms/1000)*1000).toISOString().replace('.000Z','Z');
 const sha=x=>createHash('sha256').update(x).digest('hex');
-test('Ubuntu 24.04 real pinned host-base installer, no credentials or provider mutation',{skip:!enabled,timeout:900000},async()=>{
+test('Ubuntu 24.04 pinned installer, isolated PG renewal and interruption recovery',{skip:!enabled,timeout:900000},async()=>{
  assert.equal(process.getuid?.(),0,'Native bootstrap requires isolated disposable root runner');
  const release=await readFile('/etc/os-release','utf8');
  assert.match(release,/^ID=ubuntu$/m);
@@ -48,7 +48,7 @@ test('Ubuntu 24.04 real pinned host-base installer, no credentials or provider m
   console.log(result);
   console.log(JSON.stringify({phase:'installer',os:release,architecture:command('uname',['-m']),
    manifestSHA256:hash,prerequisites:JSON.parse(await readFile(new URL('../ops/acceptance-bootstrap/prerequisites.lock.json',import.meta.url),'utf8')),
-   installerExecuted:true,rebootPerformed:false,realOwnerAuthorization:false}));
+   installerExecuted:true,dockerServerVersion:command('docker',['version','--format','{{.Server.Version}}']),rebootPerformed:false,realOwnerAuthorization:false}));
   assert.equal(command('systemctl',['is-enabled','nyra-repository-expiry.timer']),'enabled');
   assert.equal(command('systemctl',['is-active','nyra-repository-expiry.timer']),'active');
   assert.equal(command('systemctl',['show','nyra-repository-expiry.timer','--property=Persistent','--value']),'yes');
