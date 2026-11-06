@@ -68,12 +68,16 @@ async function main(){
  if(run(['ps','-aq'])!==''||run(['network','ls','--filter','name=^nyra-repository-db$','--format','{{.Name}}'])!=='')throw Error('NOT_FRESH');
  const passwords={registrar:randomBytes(24).toString('hex'),broker:randomBytes(24).toString('hex')};
  const secret=async(path,text,uid=0,gid=0)=>{const parent=await lstat(path.slice(0,path.lastIndexOf('/')));if(!parent.isDirectory()||parent.isSymbolicLink()||(parent.mode&0o007))throw Error('PRIVATE_DIRECTORY');await writeFile(path,text,{flag:'wx',mode:0o600});await chown(path,uid,gid);};
+ let phase='SECRET_STAGING';
  try{
   await secret('/opt/nyra-5c/private/repository-db.env','POSTGRES_PASSWORD='+randomBytes(32).toString('hex')+'\nPOSTGRES_DB=postgres\n');
   for(const role of ['registrar','broker']){const u=command('getent',['passwd','nyra-'+role]).split(':');await secret('/var/lib/nyra-5c/'+role+'/pg.json',JSON.stringify({host:'db',database:'postgres',port:5432,user:'nyra_accept_'+role,password:passwords[role]}),Number(u[2]),Number(u[3]));}
+  phase='INTERNAL_DATABASE_START';
   const args=replacementDBCommands(t);run(args.network);run(args.database);
+  phase='HOST_FIREWALL';
   const net=JSON.parse(run(['network','inspect','nyra-repository-db']))[0],bridge='br-'+net.Id.slice(0,12);
   command('iptables',['-I','INPUT','-i',bridge,'-m','conntrack','--ctstate','NEW','-j','DROP']);command('iptables',['-I','DOCKER-USER','-i',bridge,'!','-o',bridge,'-j','DROP']);
+  phase='POSTGRES_READINESS';
   let ready=false;for(let n=0;n<60;n++){try{run(['exec','nyra-repository-pg','pg_isready','-U','postgres']);ready=true;break;}catch{await new Promise(r=>setTimeout(r,1000));}}if(!ready)throw Error('DB_NOT_READY');
   // The pinned Supabase image may boot socket-only. Acceptance workers use
   // TCP inside the --internal Docker network, so a local socket check alone
@@ -91,19 +95,23 @@ async function main(){
   if(current&&Object.keys(current).length)throw Error('DB_PORT_PUBLISHED');
   if(run(['network','inspect','-f','{{.Internal}}','nyra-repository-db'])!=='true')throw Error('DB_NETWORK_NOT_INTERNAL');
   // The exact private registrar/broker TCP logins must never inherit trust auth.
+  phase='SCRAM_ENFORCEMENT';
   const hba=run(psql,'SHOW hba_file;').trim();
   if(!/^\/[A-Za-z0-9_./-]+$/.test(hba)||hba.includes('..'))throw Error('DB_HBA_PATH');
   run(['exec','--user','root','nyra-repository-pg','sh','-ec',"set -eu\np=\"$1\"\ntest -f \"$p\" && test ! -L \"$p\"\nif grep -qx \"# NYRA_PRIVATE_SCRAM_V1\" \"$p\"; then exit 0; fi\nt=$(mktemp \"$p.nyra.XXXXXX\")\ntrap 'rm -f -- \"$t\"' EXIT\nprintf \"%s\\n\" \"# NYRA_PRIVATE_SCRAM_V1\" \"host all nyra_accept_registrar 0.0.0.0/0 scram-sha-256\" \"host all nyra_accept_broker 0.0.0.0/0 scram-sha-256\" \"host all nyra_accept_registrar ::/0 scram-sha-256\" \"host all nyra_accept_broker ::/0 scram-sha-256\" > \"$t\"\ncat -- \"$p\" >> \"$t\"\nowner=$(stat -c %u:%g \"$p\")\nmode=$(stat -c %a \"$p\")\nchown \"$owner\" \"$t\"\nchmod \"$mode\" \"$t\"\nmv -f -- \"$t\" \"$p\"\ntrap - EXIT",'nyra-hba',hba]);
   if(run(privileged,'SELECT pg_reload_conf();')!=='t')throw Error('DB_HBA_RELOAD');
   const hbaRules=run(privileged,"SELECT count(*) FROM pg_hba_file_rules WHERE type='host' AND auth_method='scram-sha-256' AND user_name && ARRAY['nyra_accept_registrar','nyra_accept_broker'];");
   if(!Number.isSafeInteger(Number(hbaRules))||Number(hbaRules)<4)throw Error('DB_HBA_NOT_VERIFIED');
+  phase='TRUST_SCHEMA';
   run(psql,schema);
+  phase='ROLE_CREATION';
   run(psql,loginsSQL(passwords.registrar,passwords.broker));
   // A 14-day host is NOT a 14-day login lease. New sessions require
   // separately reviewed database-role renewal after fresh owner/trust checks.
+  phase='BOUNDED_CREDENTIAL_EXPIRY';
   const roleExpiresAt=replacementRoleExpiry(t);
   for(const role of ['registrar','broker'])run(psql,"alter role nyra_accept_"+role+" valid until '"+roleExpiresAt+"';");
   console.log(JSON.stringify({postgres17:true,internalNetwork:true,publicPorts:0,liveAcceptance:false}));
- }catch{cleanupReplacement(t,{apply:true});throw Error('REPLACEMENT_DB_CLOSED');}
+ }catch{cleanupReplacement(t,{apply:true});throw Error('REPLACEMENT_DB_CLOSED_'+phase);}
 }
-if(process.argv[1]===new URL(import.meta.url).pathname)main().catch(()=>{console.error('NYRA_REPLACEMENT_DB_DENIED');process.exitCode=1;});
+if(process.argv[1]===new URL(import.meta.url).pathname)main().catch(e=>{console.error(/^REPLACEMENT_DB_CLOSED_[A-Z_]+$/.test(e?.message)?e.message:'NYRA_REPLACEMENT_DB_DENIED');process.exitCode=1;});

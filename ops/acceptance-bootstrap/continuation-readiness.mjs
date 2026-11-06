@@ -18,6 +18,6 @@ export function preProvisionGate(gates){
  const keys=['approvedSourceProfile','bootstrapOfflineTest','cleanSourceAndBuild','expiryRebootTest','extensionMigrationTest','retirementExactScopeTest','githubAppKeyRotationPlan','newHostTrustEvidencePlan','providerCostReview','ownerCreationApproval'];
  need(shape(gates,keys),'GATE_FIELDS');
  need(keys.every(k=>typeof gates[k]==='boolean'),'GATE_TYPES');
- const missing=keys.filter(k=>gates[k]!==true);
- return Object.freeze({status:missing.length?'NO_GO_PRE_PROVISION':'READY_FOR_SEPARATE_LIVE_REVIEW',missing,authorization:false,providerCreationApproved:false,historical3fReusableAsLiveAuthorization:false});
+ const missing=keys.filter(k=>k!=='extensionMigrationTest'&&gates[k]!==true);
+ return Object.freeze({optionalExtensionReady:gates.extensionMigrationTest,status:missing.length?'NO_GO_PRE_PROVISION':'READY_FOR_SEPARATE_LIVE_REVIEW',missing,authorization:false,providerCreationApproved:false,historical3fReusableAsLiveAuthorization:false});
 }

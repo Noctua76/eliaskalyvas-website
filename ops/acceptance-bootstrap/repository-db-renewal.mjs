@@ -198,12 +198,13 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
   return Object.freeze({status:'POSTGRESQL_RENEWAL_COMMITTED',sessionId:lease.sessionId,
    roleValidUntil:lease.roleValidUntil,ownerAndAdministrationRechecked:true,
    newLoginVerified:true,oldLoginRejected:true,credentialsReturned:false});
- }catch{
+ }catch(error){
   if(journalStarted||dbChanged){
    await durableState(paths.journal,{...pending,status:dbChanged?'db-updated':'pending'});
    await audit('FAILED_CLOSED');
   }
-  throw Error('NYRA_DB_RENEWAL_FAILED_CLOSED');
+  const code=/^NYRA_DB_RENEWAL_[A-Z_]+$/.test(error?.message)?error.message:'UNCLASSIFIED';
+  throw Error('NYRA_DB_RENEWAL_FAILED_CLOSED_'+code);
  }finally{
   try{for(const p of Object.values(staged))await rm(p,{force:true});}
   finally{for(const [role,d] of Object.entries(directories)){
