@@ -6,6 +6,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {open,readFile,lstat,writeFile,rename,rm} from 'node:fs/promises';
 import {migrateExtensionGeneration} from './extension-migration.mjs';
+import {verifyExtensionAuthority} from './continuation-extension-authority.mjs';
 import {verifyInstalledExtension} from './extension-effective.mjs';
 import {reviewedAcceptancePolicies} from '../../lib/publication/integration/live-acceptance.mjs';
 import {createRepositoryTrustGate} from '../../lib/publication/runtime/repository-trust.mjs';
@@ -107,9 +108,36 @@ export async function runHostExtension(){
  const key=await readOther(config.ownerKeyFile,coordinator);
  need(key.keyId===config.configuration.repositoryTrust.ownerKey.id&&
   signingKeySHA256(key.publicKey)===config.configuration.repositoryTrust.ownerKey.sha256,'KEY_PIN');
- const envelope=JSON.parse(await readRoot('/opt/nyra-5c/private/extension-approval.json',0o600));
  const machineId=(await readFile('/etc/machine-id','utf8')).trim();
  need(/^[a-f0-9]{32}$/.test(machineId),'MACHINE_ID');
+ // On a NEW approval, obtain the Owner's fresh AAL2 bearer from stdin ONLY.
+ // The private Owner Source validates it server-side and signs the exact host
+ // identity, original generation, +7 days and a fresh decision ID.
+ const approvalPath='/opt/nyra-5c/private/extension-approval.json';
+ let envelope;
+ try{envelope=JSON.parse(await readRoot(approvalPath,0o600));}
+ catch(e){
+  if(e?.code!=='ENOENT')throw e;
+  const ownerConfig=await readOther('/var/lib/nyra-5c/owner/source.json',getUid('nyra-owner'));
+  need(typeof ownerConfig.socket==='string'&&ownerConfig.policy?.repositoryTrust,'OWNER_SOURCE');
+  let token='';
+  for await(const chunk of process.stdin){token+=chunk.toString();need(token.length<20000,'TOKEN_SIZE');}
+  token=token.trim();need(token.length>30&&!/\s/.test(token),'OWNER_AAL2_TOKEN');
+  const original=await readRoot(base+oldUnit,0o644);
+  const newDeadline=new Date(Date.parse(target.expiresAt)+604800000).toISOString().replace('.000Z','Z');
+  envelope=await ownerRequest({socket:ownerConfig.socket,operation:'extend',input:{
+   token,ownerDecisionId:config.ownerDecisionId,bootstrapId:target.bootstrapId,
+   providerResourceId:target.resourceId,machineIdSHA256:sha(machineId),
+   oldDeadline:target.expiresAt,newDeadline,previousGenerationSHA256:sha(original)
+  }});
+  token='';
+  await verifyExtensionAuthority({target,envelope,ownerPublicJWK:key.publicKey,
+   ownerKeyId:key.keyId,expectedKeySHA256:config.configuration.repositoryTrust.ownerKey.sha256,
+   machineId,previousGenerationSHA256:sha(original)});
+  const f=await open(approvalPath,'wx',0o600);
+  try{await f.writeFile(JSON.stringify(envelope));await f.sync();}finally{await f.close();}
+ }
+
  const policies=reviewedAcceptancePolicies(config.configuration);
  const getJSON=administrationReader({tokenSource:async()=>{
   const c=await readOther(config.githubReadCredential,coordinator);
