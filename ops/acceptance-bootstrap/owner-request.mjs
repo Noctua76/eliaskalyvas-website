@@ -5,7 +5,7 @@ import {request} from 'node:http';
 import {writeFile} from 'node:fs/promises';
 import {privateFile} from './owner-source.mjs';
 export async function ownerRequest({socket,operation,input}){
- if(!['authorize','retire','receipt'].includes(operation))throw Error('OWNER_OPERATION');
+ if(!['authorize','retire','receipt','extend'].includes(operation))throw Error('OWNER_OPERATION');
  const {token,...body}=input;
  if(operation==='receipt'&&token)throw Error('UNEXPECTED_TOKEN');
  const text=JSON.stringify(body);if(Buffer.byteLength(text)>30000)throw Error('OWNER_BODY');
@@ -14,5 +14,10 @@ export async function ownerRequest({socket,operation,input}){
 if(process.argv[1]===new URL(import.meta.url).pathname){try{
  const [operation,configPath,out]=process.argv.slice(2),config=await privateFile(configPath);let input='';for await(const b of process.stdin){if(Buffer.byteLength(input)+b.length>30000)throw Error('OWNER_BODY');input+=b.toString();}
  const result=await ownerRequest({socket:config.socket,operation,input:JSON.parse(input)});
- if(operation==='receipt'){if(!out)throw Error('PRIVATE_OUTPUT_REQUIRED');await writeFile(out,JSON.stringify(result),{flag:'wx',mode:0o600});console.log('PRIVATE_OWNER_RECEIPT_SAVED');}else console.log(JSON.stringify(result));
+ if(operation==='receipt'||operation==='extend'){
+  if(!out||operation==='extend'&&out!=='/opt/nyra-5c/private/extension-approval.json')
+   throw Error('PRIVATE_OUTPUT_REQUIRED');
+  await writeFile(out,JSON.stringify(result),{flag:'wx',mode:0o600});
+  console.log(operation==='extend'?'PRIVATE_OWNER_EXTENSION_APPROVAL_SAVED':'PRIVATE_OWNER_RECEIPT_SAVED');
+ }else console.log(JSON.stringify(result));
 }catch{console.error('OWNER_REQUEST_DENIED');process.exitCode=1;}}
