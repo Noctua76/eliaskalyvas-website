@@ -95,6 +95,14 @@ jobs:
       - name: Install locked dependencies
         run: npm ci && npm ci --ignore-scripts --prefix ops/acceptance-bootstrap/runtime
       - name: Install disposable VM tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils acl
+      - name: Enable current runner user access to available KVM device
+        run: |
+          if test -e /dev/kvm; then
+            sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+            echo NYRA_KVM_DEVICE_PRESENT
+          else
+            echo NYRA_KVM_DEVICE_ABSENT_USING_TCG
+          fi
       - name: Real Ubuntu guest bootstrap, reboot and exact retirement
         run: bash ops/acceptance-bootstrap/native-reboot-ci.sh

@@ -33,7 +33,7 @@ vm_pid=$!
 ssh_opts=(-i "$work/guest-key" -p 2222 -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$work/known-hosts")
 remote(){ ssh "${ssh_opts[@]}" root@127.0.0.1 "$@"; }
 ready=false
-for i in $(seq 1 120); do if remote true 2>/dev/null; then ready=true; break; fi; kill -0 "$vm_pid"; sleep 3; done
+for i in $(seq 1 120); do if remote true 2>/dev/null; then ready=true; break; fi; if ! kill -0 "$vm_pid"; then cat "$work/qemu.log"; exit 1; fi; sleep 3; done
 if test "$ready" != true; then cat "$work/serial.log"; cat "$work/qemu.log"; exit 1; fi
 remote 'cloud-init status --wait >/dev/null'
 # Include only the source + locked dependencies; ephemeral SSH key stays outside.
@@ -47,7 +47,7 @@ ready=false
 for i in $(seq 1 120); do
  current_boot=$(remote 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null || true)
  if test -n "$current_boot" && test "$current_boot" != "$old_boot"; then ready=true; break; fi
- kill -0 "$vm_pid"; sleep 3
+ if ! kill -0 "$vm_pid"; then cat "$work/qemu.log"; exit 1; fi; sleep 3
 done
 test "$ready" = true
 printf 'NYRA_NATIVE_REBOOT_BOOT_IDS=%s,%s\n' "$old_boot" "$current_boot"

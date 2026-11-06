@@ -19,6 +19,10 @@ test('existing owner authority signs an exact DB session after fresh owner verif
   const changed={...b,[key]:key.endsWith('SHA256')?'9'.repeat(64):key==='sessionId'?crypto.randomUUID():key==='providerResourceId'?'615221106':key==='endsAt'?new Date(Date.now()+7200000).toISOString():'nyra-acceptance-other-host'};
   await assert.rejects(verifyRenewalApproval({...args,binding:changed}));
  }
+ const seconds={...b,sessionId:crypto.randomUUID(),startsAt:new Date(Math.floor((Date.now()-1000)/1000)*1000).toISOString().replace('.000Z','Z'),
+  endsAt:new Date(Math.floor((Date.now()+3600000)/1000)*1000).toISOString().replace('.000Z','Z')};
+ const secondsEnvelope=await f.source.renew({token:'UNIT_OWNER_AAL2',ownerDecisionId:f.decision.decisionId,binding:seconds});
+ assert.equal((await verifyRenewalApproval({...args,binding:seconds,envelope:secondsEnvelope})).binding.startsAt,seconds.startsAt);
  await assert.rejects(verifyRenewalApproval({...args,now:()=>Date.now()+61000}),/FRESHNESS/);
  await assert.rejects(f.source.renew({token:'WRONG',ownerDecisionId:f.decision.decisionId,binding:b}));
  await assert.rejects(f.source.renew({token:'UNIT_OWNER_AAL2',ownerDecisionId:crypto.randomUUID(),binding:b}));
