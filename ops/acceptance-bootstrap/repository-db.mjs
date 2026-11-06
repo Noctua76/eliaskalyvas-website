@@ -77,17 +77,34 @@ async function main(){
   phase='HOST_FIREWALL';
   const net=JSON.parse(run(['network','inspect','nyra-repository-db']))[0],bridge='br-'+net.Id.slice(0,12);
   command('iptables',['-I','INPUT','-i',bridge,'-m','conntrack','--ctstate','NEW','-j','DROP']);command('iptables',['-I','DOCKER-USER','-i',bridge,'!','-o',bridge,'-j','DROP']);
-  phase='POSTGRES_READINESS';
-  let ready=false;for(let n=0;n<60;n++){try{run(['exec','nyra-repository-pg','pg_isready','-U','postgres']);ready=true;break;}catch{await new Promise(r=>setTimeout(r,1000));}}if(!ready)throw Error('DB_NOT_READY');
-  // The pinned Supabase image may boot socket-only. Acceptance workers use
-  // TCP inside the --internal Docker network, so a local socket check alone
-  // cannot establish DB readiness. Never publish a host port.
+  phase='POSTGRES_BOOTSTRAP_COMPLETION';
   const privileged=['exec','-i','nyra-repository-pg','psql','-X','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'];
   const psql=['exec','-i','nyra-repository-pg','psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'];
+  // pg_isready can succeed against the image's temporary initialization
+  // server. Do not restart it while init scripts are still installing roles.
+  // Require the pinned entrypoint's completion marker AND a real final-server
+  // SQL readback; a timing delay alone is never accepted as readiness.
+  let ready=false;const bootstrapDeadline=Date.now()+180000;
+  while(Date.now()<bootstrapDeadline){
+   try{
+    const log=run(['logs','nyra-repository-pg']);
+    if(/PostgreSQL init process complete; ready for start up\.|PostgreSQL Database directory appears to contain a database; Skipping initialization/.test(log)&&
+     run(psql,'SELECT current_user;')==='postgres'&&
+     run(privileged,"SELECT NOT pg_is_in_recovery() AND current_setting('server_version_num')::integer BETWEEN 170000 AND 179999;")==='t'){
+     ready=true;break;
+    }
+   }catch{}
+   await new Promise(resolve=>setTimeout(resolve,1000));
+  }
+  if(!ready)throw Error('DB_BOOTSTRAP_NOT_COMPLETE');
+  // The final pinned server may be socket-only; workers require TCP strictly
+  // inside the internal Docker network, without any published host port.
+  phase='POSTGRES_CONFIGURATION';
   if(run(psql,'SHOW listen_addresses;').trim()!=='*'){
    run(privileged,"ALTER SYSTEM SET listen_addresses = '*';");
    run(['restart','nyra-repository-pg']);
   }
+  phase='POSTGRES_TCP_READINESS';
   ready=false;
   for(let n=0;n<60;n++){try{run(['exec','nyra-repository-pg','pg_isready','-h','127.0.0.1','-p','5432','-U','postgres','-d','postgres']);ready=true;break;}catch{await new Promise(r=>setTimeout(r,1000));}}
   if(!ready||run(psql,'SHOW listen_addresses;').trim()!=='*')throw Error('DB_TCP_NOT_READY');
