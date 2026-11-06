@@ -21,7 +21,7 @@ export function stageCommands(){
 }
 export function loginsSQL(a,b){
  need([a,b].every(v=>/^[a-f0-9]{48}$/.test(v)),'PASSWORD');
- return ['begin;',
+ return ['begin;',"set local password_encryption = 'scram-sha-256';",
   "create role nyra_accept_registrar login inherit password '"+a+"' in role nyra_trust_registrar;",
   "create role nyra_accept_broker login inherit password '"+b+"' in role nyra_trust_broker;",
   'grant connect on database postgres to nyra_accept_registrar,nyra_accept_broker;',
