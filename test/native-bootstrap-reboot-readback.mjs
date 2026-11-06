@@ -25,7 +25,7 @@ for(const role of ['registrar','broker']){
   'IFS= read -r pw; export PGPASSWORD="$pw"; exec psql -X -h 127.0.0.1 -U "$1" -d postgres -t -A -c "select current_user"','nyra-auth',c.user],c.password+'\n'),c.user);
 }
 assert.equal(cmd('systemctl',['show','nyra-repository-runtime.service','--property=ActiveState','--value']),'inactive');
-const {cleanupReplacement}=await import('../ops/acceptance-bootstrap/repository-launch.mjs');
+const {cleanupReplacement}=await import('file:///opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/repository-launch.mjs');
 // A deliberately unrelated resource must survive exact target retirement.
 const sentinel='nyra-native-unrelated';cmd('docker',['network','create','--internal',sentinel]);
 try{

@@ -105,6 +105,7 @@ trap 'rm -rf -- "$tmp"' EXIT
 node --version
 install -d -m 0755 /etc/nyra-acceptance
 install -d -m 0700 /opt/nyra-5c/private
+install -m 0600 /dev/null /opt/nyra-5c/private/renewal.lock
 install -m 0600 target.created.json /etc/nyra-acceptance/target.json
 cp -a runtime /opt/nyra-5c/live-runtime
 chown -R root:root /opt/nyra-5c/live-runtime

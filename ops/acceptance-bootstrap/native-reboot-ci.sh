@@ -50,4 +50,4 @@ for i in $(seq 1 120); do
  kill -0 "$vm_pid"; sleep 3
 done
 test "$ready" = true
-remote 'systemctl is-active --quiet docker; cd /root/source; env NYRA_NATIVE_REBOOT_READBACK=1 node test/native-bootstrap-reboot-readback.mjs'
+remote 'set -e; systemctl is-active --quiet docker; ready=false; for i in $(seq 1 60); do if docker exec nyra-repository-pg pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then ready=true; break; fi; sleep 1; done; test "$ready" = true; cd /root/source; env NYRA_NATIVE_REBOOT_READBACK=1 node test/native-bootstrap-reboot-readback.mjs'
