@@ -106,11 +106,11 @@ test('scoped PostgreSQL renewal SQL rotates both role passwords, disconnects old
 });
 
 test('v2 launcher requires committed session-bound DB renewal after first bootstrap lease',()=>{
- const target=target(); const now=Date.parse(target.createdAt)+2*86400000;
+ const configured=target(); const now=Date.parse(configured.createdAt)+2*86400000;
  const window={start:new Date(now).toISOString(),end:new Date(now+3600000).toISOString()};
- assert.throws(()=>validateLauncherRenewal(target,window,null,{now:()=>now}),/DB_RENEWAL_REQUIRED/);
- const state={schema:'nyra.acceptance.db-renewal-state.v1',bootstrapId:target.bootstrapId,sessionId:'a1b2c3d4-1111-4111-8111-222222222222',startsAt:window.start,endsAt:window.end,roleValidUntil:window.end,status:'complete'};
- assert.equal(validateLauncherRenewal(target,window,state,{now:()=>now}),true);
+ assert.throws(()=>validateLauncherRenewal(configured,window,null,{now:()=>now}),/DB_RENEWAL_REQUIRED/);
+ const state={schema:'nyra.acceptance.db-renewal-state.v1',bootstrapId:configured.bootstrapId,sessionId:'a1b2c3d4-1111-4111-8111-222222222222',startsAt:window.start,endsAt:window.end,roleValidUntil:window.end,status:'complete'};
+ assert.equal(validateLauncherRenewal(configured,window,state,{now:()=>now}),true);
  for(const x of [{...state,status:'db-updated'},{...state,endsAt:new Date(now+7200000).toISOString()},{...state,roleValidUntil:new Date(now-1).toISOString()}])
-  assert.throws(()=>validateLauncherRenewal(target,window,x,{now:()=>now}),/DB_RENEWAL_JOURNAL/);
+  assert.throws(()=>validateLauncherRenewal(configured,window,x,{now:()=>now}),/DB_RENEWAL_JOURNAL/);
 });
