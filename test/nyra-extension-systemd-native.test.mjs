@@ -23,6 +23,7 @@ test('native root systemd: signed +7d candidate, old timer still armed, durable 
  const candidate='/etc/systemd/system/nyra-repository-expiry-extension.timer';
  const journal='/etc/nyra-acceptance/extension-installed.json';
  const targetFile='/etc/nyra-acceptance/target.json';
+ const privateBase='/opt/nyra-5c',privateDir=privateBase+'/private',launchFile=privateDir+'/launch.json';
  const now=Date.now(),start=utc(now-1000),old=utc(Date.parse(start)+14*86400000),next=utc(Date.parse(old)+7*86400000);
  const machineId=(await readFile('/etc/machine-id','utf8')).trim();
  assert.match(machineId,/^[a-f0-9]{32}$/);
@@ -43,7 +44,7 @@ test('native root systemd: signed +7d candidate, old timer still armed, durable 
  const digest=hashJSON(record),envelope={record,digest,keyId,signature:sign(null,Buffer.from(digest),privateKey).toString('base64url')};
  let createdDir=false;
  try{
-  for(const p of [original,service,candidate,journal,targetFile]){
+  for(const p of [original,service,candidate,journal,targetFile,launchFile,privateDir,privateBase]){
    await assert.rejects(readFile(p),e=>e.code==='ENOENT','Must run on a clean disposable runner');
   }
   try{await mkdir('/etc/nyra-acceptance');createdDir=true;}
@@ -63,6 +64,8 @@ test('native root systemd: signed +7d candidate, old timer still armed, durable 
   assert.equal(sh('systemctl',['is-active','nyra-repository-expiry.timer']),'active');
   assert.equal(sh('systemctl',['is-enabled','nyra-repository-expiry-extension.timer']),'enabled');
   assert.equal(sh('systemctl',['is-active','nyra-repository-expiry-extension.timer']),'active');
+  await mkdir(privateDir,{recursive:true,mode:0o700});
+  await writeFile(launchFile,JSON.stringify({target,configuration:{repositoryTrust:{ownerKey:{id:keyId,sha256:pin}}}}),{flag:'wx',mode:0o600});
   assert.equal(await shouldDeferHostRetirement(),true);
   const persisted=JSON.parse(await readFile(journal,'utf8'));
   assert.equal(persisted.newDeadline,next);
@@ -72,9 +75,10 @@ test('native root systemd: signed +7d candidate, old timer still armed, durable 
  }finally{
   for(const unit of ['nyra-repository-expiry-extension.timer','nyra-repository-expiry.timer'])
    try{sh('systemctl',['disable','--now',unit]);}catch{}
-  for(const p of [candidate,original,service,journal,targetFile])
+  for(const p of [candidate,original,service,journal,targetFile,launchFile])
    try{await rm(p,{force:true});}catch{}
   try{sh('systemctl',['daemon-reload']);}catch{}
   if(createdDir)await rmdir('/etc/nyra-acceptance');
+  try{await rmdir(privateDir);await rmdir(privateBase);}catch(e){if(e.code!=='ENOENT')throw e;}
  }
 });
