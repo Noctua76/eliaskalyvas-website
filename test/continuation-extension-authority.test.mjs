@@ -5,6 +5,8 @@ import {hashJSON} from '../lib/publication/contract.mjs';
 import {signingKeySHA256} from '../lib/publication/runtime/repository-policy.mjs';
 import {verifyExtensionAuthority} from '../ops/acceptance-bootstrap/continuation-extension-authority.mjs';
 import {migrateExtensionGeneration} from '../ops/acceptance-bootstrap/extension-migration.mjs';
+import {verifyInstalledExtension} from '../ops/acceptance-bootstrap/extension-effective.mjs';
+import {renderCanonicalExpiryTimer} from '../ops/acceptance-bootstrap/canonical-expiry.mjs';
 const t0='2026-11-06T09:00:00Z',old='2026-11-20T09:00:00Z',next='2026-11-27T09:00:00Z';
 const clock=()=>Date.parse('2026-11-16T09:00:10Z');
 const target={schema:'nyra.acceptance.replacement.v2',authorization:false,bootstrapId:'nyra-acceptance-20261106-02',hostname:'nyra-acceptance-20261106-02',provider:'DigitalOcean',region:'fra1',origin:'https://nyra-acceptance.eliaskalyvas.gr',operatorCIDRs:['203.0.113.10/32'],cpu:4,memoryGiB:8,maximumHours:336,optionalResources:false,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',resourceId:'615221105',ipv4:'93.184.216.34',createdAt:t0,expiresAt:old};
@@ -81,4 +83,26 @@ test('generation migration refuses replay, absent AAL2 and failed staging, rolls
  await assert.rejects(migrateExtensionGeneration(hooks),/EXTENSION_MIGRATION_CANDIDATE_READBACK/);
  assert.equal(recovered,1);
  await assert.rejects(migrateExtensionGeneration({...hooks,rollback:async()=>{throw Error('CRASH');}}),/EXTENSION_MIGRATION_ROLLBACK_UNVERIFIED/);
+});
+
+test('installed extension defers original expiry only with exact signed approval, committed receipt and both unit hashes',async()=>{
+ const oldTimer=renderCanonicalExpiryTimer('2026-11-20 09:00:00 UTC');
+ const newTimer=renderCanonicalExpiryTimer('2026-11-27 09:00:00 UTC');
+ const signed=record();signed.previousGenerationSHA256=hash(oldTimer);
+ const approval=envelope(signed);
+ const receipt={schema:'nyra.acceptance.extension-installed.v1',status:'committed',
+  bootstrapId:target.bootstrapId,providerResourceId:target.resourceId,envelope:approval,
+  ownerPublicJWK:jwk,ownerKeyId:keyId,expectedKeySHA256:pin,
+  decisionId:signed.decisionId,oldDeadline:old,newDeadline:next,
+  oldTimerSHA256:hash(oldTimer),newTimerSHA256:hash(newTimer),
+  committedAt:'2026-11-16T09:01:00.000Z'};
+ const args={target,receipt,machineId,oldTimer,newTimer};
+ const early=await verifyInstalledExtension({...args,now:()=>Date.parse('2026-11-21T09:00:00Z')});
+ assert.equal(early.shouldDefer,true);
+ const final=await verifyInstalledExtension({...args,now:()=>Date.parse(next)});
+ assert.equal(final.shouldDefer,false);
+ await assert.rejects(verifyInstalledExtension({...args,newTimer:newTimer.replace('Persistent=true','Persistent=false')}),/NYRA_EXTENSION_EFFECTIVE_GENERATIONS/);
+ await assert.rejects(verifyInstalledExtension({...args,receipt:{...receipt,status:'staged'}}),/NYRA_EXTENSION_EFFECTIVE_RECEIPT/);
+ await assert.rejects(verifyInstalledExtension({...args,receipt:{...receipt,committedAt:'2026-11-17T09:00:00Z'}}),/NYRA_EXTENSION_EFFECTIVE_COMMIT_TIME/);
+ await assert.rejects(verifyInstalledExtension({...args,receipt:{...receipt,newDeadline:'2026-11-28T09:00:00Z'}}),/NYRA_EXTENSION_EFFECTIVE_DECISION_BINDING/);
 });
