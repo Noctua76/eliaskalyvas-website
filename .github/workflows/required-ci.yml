@@ -36,6 +36,8 @@ jobs:
         env:
           NYRA_NATIVE_DOCKER: '1'
           NYRA_NATIVE_SYSTEMD: '1'
+      - name: Native isolated extension systemd acceptance
+        run: sudo env NYRA_NATIVE_EXTENSION=1 "$(command -v node)" --test test/nyra-extension-systemd-native.test.mjs
           NYRA_NATIVE_POSTGRES: '1'
 
   production-build:
