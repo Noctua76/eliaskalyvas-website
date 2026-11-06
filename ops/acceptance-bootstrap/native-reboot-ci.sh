@@ -37,7 +37,7 @@ for i in $(seq 1 120); do if remote true 2>/dev/null; then ready=true; break; fi
 if test "$ready" != true; then cat "$work/serial.log"; cat "$work/qemu.log"; exit 1; fi
 remote 'cloud-init status --wait >/dev/null'
 # Include only the source + locked dependencies; ephemeral SSH key stays outside.
-tar --exclude=.git --exclude=dist -czf "$work/source.tgz" .
+tar --exclude=./.git --exclude=./dist -czf "$work/source.tgz" .
 scp -q -i "$work/guest-key" -P 2222 -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$work/known-hosts" \
  "$work/source.tgz" "$(command -v node)" root@127.0.0.1:/root/
 remote 'mkdir /root/source; tar xzf /root/source.tgz -C /root/source; install -m 0755 /root/node /usr/local/bin/node; cd /root/source; env NYRA_NATIVE_BOOTSTRAP=1 NYRA_NATIVE_KEEP_FOR_REBOOT=1 node --test test/nyra-bootstrap-native.test.mjs'
