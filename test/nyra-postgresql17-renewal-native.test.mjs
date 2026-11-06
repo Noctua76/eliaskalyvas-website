@@ -69,6 +69,9 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
   admin("SET password_encryption='scram-sha-256'; create role nyra_accept_registrar login password '"+old.registrar+"'; "+
         "create role nyra_accept_broker login password '"+old.broker+"'; "+
         "grant connect on database postgres to nyra_accept_registrar,nyra_accept_broker;");
+  // Verify that the initial acceptance credentials are stored as SCRAM
+  // verifiers, not MD5/plaintext, without emitting the verifier or password.
+  assert.equal(superSQL("SELECT bool_and(rolpassword LIKE 'SCRAM-SHA-256$%') FROM pg_authid WHERE rolname IN ('nyra_accept_registrar','nyra_accept_broker');"),'t');
   assert.equal(login('nyra_accept_registrar',old.registrar),'nyra_accept_registrar',lastAuthFailure);
   assert.equal(login('nyra_accept_broker',old.broker),'nyra_accept_broker',lastAuthFailure);
   const now=Math.floor(Date.now()/1000)*1000,created=new Date(now-1000).toISOString();
