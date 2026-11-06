@@ -29,7 +29,7 @@ test('Ubuntu 24.04 real pinned host-base installer, no credentials or provider m
   const offline=await verifyOffline({vendor,download:true});
   assert.equal(offline.canonicalExpiryManifestPinned,true);
   const planned=JSON.parse(await readFile(new URL('../ops/acceptance-bootstrap/replacement-target.example.json',import.meta.url),'utf8'));
-  planned.operatorCIDRs=['203.0.113.10/32'];
+  Object.assign(planned,{schema:'nyra.acceptance.replacement.v2',bootstrapId:'nyra-acceptance-native-bootstrap',hostname:'nyra-acceptance-native-bootstrap',maximumHours:336,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',operatorCIDRs:['203.0.113.10/32']});
   validateReplacementTarget(planned);
   const bundle=join(temp,'bundle');
   const manifest=await prepareOfflineBootstrap({target:planned,vendor,destination:bundle});
