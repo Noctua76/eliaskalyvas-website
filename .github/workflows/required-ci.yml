@@ -79,3 +79,22 @@ jobs:
           }
           console.log(JSON.stringify({files:files.length,publicEntries:true,publicationWitness:false,privateLeak:false}));
           NODE
+
+  native-reboot:
+    name: nyra-native-bootstrap-reboot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install locked dependencies
+        run: npm ci && npm ci --ignore-scripts --prefix ops/acceptance-bootstrap/runtime
+      - name: Install disposable VM tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+      - name: Real Ubuntu guest bootstrap, reboot and exact retirement
+        run: bash ops/acceptance-bootstrap/native-reboot-ci.sh

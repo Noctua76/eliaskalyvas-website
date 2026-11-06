@@ -29,7 +29,7 @@ test('Ubuntu 24.04 real pinned host-base installer, no credentials or provider m
   const offline=await verifyOffline({vendor,download:true});
   assert.equal(offline.canonicalExpiryManifestPinned,true);
   const planned=JSON.parse(await readFile(new URL('../ops/acceptance-bootstrap/replacement-target.example.json',import.meta.url),'utf8'));
-  Object.assign(planned,{schema:'nyra.acceptance.replacement.v2',bootstrapId:'nyra-acceptance-native-bootstrap',hostname:'nyra-acceptance-native-bootstrap',maximumHours:336,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',operatorCIDRs:['203.0.113.10/32']});
+  Object.assign(planned,{schema:'nyra.acceptance.replacement.v2',bootstrapId:'nyra-acceptance-native-bootstrap',hostname:'nyra-acceptance-native-bootstrap',maximumHours:336,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',operatorCIDRs:[process.env.NYRA_NATIVE_KEEP_FOR_REBOOT==='1'?'10.0.2.2/32':'203.0.113.10/32']});
   validateReplacementTarget(planned);
   const bundle=join(temp,'bundle');
   const manifest=await prepareOfflineBootstrap({target:planned,vendor,destination:bundle});
@@ -64,10 +64,10 @@ test('Ubuntu 24.04 real pinned host-base installer, no credentials or provider m
   // Execute the INSTALLED pinned DB stage and renewal module, not a SQL-only
   // approximation. Authentication below is real SCRAM in Docker. Trust adapters
   // are explicitly synthetic mechanics; CI never fabricates a live Owner grant.
-  const installed='/opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/';
-  command('/usr/local/bin/node',[installed+'repository-db.mjs','--apply','/etc/nyra-acceptance/target.json'],
+  const installedDir='/opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/';
+  command('/usr/local/bin/node',[installedDir+'repository-db.mjs','--apply','/etc/nyra-acceptance/target.json'],
    {env:{...process.env,NYRA_REPOSITORY_DB:'1'}});
-  const {applyAuthorizedRenewal}=await import('file://'+installed+'repository-db-renewal.mjs');
+  const {applyAuthorizedRenewal}=await import('file://'+installedDir+'repository-db-renewal.mjs');
   const session=()=>({schema:'nyra.acceptance.pg-session.v1',bootstrapId:created.bootstrapId,
    providerResourceId:created.resourceId,sessionId:randomUUID(),startsAt:utc(Date.now()-1000),
    endsAt:new Date(Date.now()+3600000).toISOString(),authorization:false});
@@ -79,7 +79,7 @@ test('Ubuntu 24.04 real pinned host-base installer, no credentials or provider m
   await assert.rejects(applyAuthorizedRenewal(args),/REPLAY/);
   const b=session();
   const interrupted=spawnSync('/usr/local/bin/node',['--input-type=module','-e',
-   `import {applyAuthorizedRenewal} from ${JSON.stringify('file://'+installed+'repository-db-renewal.mjs')};
+   `import {applyAuthorizedRenewal} from ${JSON.stringify('file://'+installedDir+'repository-db-renewal.mjs')};
     let checks=0;await applyAuthorizedRenewal({target:${JSON.stringify(created)},session:${JSON.stringify(b)},
     paths:{journal:${JSON.stringify(journal)}},assertTrust:async()=>{
      if(++checks===2)process.kill(process.pid,'SIGKILL');return ${JSON.stringify(trust)};
@@ -103,15 +103,21 @@ test('Ubuntu 24.04 real pinned host-base installer, no credentials or provider m
    actualProcessSIGKILL:true,recoveryWithNewSession:true,credentialsLogged:false,
    realOwnerAuthorization:false,rebootPerformed:false}));
   // Retirement mechanism uses target-labelled resources only. No provider call.
-  const {cleanupReplacement}=await import('file://'+installed+'repository-launch.mjs');
+  if(process.env.NYRA_NATIVE_KEEP_FOR_REBOOT==='1'){
+   await writeFile('/etc/nyra-acceptance/native-reboot-pending.json',JSON.stringify({
+    bootId:(await readFile('/proc/sys/kernel/random/boot_id','utf8')).trim(),target:created,
+    expirySHA256:sha(await readFile('/etc/systemd/system/nyra-repository-expiry.timer'))}),{flag:'wx',mode:0o600});
+   return;
+  }
+  const {cleanupReplacement}=await import('file://'+installedDir+'repository-launch.mjs');
   const cleaned=cleanupReplacement(created,{apply:true});
   assert.equal(command('docker',['ps','-aq','--filter','name=^nyra-repository-pg$']),'');
   assert.equal(command('docker',['network','ls','--filter','name=^nyra-repository-db$','--format','{{.Name}}']),'');
   console.log(JSON.stringify({phase:'exact-resource-cleanup',result:cleaned,providerDestruction:false}));
 
  }finally{
-  try{command('systemctl',['disable','--now','nyra-repository-expiry.timer']);}catch{}
-  try{command('hostnamectl',['set-hostname',originalHost]);}catch{}
+  if(process.env.NYRA_NATIVE_KEEP_FOR_REBOOT!=='1')try{command('systemctl',['disable','--now','nyra-repository-expiry.timer']);}catch{}
+  if(process.env.NYRA_NATIVE_KEEP_FOR_REBOOT!=='1')try{command('hostnamectl',['set-hostname',originalHost]);}catch{}
   await rm(temp,{recursive:true,force:true});
  }
 });
