@@ -14,10 +14,12 @@ async function readOwned(path,mode){
  need(st.isFile()&&!st.isSymbolicLink()&&st.nlink===1&&st.uid===0&&(st.mode&0o777)===mode&&st.size<65536,'ROOT_FILE');
  return readFile(path,'utf8');
 }
-export async function verifyInstalledExtension({target,receipt,machineId,oldTimer,newTimer,now=Date.now}){
+export async function verifyInstalledExtension({target,receipt,machineId,oldTimer,newTimer,trustedOwnerKeySHA256, trustedOwnerKeyId,now=Date.now}){
  need(receipt?.schema==='nyra.acceptance.extension-installed.v1'&&receipt.status==='committed'&&
   receipt.bootstrapId===target.bootstrapId&&receipt.providerResourceId===target.resourceId,'RECEIPT');
  need(typeof machineId==='string'&&/^[a-f0-9]{32}$/.test(machineId),'MACHINE');
+ need(/^[a-f0-9]{64}$/.test(trustedOwnerKeySHA256)&&receipt.expectedKeySHA256===trustedOwnerKeySHA256&&
+  typeof trustedOwnerKeyId==='string'&&receipt.ownerKeyId===trustedOwnerKeyId,'TRUSTED_OWNER_PIN');
  need(typeof oldTimer==='string'&&typeof newTimer==='string'&&
   sha(oldTimer)===receipt.oldTimerSHA256&&sha(newTimer)===receipt.newTimerSHA256,'GENERATIONS');
  const signedRecord=receipt.envelope?.record;
@@ -43,10 +45,14 @@ export async function shouldDeferHostRetirement(){
  const target=JSON.parse(await readOwned('/etc/nyra-acceptance/target.json',0o600));
  validateReplacementTarget(target,{created:true,allowExpired:true});
  const receipt=JSON.parse(await readOwned('/etc/nyra-acceptance/extension-installed.json',0o600));
+ const config=JSON.parse(await readOwned('/opt/nyra-5c/private/launch.json',0o600));
+ need(config?.target?.bootstrapId===target.bootstrapId&&config.target.resourceId===target.resourceId,'TRUSTED_CONFIG');
+ const trustedOwnerKeySHA256=config?.configuration?.repositoryTrust?.ownerKey?.sha256;
+ const trustedOwnerKeyId=config?.configuration?.repositoryTrust?.ownerKey?.id;
  const machineId=(await readFile('/etc/machine-id','utf8')).trim();
  const original=await readOwned('/etc/systemd/system/nyra-repository-expiry.timer',0o644);
  const extended=await readOwned(filename,0o644);
- const state=await verifyInstalledExtension({target,receipt,machineId,oldTimer:original,newTimer:extended});
+ const state=await verifyInstalledExtension({target,receipt,machineId,oldTimer:original,newTimer:extended,trustedOwnerKeySHA256,trustedOwnerKeyId});
  need(state.shouldDefer,'NEW_DEADLINE_REACHED');
  const active=execFileSync('systemctl',['show','nyra-repository-expiry-extension.timer','--property=ActiveState','--value'],{encoding:'utf8'}).trim();
  need(active==='active','TIMER_NOT_ACTIVE');

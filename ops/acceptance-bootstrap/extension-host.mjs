@@ -78,7 +78,7 @@ export function createSystemdExtensionAdapters({target,envelope,ownerPublicJWK,o
     newTimerSHA256:newSHA256,committedAt:new Date().toISOString()};
    const original=await readRoot(base+oldUnit,0o644);
    const candidate=await readRoot(base+nextUnit,0o644);
-   await verifyInstalledExtension({target,receipt,machineId,oldTimer:original,newTimer:candidate});
+   await verifyInstalledExtension({target,receipt,machineId,oldTimer:original,newTimer:candidate,trustedOwnerKeySHA256:expectedKeySHA256,trustedOwnerKeyId:ownerKeyId});
    need(enabled(oldUnit)&&active(oldUnit)&&enabled(nextUnit)&&active(nextUnit),'DURABLE_ARM');
    const temp=journal+'.new';
    const f=await open(temp,'wx',0o600);

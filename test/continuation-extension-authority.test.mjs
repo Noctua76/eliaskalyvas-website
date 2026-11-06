@@ -96,12 +96,13 @@ test('installed extension defers original expiry only with exact signed approval
   decisionId:signed.decisionId,oldDeadline:old,newDeadline:next,
   oldTimerSHA256:hash(oldTimer),newTimerSHA256:hash(newTimer),
   committedAt:'2026-11-16T09:01:00.000Z'};
- const args={target,receipt,machineId,oldTimer,newTimer};
+ const args={target,receipt,machineId,oldTimer,newTimer,trustedOwnerKeySHA256:pin,trustedOwnerKeyId:keyId};
  const early=await verifyInstalledExtension({...args,now:()=>Date.parse('2026-11-21T09:00:00Z')});
  assert.equal(early.shouldDefer,true);
  const final=await verifyInstalledExtension({...args,now:()=>Date.parse(next)});
  assert.equal(final.shouldDefer,false);
  await assert.rejects(verifyInstalledExtension({...args,newTimer:newTimer.replace('Persistent=true','Persistent=false')}),/NYRA_EXTENSION_EFFECTIVE_GENERATIONS/);
+ await assert.rejects(verifyInstalledExtension({...args,trustedOwnerKeySHA256:'f'.repeat(64)}),/NYRA_EXTENSION_EFFECTIVE_TRUSTED_OWNER_PIN/);
  await assert.rejects(verifyInstalledExtension({...args,receipt:{...receipt,status:'staged'}}),/NYRA_EXTENSION_EFFECTIVE_RECEIPT/);
  await assert.rejects(verifyInstalledExtension({...args,receipt:{...receipt,committedAt:'2026-11-17T09:00:00Z'}}),/NYRA_EXTENSION_EFFECTIVE_COMMIT_TIME/);
  await assert.rejects(verifyInstalledExtension({...args,receipt:{...receipt,newDeadline:'2026-11-28T09:00:00Z'}}),/NYRA_EXTENSION_EFFECTIVE_DECISION_BINDING/);
