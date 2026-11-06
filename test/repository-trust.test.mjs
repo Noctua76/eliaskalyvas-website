@@ -75,3 +75,37 @@ test('Private policy-state retirement atomically closes every matching role, pre
   await symlink(path,join(dir,'alias'));assert.throws(()=>retirePolicyState({path:join(dir,'alias'),policySHA256s:hashes}),/STATE_FILE/);assert.equal(JSON.parse(await readFile(path)).publication.policySHA256,'4'.repeat(64));
  }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+
+test('fresh Owner AAL2 issues only exact host-bound +7-day signed authority and rejects revoked owner',async()=>{
+ const clock=()=>Date.parse('2026-11-16T09:00:10Z');
+ const f=await repositoryTrustFixture({clock});
+ const machineId='a'.repeat(32),digest=(await import('node:crypto')).createHash('sha256').update(machineId).digest('hex');
+ const request={token:'UNIT_OWNER_AAL2',ownerDecisionId:f.decision.decisionId,
+  bootstrapId:'nyra-acceptance-20261106-02',providerResourceId:'615221105',
+  machineIdSHA256:digest,oldDeadline:'2026-11-20T09:00:00Z',
+  newDeadline:'2026-11-27T09:00:00Z',previousGenerationSHA256:'b'.repeat(64)};
+ const signed=await f.source.extend(request);
+ const {verifyExtensionAuthority}=await import('../ops/acceptance-bootstrap/continuation-extension-authority.mjs');
+ const {signingKeySHA256}=await import('../lib/publication/runtime/repository-policy.mjs');
+ const target={schema:'nyra.acceptance.replacement.v2',authorization:false,bootstrapId:request.bootstrapId,
+  hostname:request.bootstrapId,provider:'DigitalOcean',region:'fra1',
+  origin:'https://nyra-acceptance.eliaskalyvas.gr',operatorCIDRs:['203.0.113.10/32'],
+  cpu:4,memoryGiB:8,maximumHours:336,optionalResources:false,
+  reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',
+  resourceId:request.providerResourceId,ipv4:'93.184.216.34',
+  createdAt:'2026-11-06T09:00:00Z',expiresAt:request.oldDeadline};
+ const v=await verifyExtensionAuthority({target,envelope:signed,ownerPublicJWK:f.ownerPublicJWK,
+  ownerKeyId:'unit-owner',expectedKeySHA256:signingKeySHA256(f.ownerPublicJWK),machineId,
+  previousGenerationSHA256:request.previousGenerationSHA256,now:clock});
+ assert.equal(v.newDeadline,request.newDeadline);assert.equal(v.executionAuthorized,false);
+ for(const invalid of [
+  {...request,oldDeadline:'2026-11-19T09:00:00Z'},
+  {...request,newDeadline:'2026-11-28T09:00:00Z'},
+  {...request,providerResourceId:'615221104'},
+  {...request,machineIdSHA256:'bad'},
+  {...request,ownerDecisionId:crypto.randomUUID()}
+ ])await assert.rejects(f.source.extend(invalid));
+ f.revokeOwner();
+ await assert.rejects(f.source.extend(request));
+});
