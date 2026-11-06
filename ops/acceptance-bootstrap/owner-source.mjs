@@ -24,7 +24,7 @@ export async function startOwnerSource(config){
  const source=createOwnerRiskSource({policy:config.policy,authenticateOwner:existingOwnerMFA(config.auth),journal:signedDecisionJournal({records,signRecord:sign,publicKey,keyId:signing.keyId}),signReceipt:sign});
  if(config.receiptSocket){const d=await lstat(dirname(config.receiptSocket));if(!d.isDirectory()||d.isSymbolicLink()||d.uid!==process.getuid()||d.gid!==config.receiptGroupId||(d.mode&0o027)!==0||!Number.isInteger(config.receiptGroupId))throw Error('RECEIPT_DIRECTORY');}
  const server=createServer(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json');try{
-  if(req.method!=='POST'||!['/authorize','/retire','/receipt','/extend'].includes(req.url))throw Error('OPERATION');let body='';for await(const b of req){if(Buffer.byteLength(body)+b.length>30000)throw Error('BODY');body+=b.toString();}const input=JSON.parse(body);
+  if(req.method!=='POST'||!['/authorize','/retire','/receipt','/extend','/renew'].includes(req.url))throw Error('OPERATION');let body='';for await(const b of req){if(Buffer.byteLength(body)+b.length>30000)throw Error('BODY');body+=b.toString();}const input=JSON.parse(body);
   if(Object.hasOwn(input,'token'))throw Error('TOKEN_BODY_FORBIDDEN');
   const result=await source[req.url.slice(1)]({...input,...(req.url!=='/receipt'?{token:req.headers.authorization?.replace(/^Bearer /,'')}: {})});
   res.writeHead(200);res.end(JSON.stringify(result));

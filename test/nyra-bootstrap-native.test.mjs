@@ -3,9 +3,9 @@
 // No secrets, protected dispatch, production publication, or DNS mutation.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 import {mkdtemp,readFile,writeFile,rm,lstat} from 'node:fs/promises';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {prepareOfflineBootstrap} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
@@ -45,6 +45,10 @@ test('Ubuntu 24.04 real pinned host-base installer, no credentials or provider m
   assert.equal(command('hostname',[]),planned.hostname);
   const result=command('bash',[join(bundle,'setup.sh'),'--install-host',hash],{cwd:bundle});
   assert.match(result,/HOST_BASE_ONLY_NO_CREDENTIALS_NO_DISPATCH/);
+  console.log(result);
+  console.log(JSON.stringify({phase:'installer',os:release,architecture:command('uname',['-m']),
+   manifestSHA256:hash,prerequisites:JSON.parse(await readFile(new URL('../ops/acceptance-bootstrap/prerequisites.lock.json',import.meta.url),'utf8')),
+   installerExecuted:true,rebootPerformed:false,realOwnerAuthorization:false}));
   assert.equal(command('systemctl',['is-enabled','nyra-repository-expiry.timer']),'enabled');
   assert.equal(command('systemctl',['is-active','nyra-repository-expiry.timer']),'active');
   assert.equal(command('systemctl',['show','nyra-repository-expiry.timer','--property=Persistent','--value']),'yes');
@@ -57,6 +61,54 @@ test('Ubuntu 24.04 real pinned host-base installer, no credentials or provider m
   assert.equal(rootTarget.mode&0o777,0o600);
   assert.equal(JSON.parse(await readFile('/etc/nyra-acceptance/target.json','utf8')).resourceId,created.resourceId);
   assert.equal(command('systemctl',['show','nyra-repository-runtime.service','--property=ActiveState','--value']),'inactive');
+  // Execute the INSTALLED pinned DB stage and renewal module, not a SQL-only
+  // approximation. Authentication below is real SCRAM in Docker. Trust adapters
+  // are explicitly synthetic mechanics; CI never fabricates a live Owner grant.
+  const installed='/opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/';
+  command('/usr/local/bin/node',[installed+'repository-db.mjs','--apply','/etc/nyra-acceptance/target.json'],
+   {env:{...process.env,NYRA_REPOSITORY_DB:'1'}});
+  const {applyAuthorizedRenewal}=await import('file://'+installed+'repository-db-renewal.mjs');
+  const session=()=>({schema:'nyra.acceptance.pg-session.v1',bootstrapId:created.bootstrapId,
+   providerResourceId:created.resourceId,sessionId:randomUUID(),startsAt:utc(Date.now()-1000),
+   endsAt:new Date(Date.now()+3600000).toISOString(),authorization:false});
+  const trust={verified:true,approvalSHA256:'a'.repeat(64),repositoryTrustSHA256:'b'.repeat(64)};
+  const journal='/opt/nyra-5c/private/renewal-state.json';
+  const a=session(),args={target:created,session:a,assertTrust:async()=>trust,paths:{journal}};
+  const first=await applyAuthorizedRenewal(args);
+  assert.equal(first.oldLoginRejected,true);assert.equal(first.newLoginVerified,true);
+  await assert.rejects(applyAuthorizedRenewal(args),/REPLAY/);
+  const b=session();
+  const interrupted=spawnSync('/usr/local/bin/node',['--input-type=module','-e',
+   `import {applyAuthorizedRenewal} from ${JSON.stringify('file://'+installed+'repository-db-renewal.mjs')};
+    let checks=0;await applyAuthorizedRenewal({target:${JSON.stringify(created)},session:${JSON.stringify(b)},
+    paths:{journal:${JSON.stringify(journal)}},assertTrust:async()=>{
+     if(++checks===2)process.kill(process.pid,'SIGKILL');return ${JSON.stringify(trust)};
+    }});`],{encoding:'utf8',timeout:120000});
+  assert.equal(interrupted.signal,'SIGKILL');
+  assert.equal(JSON.parse(await readFile(journal,'utf8')).status,'pending');
+  const c=session();
+  assert.equal((await applyAuthorizedRenewal({...args,session:c})).status,'POSTGRESQL_RENEWAL_COMMITTED');
+  const final=JSON.parse(await readFile(journal,'utf8'));
+  assert.deepEqual(final.usedSessionIds,[a.sessionId,b.sessionId,c.sessionId]);
+  await assert.rejects(applyAuthorizedRenewal(args),/REPLAY/);
+  for(const role of ['registrar','broker']){
+   const st=await lstat('/var/lib/nyra-5c/'+role+'/pg.json');
+   assert.equal(st.mode&0o777,0o600);assert(st.uid>0);
+  }
+  const audit=await readFile('/var/lib/nyra-retirement/db-renewal-audit.jsonl','utf8');
+  assert(audit.includes('RECOVERY_NEW_SESSION_RESERVED'));
+  assert(!/password|PGPASSWORD|privateKey|Bearer/.test(audit));
+  console.log(JSON.stringify({phase:'installed-db-renewal',postgres17:true,internalNetwork:true,
+   newSCRAMLoginVerified:true,oldLoginRejected:true,replayAAfterCRejected:true,
+   actualProcessSIGKILL:true,recoveryWithNewSession:true,credentialsLogged:false,
+   realOwnerAuthorization:false,rebootPerformed:false}));
+  // Retirement mechanism uses target-labelled resources only. No provider call.
+  const {cleanupReplacement}=await import('file://'+installed+'repository-launch.mjs');
+  const cleaned=cleanupReplacement(created,{apply:true});
+  assert.equal(command('docker',['ps','-aq','--filter','name=^nyra-repository-pg$']),'');
+  assert.equal(command('docker',['network','ls','--filter','name=^nyra-repository-db$','--format','{{.Name}}']),'');
+  console.log(JSON.stringify({phase:'exact-resource-cleanup',result:cleaned,providerDestruction:false}));
+
  }finally{
   try{command('systemctl',['disable','--now','nyra-repository-expiry.timer']);}catch{}
   try{command('hostnamectl',['set-hostname',originalHost]);}catch{}
