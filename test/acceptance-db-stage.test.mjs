@@ -16,6 +16,7 @@ test('Temporary PostgreSQL 17 is digest-pinned, internal-only and has no publish
 
 test('Distinct role-scoped PostgreSQL logins reject arbitrary SQL', () => {
   const sql=loginsSQL('a'.repeat(48),'b'.repeat(48));
+  assert.match(sql,/set local password_encryption = 'scram-sha-256'/);
   assert.match(sql,/nyra_accept_registrar login inherit/);
   assert.match(sql,/nyra_accept_broker login inherit/);
   assert.match(sql,/grant connect on database postgres/);

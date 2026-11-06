@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {repositoryTrustFixture} from './fixtures/repository-trust.mjs';
 import {validateReplacementTarget,assessReplacementHost} from '../ops/acceptance-bootstrap/replacement-target.mjs';
-import {renderUbuntuSetup,replacementCaddy,mainAcceptanceBoundary} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
+import {renderUbuntuSetup,replacementCaddy,mainAcceptanceBoundary,renderReplacementExpiry,renderCanonicalExpiryTimer,renderCanonicalExpiryService} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
 import {reviewedAcceptancePolicies} from '../lib/publication/integration/live-acceptance.mjs';
 import {reviewedIntegrationPolicy} from '../lib/publication/integration/policy.mjs';
 import {replacementRoleArgs,cleanupReplacement} from '../ops/acceptance-bootstrap/repository-launch.mjs';
@@ -29,7 +29,7 @@ test('Actual replacement preflight denies stale credentials, wrong provider fire
 });
 test('No-secret Ubuntu setup has pinned packages/images, no fallback install or billable calls; generated shells parse',async()=>{
  const lock=JSON.parse(await readFile(new URL('../ops/acceptance-bootstrap/prerequisites.lock.json',import.meta.url))),script=renderUbuntuSetup(target(),lock),dir=await mkdtemp(join(tmpdir(),'nyra-shell-'));
- try{const path=join(dir,'setup.sh');await writeFile(path,script);execFileSync('bash',['-n',path]);assert(script.includes('sha256sum --check --strict'));assert(script.includes('apt-get --no-download'));assert(script.includes('NYRA')&&script.includes('nyra-repository-expiry.timer'));assert(script.includes('cp -a runtime'));assert(!/doctl|api.digitalocean.com|github_pat_|sb_secret_|workflow_dispatch|POSTGRES_PASSWORD=/.test(script));for(const p of Object.values(lock))assert(script.includes(p.sha256));assert(script.includes('dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94'));}
+ try{const path=join(dir,'setup.sh');await writeFile(path,script);execFileSync('bash',['-n',path]);assert(script.includes('sha256sum --check --strict'));assert(script.includes("os.path.lexists(os.path.join(base,name))"));assert(script.includes("'nyra-continuation-expiry.timer'"));assert(script.includes("open('expiry.timer.template').read()"));assert.match(renderCanonicalExpiryTimer(),/^AccuracySec=1s$/m);assert.match(renderCanonicalExpiryTimer(),/^Persistent=true$/m);assert.match(renderCanonicalExpiryService(),/^AssertPathExists=\/usr\/local\/sbin\/nyra-repository-expire$/m);assert(script.includes('NextElapseUSecRealtime'));assert(script.includes("'Persistent'"));assert(script.includes('systemctl is-enabled --quiet nyra-repository-expiry.timer'));assert(script.includes('apt-get --no-download'));assert(script.includes('NYRA')&&script.includes('nyra-repository-expiry.timer'));assert(script.includes('cp -a runtime'));assert(!/doctl|api.digitalocean.com|github_pat_|sb_secret_|workflow_dispatch|POSTGRES_PASSWORD=/.test(script));for(const p of Object.values(lock))assert(script.includes(p.sha256));assert(script.includes('dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94'));}
  finally{await rm(dir,{recursive:true,force:true});}
 });
 test('Public ingress is exact target HTTPS with only readiness and three acceptance routes; disabled proxy has no private upstream',()=>{
@@ -65,4 +65,19 @@ test('Scoped probe broker cannot consume inventory registered under an older tru
 test('Target-configurable ingress rejects the retired origin and unexpected routes before any private acceptance',async()=>{
  const {createIngressHandler}=await import('../ops/acceptance-bootstrap/live-ingress.mjs');let accepts=0;const handler=createIngressHandler({origin:target().origin,enabled:true,watcher:{isReady:async()=>false},acceptors:Object.fromEntries(['build','inspection','publication'].map(r=>[r,async()=>{accepts++;}]))});
  assert.equal((await handler(new Request('https://nyra-5c.eliaskalyvas.gr/ready/build/1/1'))).status,404);assert.equal((await handler(new Request(target().origin+'/owner'))).status,404);assert.equal((await handler(new Request(target().origin+'/ready/build/1/1'))).status,200);assert.equal(accepts,0);
+});
+
+test('replacement host expiry script parses, checks actual UTC deadline, preserves signed evidence and reports partial cleanup',async()=>{
+ const script=renderReplacementExpiry(),dir=await mkdtemp(join(tmpdir(),'nyra-expiry-test-'));
+ try{
+  const file=join(dir,'expire.sh');await writeFile(file,script);execFileSync('bash',['-n',file]);
+  assert.match(script,/total_seconds\(\)==1209600/);
+  assert.match(script,/cleanup_rc=0/);assert.match(script,/trap retirement_record EXIT/);assert.match(script,/\/var\/lib\/nyra-retirement\/status\.log/);assert.match(script,/sync -f/);assert.match(script,/stop_rc=0/);assert.match(script,/private_rc=0/);assert.match(script,/test ! -e/);assert.match(script,/systemctl is-active --quiet/);assert.match(script,/test \"\$stop_rc\" -ne 0/);
+  assert.match(script,/LOCAL_RETIREMENT_PARTIAL_/);
+  assert.match(script,/LOCAL_SCOPED_CLEANUP_COMPLETE_/);
+  assert.match(script,/stat -c/);
+  assert(!script.includes('rm -rf -- "/var/lib/nyra-5c/coordinator/evidence"'));
+  assert(!script.includes('doctl '));
+  assert(!script.includes('api.digitalocean.com'));
+ }finally{await rm(dir,{recursive:true,force:true});}
 });

@@ -5,6 +5,8 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {stageLiveRuntime} from './stage-live-runtime.mjs';
 import {validateReplacementTarget} from './replacement-target.mjs';
+import {renderCanonicalExpiryService,renderCanonicalExpiryTimer} from './canonical-expiry.mjs';
+export {renderCanonicalExpiryService,renderCanonicalExpiryTimer} from './canonical-expiry.mjs';
 import {hashJSON} from '../../lib/publication/contract.mjs';
 const nodeImage='library/node@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94';
 const postgresImage='supabase/postgres@sha256:f371b5f3f2ac0a05703f33d6e6134515fb2498cab708fb948a0aeb7481467c00';
@@ -29,8 +31,8 @@ set -euo pipefail
 umask 077
 test "\${1:-}" = --install-host
 test "$(id -u)" = 0
-test "$(sha256sum manifest.json | cut -d ' ' -f 1)" = "\${2:?reviewed manifest SHA256 required}"
 cd -- "$(dirname -- "$0")"
+test "$(sha256sum manifest.json | cut -d ' ' -f 1)" = "\${2:?reviewed manifest SHA256 required}"
 python3 - <<'PY'
 import json,os,stat,datetime,socket
 expected=json.loads(${JSON.stringify(JSON.stringify(target))})
@@ -42,9 +44,16 @@ assert projected==expected and t['resourceId'].isdigit() and t['ipv4']!='201.79.
 import ipaddress
 assert ipaddress.ip_address(t['ipv4']).is_global
 start=datetime.datetime.fromisoformat(t['createdAt'].replace('Z','+00:00'));end=datetime.datetime.fromisoformat(t['expiresAt'].replace('Z','+00:00'));now=datetime.datetime.now(datetime.timezone.utc)
-assert start<=now<end and 0<(end-start).total_seconds()<=86400
+assert (start<=now<end and start.microsecond==0 and end.microsecond==0 and (end-start).total_seconds()==1209600) if t['schema']=='nyra.acceptance.replacement.v2' else (start<=now<end and 0<(end-start).total_seconds()<=86400)
 assert socket.gethostname()==t['hostname']
 assert not any(os.path.exists(x) for x in ['/opt/nyra-5c/private','/var/lib/nyra-5c','/run/nyra-5c','/etc/nyra-acceptance'])
+# No parallel expiry schedule, stale host service, or masked/shadowed timer.
+# A clean host has no pre-existing NYRA expiry units in any systemd load path.
+for name in ['nyra-continuation-expiry.service','nyra-continuation-expiry.timer',
+             'nyra-repository-expiry.service','nyra-repository-expiry.timer']:
+ for base in ['/etc/systemd/system','/run/systemd/system','/usr/local/lib/systemd/system','/usr/lib/systemd/system','/lib/systemd/system']:
+  assert not os.path.lexists(os.path.join(base,name)), ('EXISTING_EXPIRY_UNIT',name)
+
 release=dict(x.strip().split('=',1) for x in open('/etc/os-release') if '=' in x)
 assert release['ID'].strip('"')=='ubuntu' and release['VERSION_ID'].strip('"')=='24.04' and os.uname().machine=='x86_64'
 PY
@@ -77,6 +86,7 @@ cat > /etc/systemd/system/docker.service <<'UNIT'
 [Unit]
 After=network-online.target
 [Service]
+Type=notify
 ExecStart=/usr/local/bin/dockerd --iptables=true --userland-proxy=false
 Restart=on-failure
 Delegate=yes
@@ -84,7 +94,20 @@ Delegate=yes
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable --now docker
+systemctl enable docker
+# Restart even on disposable CI images which already have a running distro
+# daemon. The effective server must be the pinned installed executable.
+if ! systemctl restart docker; then
+ journalctl -u docker --no-pager -n 40 >&2
+ exit 1
+fi
+ready=false
+for attempt in $(seq 1 60); do
+ if docker info >/dev/null 2>&1; then ready=true; break; fi
+ sleep 1
+done
+test "$ready" = true
+test "$(docker version --format '{{.Server.Version}}')" = '${lock.docker.version}'
 docker pull ${nodeImage}
 docker pull ${postgresImage}
 nodecopy=$(docker create --network none ${nodeImage})
@@ -96,6 +119,7 @@ trap 'rm -rf -- "$tmp"' EXIT
 node --version
 install -d -m 0755 /etc/nyra-acceptance
 install -d -m 0700 /opt/nyra-5c/private
+install -m 0600 /dev/null /opt/nyra-5c/private/renewal.lock
 install -m 0600 target.created.json /etc/nyra-acceptance/target.json
 cp -a runtime /opt/nyra-5c/live-runtime
 chown -R root:root /opt/nyra-5c/live-runtime
@@ -114,6 +138,13 @@ usermod -a -G nyra-policy,nyra-ingress,nyra-receipts nyra-coordinator
 install -d -m 0750 -o nyra-coordinator -g nyra-policy /var/lib/nyra-5c/policy
 install -d -m 0750 -o nyra-coordinator -g nyra-ingress /run/nyra-5c
 install -d -m 0750 -o nyra-owner -g nyra-receipts /run/nyra-owner-receipts
+# /run is volatile; preserve the same private IPC ownership after reboot.
+cat > /etc/tmpfiles.d/nyra-acceptance.conf <<'TMPFILES'
+d /run/nyra-5c 0750 nyra-coordinator nyra-ingress -
+d /run/nyra-owner-receipts 0750 nyra-owner nyra-receipts -
+TMPFILES
+chmod 0644 /etc/tmpfiles.d/nyra-acceptance.conf
+systemd-tmpfiles --create /etc/tmpfiles.d/nyra-acceptance.conf
 install -d -m 0700 -o nyra-coordinator -g nyra-coordinator /var/lib/nyra-5c/coordinator/evidence
 install -m 0644 Caddyfile.disabled /etc/nyra-acceptance/Caddyfile
 install -m 0644 caddy.service /etc/systemd/system/nyra-caddy.service
@@ -131,14 +162,41 @@ install -m 0644 expiry.service /etc/systemd/system/nyra-repository-expiry.servic
 python3 - <<'PY'
 import json,datetime
 x=json.load(open('target.created.json'));end=datetime.datetime.fromisoformat(x['expiresAt'].replace('Z','+00:00')).strftime('%Y-%m-%d %H:%M:%S UTC')
-open('/etc/systemd/system/nyra-repository-expiry.timer','w').write('[Unit]\\nDescription=NYRA acceptance deadline\\n[Timer]\\nOnCalendar='+end+'\\nPersistent=true\\nUnit=nyra-repository-expiry.service\\n[Install]\\nWantedBy=timers.target\\n')
+template=open('expiry.timer.template').read()
+assert template.count('@@DEADLINE@@')==1
+open('/etc/systemd/system/nyra-repository-expiry.timer','w').write(template.replace('@@DEADLINE@@',end))
 PY
+systemd-analyze verify /etc/systemd/system/nyra-repository-expiry.service /etc/systemd/system/nyra-repository-expiry.timer
 systemctl daemon-reload
 systemctl enable --now nyra-repository-expiry.timer
+systemctl is-enabled --quiet nyra-repository-expiry.timer
 systemctl is-active --quiet nyra-repository-expiry.timer
+# Validate the *effective* systemd trigger and the exact installed executable.
+test "$(sha256sum /usr/local/sbin/nyra-repository-expire | cut -d ' ' -f 1)" = "$(sha256sum expire.sh | cut -d ' ' -f 1)"
+python3 - <<'PY'
+import subprocess,json,datetime,os
+def prop(unit,name):
+ return subprocess.check_output(['systemctl','show',unit,'--property='+name,'--value'],text=True).strip()
+t=json.load(open('target.created.json'))
+expected_calendar=datetime.datetime.fromisoformat(t['expiresAt'].replace('Z','+00:00')).strftime('%Y-%m-%d %H:%M:%S UTC')
+expected_timer=open('expiry.timer.template').read().replace('@@DEADLINE@@',expected_calendar)
+assert open('/etc/systemd/system/nyra-repository-expiry.timer').read()==expected_timer
+assert open('/etc/systemd/system/nyra-repository-expiry.service').read()==open('expiry.service').read()
+assert prop('nyra-repository-expiry.timer','Unit')=='nyra-repository-expiry.service'
+assert prop('nyra-repository-expiry.timer','Persistent')=='yes'
+assert prop('nyra-repository-expiry.timer','FragmentPath')=='/etc/systemd/system/nyra-repository-expiry.timer'
+assert prop('nyra-repository-expiry.service','FragmentPath')=='/etc/systemd/system/nyra-repository-expiry.service'
+when=prop('nyra-repository-expiry.timer','NextElapseUSecRealtime')
+assert when.endswith(' UTC')
+actual=datetime.datetime.strptime(when.split(' ',1)[1],'%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=datetime.timezone.utc)
+expected=datetime.datetime.fromisoformat(t['expiresAt'].replace('Z','+00:00'))
+assert actual==expected
+assert os.path.realpath('/usr/local/sbin/nyra-repository-expire')=='/usr/local/sbin/nyra-repository-expire'
+PY
 printf '%s\\n' 'HOST_BASE_ONLY_NO_CREDENTIALS_NO_DISPATCH: perform provider-firewall/DNS/TLS preflight next'
 `;
 }
+export function renderReplacementExpiry(){return `#!/bin/bash\nset -euo pipefail\numask 077\ntest "$(id -u)" = 0\ninstall -d -o root -g root -m 0700 /var/lib/nyra-retirement\n# An exact, root-only record survives failed or interrupted retirement attempts.\nretirement_record(){\n rc=$?\n trap - EXIT\n if test ! -L /var/lib/nyra-retirement/status.log; then\n  printf '%s\\\\t%s\\\\t%s\\\\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(hostname)" "$rc" >> /var/lib/nyra-retirement/status.log || true\n  chmod 0600 /var/lib/nyra-retirement/status.log || true\n  sync -f /var/lib/nyra-retirement/status.log || true\n fi\n exit "$rc"\n}\ntrap retirement_record EXIT\n# Only this freshly authenticated, host-bound target may be retired.\npython3 - <<'PY'\nimport json,datetime,socket\nt=json.load(open('/etc/nyra-acceptance/target.json'))\nassert t['provider']=='DigitalOcean' and t['region']=='fra1'\nassert t['hostname']==socket.gethostname()\nassert t['resourceId']!='615221104'\ns=datetime.datetime.fromisoformat(t['createdAt'].replace('Z','+00:00'))\ne=datetime.datetime.fromisoformat(t['expiresAt'].replace('Z','+00:00'))\nif t['schema']=='nyra.acceptance.replacement.v2':\n assert (e-s).total_seconds()==1209600\nassert datetime.datetime.now(datetime.timezone.utc)>=e\nPY\n# Before the original deadline can retire the host, inspect any separately\n# owner-signed, durable +7-day extension and the ACTUAL candidate timer.\n# Invalid/missing proofs never postpone retirement.\nif /usr/local/bin/node /opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/extension-effective.mjs --defer; then\n printf '%s\\n' 'NYRA_VERIFIED_EXTENSION_NOT_YET_DUE'\n exit 0\nfi\nstop_rc=0\nfor unit in nyra-caddy.service nyra-repository-runtime.service nyra-owner-source.service; do\n if systemctl cat "$unit" >/dev/null 2>&1; then systemctl stop "$unit" || stop_rc=1; fi\ndone\n# Refuse to report retirement while any protected unit remains active.\nfor unit in nyra-caddy.service nyra-repository-runtime.service nyra-owner-source.service; do\n if systemctl is-active --quiet "$unit"; then stop_rc=1; fi\ndone\n# Cleanup failure does not prevent local credential disposal; it still causes a nonzero exit.\ncleanup_rc=0\n/usr/local/bin/node /opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/repository-launch.mjs --cleanup /etc/nyra-acceptance/target.json || cleanup_rc=$?\nfor role in registrar broker owner coordinator; do\n for name in pg.json ipc.json evidence-key.json owner-key.json admin-read.json repository.json role-ipc.json runtime.json source.json decisions.jsonl; do\n  rm -f -- "/var/lib/nyra-5c/$role/$name"\n done\ndone\nfor name in repository-db.env launch.json repository.lock renewal-session.json renewal-state.json extension-approval.json; do\n rm -f -- "/opt/nyra-5c/private/$name"\ndone\n# Explicitly scoped, root-owned temporary inputs. Never touch sanitized signed evidence.\nfor role in registrar broker; do\n shopt -s nullglob\n for tmp in "/var/lib/nyra-5c/$role"/pg.json.nyra-*; do\n  test -f "$tmp" && test ! -L "$tmp" && test "$(stat -c '%h' "$tmp")" = 1\n  rm -f -- "$tmp"\n done\ndone\nfor name in input-sources attempts temporary; do\n dir="/opt/nyra-5c/private/$name"\n if test -d "$dir"; then\n  test ! -L "$dir"\n  test "$(stat -c '%u' "$dir")" = 0\n  rm -rf -- "$dir"\n fi\ndone\n# Independent readback: completion requires all scoped private files to be absent.\nprivate_rc=0\nfor role in registrar broker owner coordinator; do\n for name in pg.json ipc.json evidence-key.json owner-key.json admin-read.json repository.json role-ipc.json runtime.json source.json decisions.jsonl; do\n  test ! -e "/var/lib/nyra-5c/$role/$name" || private_rc=1\n done\ndone\nfor name in repository-db.env launch.json repository.lock renewal-session.json renewal-state.json extension-approval.json; do\n test ! -e "/opt/nyra-5c/private/$name" || private_rc=1\ndone\nfor role in registrar broker; do\n shopt -s nullglob\n for tmp in "/var/lib/nyra-5c/$role"/pg.json.nyra-*; do private_rc=1; done\ndone\nfor name in input-sources attempts temporary; do\n test ! -e "/opt/nyra-5c/private/$name" || private_rc=1\ndone\nif test "$cleanup_rc" -ne 0 || test "$stop_rc" -ne 0 || test "$private_rc" -ne 0; then\n echo 'LOCAL_RETIREMENT_PARTIAL_PROVIDER_DESTRUCTION_AND_ISSUER_REVOCATION_REQUIRED' >&2\n exit 1\nfi\nprintf '%s\\n' 'LOCAL_SCOPED_CLEANUP_COMPLETE_PROVIDER_DESTRUCTION_AND_ISSUER_REVOCATION_REQUIRED'\n`;}
 export async function prepareOfflineBootstrap({target,vendor,destination}){
  validateReplacementTarget(target);const source=await realpath(new URL('../../',import.meta.url).pathname),dest=resolve(destination);
  need(dest!==source&&!dest.startsWith(source+'/'),'OUTSIDE_CHECKOUT');await mkdir(dest,{mode:0o700});await mkdir(join(dest,'vendor'),{mode:0o700});
@@ -149,10 +207,11 @@ export async function prepareOfflineBootstrap({target,vendor,destination}){
   'proposed-main-public-plan.json':JSON.stringify({purpose:'isolated-live-trust-acceptance',approved:true,origin:target.origin+'/',publicEvidenceKeyId:'nyra-repository-evidence-'+target.bootstrapId},null,2)+'\n',
   'prerequisites.lock.json':JSON.stringify({...lock,node:{image:nodeImage},postgres:{image:postgresImage}},null,2)+'\n',
   'caddy.service':'[Unit]\nDescription=NYRA bounded acceptance HTTPS\nAfter=network-online.target\n[Service]\nUser=nyra-caddy\nGroup=nyra-caddy\nSupplementaryGroups=nyra-ingress\nEnvironment=XDG_DATA_HOME=/var/lib/nyra-caddy\nEnvironment=XDG_CONFIG_HOME=/var/lib/nyra-caddy\nExecStart=/usr/local/bin/caddy run --config /etc/nyra-acceptance/Caddyfile --adapter caddyfile\nAmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nPrivateTmp=true\nReadWritePaths=/var/lib/nyra-caddy\n[Install]\nWantedBy=multi-user.target\n',
-  'runtime.service':'[Unit]\nDescription=NYRA explicitly authorized private acceptance\nAfter=docker.service\nRequires=docker.service\n[Service]\nType=simple\nEnvironment=NYRA_REPOSITORY_LAUNCH=1\nExecStart=/usr/local/bin/node /opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/repository-launch.mjs --run /opt/nyra-5c/private/launch.json\nTimeoutStopSec=15\nKillMode=control-group\nRestart=no\n',
+  'runtime.service':'[Unit]\nDescription=NYRA explicitly authorized private acceptance\nAfter=docker.service\nRequires=docker.service\n[Service]\nType=simple\nEnvironment=NYRA_REPOSITORY_LAUNCH=1\nExecStart=/usr/bin/flock --exclusive --nonblock /opt/nyra-5c/private/renewal.lock /usr/local/bin/node /opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/repository-launch.mjs --run /opt/nyra-5c/private/launch.json\nTimeoutStopSec=15\nKillMode=control-group\nRestart=no\n',
   'owner.service':'[Unit]\nDescription=NYRA private existing owner MFA source\nAfter=network-online.target\n[Service]\nUser=nyra-owner\nGroup=nyra-owner\nSupplementaryGroups=nyra-receipts\nEnvironment=NYRA_ACCEPTANCE_OWNER_SOURCE=1\nExecStart=/usr/local/bin/node /opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/owner-source.mjs /var/lib/nyra-5c/owner/source.json\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nReadWritePaths=/var/lib/nyra-5c/owner /run/nyra-owner-receipts\nRestart=no\n',
-  'expiry.service':'[Unit]\nDescription=NYRA acceptance deadline cleanup\nAfter=docker.service\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/nyra-repository-expire\n',
-  'expire.sh':`#!/bin/bash\nset -euo pipefail\n# Never calls provider API; this timer DOES NOT stop Droplet billing.\nfor unit in nyra-caddy.service nyra-repository-runtime.service nyra-owner-source.service; do if systemctl cat "$unit" >/dev/null 2>&1; then systemctl stop "$unit"; fi; done\n/usr/local/bin/node /opt/nyra-5c/live-runtime/ops/acceptance-bootstrap/repository-launch.mjs --cleanup /etc/nyra-acceptance/target.json\n# Preserve only the sanitized signed evidence directory for owner transfer.\nfor role in registrar broker owner coordinator; do for name in pg.json ipc.json evidence-key.json owner-key.json admin-read.json repository.json role-ipc.json; do rm -f -- "/var/lib/nyra-5c/$role/$name"; done; done\nrm -f /opt/nyra-5c/private/repository-db.env\nprintf '%s\\n' 'LOCAL_CLEANUP_COMPLETE_PROVIDER_DESTROY_STILL_REQUIRED'\n`
+  'expiry.service':renderCanonicalExpiryService(),
+  'expiry.timer.template':renderCanonicalExpiryTimer(),
+  'expire.sh':renderReplacementExpiry()
  };
  for(const [name,text]of Object.entries(files))await writeFile(join(dest,name),text,{flag:'wx',mode:name.endsWith('.sh')?0o700:0o600});
  execFileSync('bash',['-n',join(dest,'setup.sh')]);execFileSync('bash',['-n',join(dest,'expire.sh')]);

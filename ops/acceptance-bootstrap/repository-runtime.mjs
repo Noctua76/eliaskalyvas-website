@@ -21,7 +21,12 @@ const need=(v,c)=>{if(!v)throw Error('REPOSITORY_RUNTIME_'+c);};
 const fd=(n,readable)=>new Socket({fd:n,readable,writable:!readable});
 export async function createRepositoryRuntime({config:c,ports,buildPort,adminTokenSource,fetcher=fetch,readOwnerDecision,persist,readPolicyState,invalidatePolicyState,now=Date.now}){
  validateReplacementTarget(c.target,{created:true,now});
- need(c.origin===c.target.origin&&c.windowEndsAt===c.target.expiresAt&&c.windowStartsAt===c.target.createdAt&&c.callerSHA===c.configuration.repositoryTrust.sourceSHA,'TARGET_PIN');
+ const v2=c.target.schema==='nyra.acceptance.replacement.v2';
+ need(c.origin===c.target.origin&&c.callerSHA===c.configuration.repositoryTrust.sourceSHA,'TARGET_PIN');
+ if(v2){
+  const start=Date.parse(c.windowStartsAt),end=Date.parse(c.windowEndsAt);
+  need(Number.isFinite(start)&&Number.isFinite(end)&&start>=Date.parse(c.target.createdAt)&&end<=Date.parse(c.target.expiresAt)&&start<end&&end-start<=86400000,'SESSION_BOUNDARY');
+ }else need(c.windowEndsAt===c.target.expiresAt&&c.windowStartsAt===c.target.createdAt,'TARGET_PIN');
  c={...c,policies:reviewedAcceptancePolicies(c.configuration),mode:c.configuration.acceptanceMode};
  need(Object.values(ports).length===2&&typeof ports.registrar.call==='function'&&typeof ports.broker.call==='function'&&typeof persist==='function','ROLE_PORTS');
  const binding=bindRepositoryControlPlane({configuration:c.configuration,adminTokenSource,fetcher,readOwnerRiskDecision:readOwnerDecision,ownerRiskDecisionId:c.ownerDecisionId,ownerDecisionPublicJWK:c.ownerPublicJWK,ownerDecisionKeyId:c.ownerKeyId,retirementPublicJWK:c.evidencePublicJWK,retirementKeyId:c.evidenceKeyId,readPolicyState,invalidatePolicyState,retireRegistrations:async pins=>{
