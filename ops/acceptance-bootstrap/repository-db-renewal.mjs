@@ -75,7 +75,7 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
   staged[role]=await atomicSealed(rolePaths[role],{...old,password:secrets[role]},users[role]);
  }
  const pending={schema:'nyra.acceptance.db-renewal-state.v1',bootstrapId:target.bootstrapId,
-  sessionId:lease.sessionId,roleValidUntil:lease.roleValidUntil,status:'pending'};
+  sessionId:lease.sessionId,startsAt:lease.startsAt,endsAt:lease.endsAt,roleValidUntil:lease.roleValidUntil,status:'pending'};
  let dbChanged=false;
  try{
   await durableState(paths.journal,pending);

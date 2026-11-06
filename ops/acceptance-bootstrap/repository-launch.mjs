@@ -36,9 +36,36 @@ export function validateLauncherSession(target,session,{now=Date.now}={}){
   'SESSION_AUTH_OR_WINDOW');
  return Object.freeze({start:session.startsAt,end:session.endsAt});
 }
+
+// A new protected session may not inherit an older session's DB lease.
+// A crash during renewal leaves a non-complete journal and blocks all launches.
+export function validateLauncherRenewal(target,window,state,{now=Date.now}={}){
+ if(target?.schema!=='nyra.acceptance.replacement.v2')return true;
+ const t=now(),firstEnd=Date.parse(target.createdAt)+86400000;
+ const validTime=Number.isFinite(t)&&t<Date.parse(window.end);
+ need(validTime,'DB_LEASE_CLOCK');
+ if(state===null||state===undefined){
+  need(Date.parse(window.end)<=firstEnd&&t<firstEnd,'DB_RENEWAL_REQUIRED');
+  return true;
+ }
+ need(state?.schema==='nyra.acceptance.db-renewal-state.v1'&&
+  state.bootstrapId===target.bootstrapId&&state.status==='complete'&&
+  state.startsAt===window.start&&state.endsAt===window.end&&
+  /^[a-f0-9]{8}-[a-f0-9-]{27,}$/.test(state.sessionId)&&
+  Number.isFinite(Date.parse(state.roleValidUntil))&&
+  t<Date.parse(state.roleValidUntil)&&Date.parse(state.roleValidUntil)<=Date.parse(window.end),
+  'DB_RENEWAL_JOURNAL');
+ return true;
+}
+
 async function launch(path){
  need(process.getuid?.()===0&&process.env.NYRA_REPOSITORY_LAUNCH==='1','DISABLED');
- const c=await privateFile(path);need(c.githubReadCredential==='/var/lib/nyra-5c/coordinator/admin-read.json'&&c.ownerKeyFile==='/var/lib/nyra-5c/coordinator/owner-public.json'&&c.evidenceKeyFile==='/var/lib/nyra-5c/coordinator/evidence-public.json'&&c.evidenceDirectory==='/var/lib/nyra-5c/coordinator/evidence','PRIVATE_PATHS');validateReplacementTarget(c.target,{created:true});const sessionWindow=validateLauncherSession(c.target,c.acceptanceSession);need(run('hostname',[])===c.target.hostname,'HOST');
+ const c=await privateFile(path);need(c.githubReadCredential==='/var/lib/nyra-5c/coordinator/admin-read.json'&&c.ownerKeyFile==='/var/lib/nyra-5c/coordinator/owner-public.json'&&c.evidenceKeyFile==='/var/lib/nyra-5c/coordinator/evidence-public.json'&&c.evidenceDirectory==='/var/lib/nyra-5c/coordinator/evidence','PRIVATE_PATHS');validateReplacementTarget(c.target,{created:true});const sessionWindow=validateLauncherSession(c.target,c.acceptanceSession);
+ let renewalState=null;
+ try{renewalState=await privateFile('/opt/nyra-5c/private/renewal-state.json');}
+ catch(e){if(e?.code!=='ENOENT')throw e;}
+ validateLauncherRenewal(c.target,sessionWindow,renewalState);
+ need(run('hostname',[])===c.target.hostname,'HOST');
  need(run('systemctl',['is-active','nyra-repository-expiry.timer'])==='active','TIMER');
  need(run('docker',['network','inspect','-f','{{.Internal}}','nyra-repository-db'])==='true','NETWORK');
  // Private roles can reach only their internal DB network, never the host.

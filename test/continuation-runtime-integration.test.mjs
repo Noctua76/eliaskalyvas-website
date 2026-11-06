@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {validateReplacementTarget,CONTINUATION_HOST_MS} from '../ops/acceptance-bootstrap/replacement-target.mjs';
 import {renderUbuntuSetup,renderCanonicalExpiryTimer,renderCanonicalExpiryService} from '../ops/acceptance-bootstrap/offline-bootstrap.mjs';
-import {validateLauncherSession} from '../ops/acceptance-bootstrap/repository-launch.mjs';
+import {validateLauncherSession,validateLauncherRenewal} from '../ops/acceptance-bootstrap/repository-launch.mjs';
 import {replacementRoleExpiry,replacementRenewalWindow,replacementRenewalSQL} from '../ops/acceptance-bootstrap/repository-db.mjs';
 const created='2026-11-06T09:00:00Z',expiry='2026-11-20T09:00:00Z';
 const target=()=>({schema:'nyra.acceptance.replacement.v2',bootstrapId:'nyra-acceptance-20261106-02',hostname:'nyra-acceptance-20261106-02',provider:'DigitalOcean',region:'fra1',origin:'https://nyra-acceptance.eliaskalyvas.gr',operatorCIDRs:['203.0.113.10/32'],cpu:4,memoryGiB:8,maximumHours:336,optionalResources:false,reviewedHead:'29a73458d4cd941e5ed514db56dc2c553d041bda',resourceId:'615221105',ipv4:'93.184.216.34',createdAt:created,expiresAt:expiry,authorization:false});
@@ -103,4 +103,14 @@ test('scoped PostgreSQL renewal SQL rotates both role passwords, disconnects old
  assert(!sql.includes(t.expiresAt));
  assert.throws(()=>replacementRenewalSQL({...lease,authorized:true},{registrar:'a'.repeat(48),broker:'b'.repeat(48)}),/DB_RENEWAL_SQL_SCOPE/);
  assert.throws(()=>replacementRenewalSQL(lease,{registrar:"a' OR 1=1",broker:'b'.repeat(48)}),/DB_RENEWAL_SQL_SCOPE/);
+});
+
+test('v2 launcher requires committed session-bound DB renewal after first bootstrap lease',()=>{
+ const target=target(); const now=Date.parse(target.createdAt)+2*86400000;
+ const window={start:new Date(now).toISOString(),end:new Date(now+3600000).toISOString()};
+ assert.throws(()=>validateLauncherRenewal(target,window,null,{now:()=>now}),/DB_RENEWAL_REQUIRED/);
+ const state={schema:'nyra.acceptance.db-renewal-state.v1',bootstrapId:target.bootstrapId,sessionId:'a1b2c3d4-1111-4111-8111-222222222222',startsAt:window.start,endsAt:window.end,roleValidUntil:window.end,status:'complete'};
+ assert.equal(validateLauncherRenewal(target,window,state,{now:()=>now}),true);
+ for(const x of [{...state,status:'db-updated'},{...state,endsAt:new Date(now+7200000).toISOString()},{...state,roleValidUntil:new Date(now-1).toISOString()}])
+  assert.throws(()=>validateLauncherRenewal(target,window,x,{now:()=>now}),/DB_RENEWAL_JOURNAL/);
 });
