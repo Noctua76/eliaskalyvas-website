@@ -164,9 +164,10 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
   // Failure in either preparation path MUST remove the other staged secret.
   for(const role of ['registrar','broker']){
    const old=await sealed(rolePaths[role],users[role].uid);
-   need(old.user==='nyra_accept_'+role&&old.host==='db'&&old.port===5432&&old.database==='postgres','ROLE_SCOPE');
+   need(Object.keys(old).sort().join(',')==='database,host,password,port,user'&&
+    /^[a-f0-9]{48}$/.test(old.password)&&old.user==='nyra_accept_'+role&&old.host==='db'&&old.port===5432&&old.database==='postgres','ROLE_SCOPE');
    oldPasswords[role]=old.password;
-   staged[role]=await atomicSealed(rolePaths[role],{...old,password:secrets[role]},users[role]);
+   staged[role]=await atomicSealed(rolePaths[role],{host:'db',database:'postgres',port:5432,user:'nyra_accept_'+role,password:secrets[role]},users[role]);
   }
   need(hashJSON(await assertTrust(lease))===hashJSON(trust),'TRUST_RECHECK');
   // Revalidate isolation and the clock immediately before SQL mutation.

@@ -138,6 +138,13 @@ usermod -a -G nyra-policy,nyra-ingress,nyra-receipts nyra-coordinator
 install -d -m 0750 -o nyra-coordinator -g nyra-policy /var/lib/nyra-5c/policy
 install -d -m 0750 -o nyra-coordinator -g nyra-ingress /run/nyra-5c
 install -d -m 0750 -o nyra-owner -g nyra-receipts /run/nyra-owner-receipts
+# /run is volatile; preserve the same private IPC ownership after reboot.
+cat > /etc/tmpfiles.d/nyra-acceptance.conf <<'TMPFILES'
+d /run/nyra-5c 0750 nyra-coordinator nyra-ingress -
+d /run/nyra-owner-receipts 0750 nyra-owner nyra-receipts -
+TMPFILES
+chmod 0644 /etc/tmpfiles.d/nyra-acceptance.conf
+systemd-tmpfiles --create /etc/tmpfiles.d/nyra-acceptance.conf
 install -d -m 0700 -o nyra-coordinator -g nyra-coordinator /var/lib/nyra-5c/coordinator/evidence
 install -m 0644 Caddyfile.disabled /etc/nyra-acceptance/Caddyfile
 install -m 0644 caddy.service /etc/systemd/system/nyra-caddy.service

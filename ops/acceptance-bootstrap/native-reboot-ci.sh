@@ -12,7 +12,7 @@ ssh-keygen -q -t ed25519 -N '' -f "$work/guest-key"
 key=$(cat "$work/guest-key.pub")
 cat > "$work/user-data" <<YAML
 #cloud-config
-hostname: nyra-native-reboot
+hostname: nyra-acceptance-native-bootstrap
 ssh_pwauth: false
 disable_root: false
 users:
@@ -50,4 +50,5 @@ for i in $(seq 1 120); do
  kill -0 "$vm_pid"; sleep 3
 done
 test "$ready" = true
-remote 'set -e; systemctl is-active --quiet docker; ready=false; for i in $(seq 1 60); do if docker exec nyra-repository-pg pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then ready=true; break; fi; sleep 1; done; test "$ready" = true; cd /root/source; env NYRA_NATIVE_REBOOT_READBACK=1 node test/native-bootstrap-reboot-readback.mjs'
+printf 'NYRA_NATIVE_REBOOT_BOOT_IDS=%s,%s\n' "$old_boot" "$current_boot"
+remote 'set -e; ready=false; for i in $(seq 1 120); do if systemctl is-active --quiet docker && docker exec nyra-repository-pg pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then ready=true; break; fi; sleep 2; done; if test "$ready" != true; then systemctl show docker --property=ActiveState --property=Result; journalctl -u docker --no-pager -n 30; exit 1; fi; echo NYRA_POST_REBOOT_DOCKER_AND_PG_READY; cd /root/source; env NYRA_NATIVE_REBOOT_READBACK=1 node test/native-bootstrap-reboot-readback.mjs'
