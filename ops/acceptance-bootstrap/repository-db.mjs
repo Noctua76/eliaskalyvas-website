@@ -8,7 +8,7 @@ import {cleanupReplacement} from './repository-launch.mjs';
 import {loginsSQL,IMAGE} from './db-stage.mjs';
 import {hashJSON} from '../../lib/publication/contract.mjs';
 const run=(args,input)=>execFileSync('docker',args,{encoding:'utf8',input,stdio:[input?'pipe':'ignore','pipe','pipe'],timeout:120000}).trim();
-export function replacementDBCommands(target){validateReplacementTarget(target,{created:true});const label='com.noctua.nyra.acceptance='+hashJSON(target);return {network:['network','create','--internal','--label',label,'nyra-repository-db'],database:['run','-d','--name','nyra-repository-pg','--label',label,'--network','nyra-repository-db','--network-alias','db','--restart','no','--memory','1g','--security-opt','no-new-privileges:true','--env-file','/opt/nyra-5c/private/repository-db.env',IMAGE]};}
+export function replacementDBCommands(target){validateReplacementTarget(target,{created:true});const label='com.noctua.nyra.acceptance='+hashJSON(target);return {network:['network','create','--internal','--label',label,'nyra-repository-db'],database:['run','-d','--name','nyra-repository-pg','--label',label,'--network','nyra-repository-db','--network-alias','db','--restart','unless-stopped','--memory','1g','--security-opt','no-new-privileges:true','--env-file','/opt/nyra-5c/private/repository-db.env',IMAGE]};}
 // Independent login lease: host lifetime never authorizes 14-day database credentials.
 export function replacementRoleExpiry(target,{now=Date.now}={}){
  validateReplacementTarget(target,{created:true,now});
@@ -78,7 +78,7 @@ async function main(){
   // The pinned Supabase image may boot socket-only. Acceptance workers use
   // TCP inside the --internal Docker network, so a local socket check alone
   // cannot establish DB readiness. Never publish a host port.
-  const privileged=['exec','-i','nyra-repository-pg','psql','-X','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1'];
+  const privileged=['exec','-i','nyra-repository-pg','psql','-X','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'];
   const psql=['exec','-i','nyra-repository-pg','psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'];
   if(run(psql,'SHOW listen_addresses;').trim()!=='*'){
    run(privileged,"ALTER SYSTEM SET listen_addresses = '*';");
@@ -96,7 +96,7 @@ async function main(){
   run(['exec','--user','root','nyra-repository-pg','sh','-ec',"set -eu\np=\"$1\"\ntest -f \"$p\" && test ! -L \"$p\"\nif grep -qx \"# NYRA_PRIVATE_SCRAM_V1\" \"$p\"; then exit 0; fi\nt=$(mktemp \"$p.nyra.XXXXXX\")\ntrap 'rm -f -- \"$t\"' EXIT\nprintf \"%s\\n\" \"# NYRA_PRIVATE_SCRAM_V1\" \"host all nyra_accept_registrar 0.0.0.0/0 scram-sha-256\" \"host all nyra_accept_broker 0.0.0.0/0 scram-sha-256\" \"host all nyra_accept_registrar ::/0 scram-sha-256\" \"host all nyra_accept_broker ::/0 scram-sha-256\" > \"$t\"\ncat -- \"$p\" >> \"$t\"\nowner=$(stat -c %u:%g \"$p\")\nmode=$(stat -c %a \"$p\")\nchown \"$owner\" \"$t\"\nchmod \"$mode\" \"$t\"\nmv -f -- \"$t\" \"$p\"\ntrap - EXIT",'nyra-hba',hba]);
   if(run(privileged,'SELECT pg_reload_conf();')!=='t')throw Error('DB_HBA_RELOAD');
   const hbaRules=run(privileged,"SELECT count(*) FROM pg_hba_file_rules WHERE type='host' AND auth_method='scram-sha-256' AND user_name && ARRAY['nyra_accept_registrar','nyra_accept_broker'];");
-  if(Number(hbaRules)<4)throw Error('DB_HBA_NOT_VERIFIED');
+  if(!Number.isSafeInteger(Number(hbaRules))||Number(hbaRules)<4)throw Error('DB_HBA_NOT_VERIFIED');
   run(psql,schema);
   run(psql,loginsSQL(passwords.registrar,passwords.broker));
   // A 14-day host is NOT a 14-day login lease. New sessions require
