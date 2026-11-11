@@ -5,14 +5,32 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
+import {lookup} from 'node:dns/promises';
+import {connect} from 'node:tls';
+import {promisify} from 'node:util';
+import {execFile} from 'node:child_process';
 import {prepareOfflineBootstrap,renderCanonicalExpiryTimer,renderCanonicalExpiryService} from './offline-bootstrap.mjs';
 const sha=b=>createHash('sha256').update(b).digest('hex');
+const execute=promisify(execFile);
+const failureCodes=e=>[e?.code,e?.cause?.code,...(e?.cause?.errors??[]).map(x=>x.code)].filter(x=>typeof x==='string'&&/^[A-Z0-9_]{2,50}$/.test(x));
+// Public endpoints only; never print proxy URLs, request headers or redirects.
+async function diagnosePublicPins(lock,failedArtifact,error){
+ console.error(JSON.stringify({marker:'NYRA_PUBLIC_PREREQUISITE_FETCH_FAILED',failedArtifact,url:lock[failedArtifact].url,node:process.version,errorCodes:failureCodes(error),proxyConfigured:!!(process.env.HTTPS_PROXY||process.env.https_proxy),nodeUseEnvProxy:process.env.NODE_USE_ENV_PROXY==='1',extraCAConfigured:!!process.env.NODE_EXTRA_CA_CERTS}));
+ await Promise.all(Object.entries(lock).map(async([artifact,x])=>{
+  const host=new URL(x.url).hostname,record={marker:'NYRA_PUBLIC_PREREQUISITE_DIAGNOSTIC',artifact,url:x.url};
+  try{record.dns=await lookup(host,{all:true});}catch(e){record.dns={codes:failureCodes(e)};}
+  record.directTLS=await new Promise(resolve=>{const socket=connect({host,port:443,servername:host,rejectUnauthorized:true});let done=false;const finish=v=>{if(done)return;done=true;clearTimeout(timer);socket.destroy();resolve(v);};const timer=setTimeout(()=>finish({code:'DIRECT_TLS_TIMEOUT'}),4000);socket.once('secureConnect',()=>finish({authorized:socket.authorized,protocol:socket.getProtocol()}));socket.once('error',e=>finish({codes:failureCodes(e)}));});
+  try{const r=await fetch(x.url,{method:'HEAD',credentials:'omit',signal:AbortSignal.timeout(15000)});record.nodeHTTP={status:r.status};}catch(e){record.nodeHTTP={codes:failureCodes(e)};}
+  try{const {stdout}=await execute('curl',['--disable','--silent','--show-error','--head','--location','--proto','=https','--proto-redir','=https','--connect-timeout','5','--max-time','15','--output','/dev/null','--write-out','%{http_code} %{ssl_verify_result} %{proxy_ssl_verify_result} %{time_appconnect}',x.url],{timeout:17000,maxBuffer:4096});const m=stdout.trim().match(/^(\d{3}) (\d+) (\d+) ([0-9.]+)$/);record.curlHTTP=m?{status:Number(m[1]),tlsVerifyResult:Number(m[2]),proxyTLSVerifyResult:Number(m[3]),tlsSeconds:Number(m[4])}:{code:'CURL_METADATA_UNAVAILABLE'};}catch(e){record.curlHTTP={exitCode:Number.isInteger(e.code)?e.code:null,code:e.code==='ENOENT'?'CURL_UNAVAILABLE':'CURL_NETWORK_FAILED'};}
+  console.error(JSON.stringify(record));
+ }));
+}
 export async function verifyOffline({vendor,download=false}){
  const lock=JSON.parse(await readFile(new URL('./prerequisites.lock.json',import.meta.url)));
  await mkdir(vendor,{recursive:true,mode:0o700});
- for(const x of Object.values(lock)){
+ for(const [artifact,x] of Object.entries(lock)){
   let bytes;try{bytes=await readFile(join(vendor,x.file));}catch(e){if(e.code!=='ENOENT'||!download)throw e;
-   const r=await fetch(x.url,{signal:AbortSignal.timeout(120000),credentials:'omit'});if(!r.ok)throw Error('PUBLIC_PREREQUISITE_UNAVAILABLE');bytes=Buffer.from(await r.arrayBuffer());if(sha(bytes)!==x.sha256)throw Error('PREREQUISITE_CHANGED');await writeFile(join(vendor,x.file),bytes,{flag:'wx',mode:0o600});}
+   let r;try{r=await fetch(x.url,{signal:AbortSignal.timeout(120000),credentials:'omit'});}catch(error){await diagnosePublicPins(lock,artifact,error);throw error;}if(!r.ok)throw Error('PUBLIC_PREREQUISITE_UNAVAILABLE');bytes=Buffer.from(await r.arrayBuffer());if(sha(bytes)!==x.sha256)throw Error('PREREQUISITE_CHANGED');await writeFile(join(vendor,x.file),bytes,{flag:'wx',mode:0o600});}
   if(sha(bytes)!==x.sha256)throw Error('PREREQUISITE_CHANGED');
  }
  const temp=await mkdtemp(join(tmpdir(),'nyra-offline-proof-'));
