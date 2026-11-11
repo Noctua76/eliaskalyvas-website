@@ -5,7 +5,10 @@ umask 077
 work=$(mktemp -d)
 cleanup(){ if test -n "${vm_pid:-}"; then kill "$vm_pid" 2>/dev/null || true; wait "$vm_pid" 2>/dev/null || true; fi; rm -rf -- "$work"; }
 trap cleanup EXIT
-curl -fsSL --retry 3 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img -o "$work/base.img"
+# CI-only mirror of the same Canonical image; the original SHA-256 below must
+# verify before QEMU can use any bytes. Ubuntu's primary hostname fails DNS.
+curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 --connect-timeout 30 --max-time 600 \
+ https://mirrors.tuna.tsinghua.edu.cn/ubuntu-cloud-images/noble/current/noble-server-cloudimg-amd64.img -o "$work/base.img"
 printf '%s  %s\n' '04e8f2461a16a44e78a370284471f29616cdd9baf1893df25807b71f985b6c94' "$work/base.img" | sha256sum --check --strict
 qemu-img create -f qcow2 -F qcow2 -b "$work/base.img" "$work/guest.qcow2" 28G
 ssh-keygen -q -t ed25519 -N '' -f "$work/guest-key"
