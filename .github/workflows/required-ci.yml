@@ -96,32 +96,25 @@ jobs:
         run: npm ci && npm ci --ignore-scripts --prefix ops/acceptance-bootstrap/runtime
       - name: Install disposable VM tools
         run: |
-          # CI runner only: Ubuntu archive DNS is failing. Preserve suites,
-          # components, Signed-By and APT signature/hash verification.
-          sudo python3 - <<'PY'
+          # Scope the mirror override to these CI commands. The runner can
+          # restore its global sources; both commands must use the same copy.
+          ci_apt_sources=$(mktemp --suffix=.sources)
+          trap 'sudo rm -f -- "$ci_apt_sources"' EXIT
+          sudo python3 - "$ci_apt_sources" <<'PY'
           from pathlib import Path
-          import re
-          changed = False
-          for path in [Path('/etc/apt/sources.list'), Path('/etc/apt/sources.list.d/ubuntu.sources')]:
-              if path.is_file():
-                  original = path.read_text()
-                  updated = re.sub(r'(?:https?://(?:azure\.archive|archive|security)\.ubuntu\.com/ubuntu/?|mirror\+file:/etc/apt/apt-mirrors\.txt)(?=\s|$)', 'https://mirrors.edge.kernel.org/ubuntu', original)
-                  if updated != original:
-                      path.write_text(updated)
-                      changed = True
-          if not changed:
+          import hashlib, re, sys
+          original = Path('/etc/apt/sources.list.d/ubuntu.sources').read_text()
+          updated = re.sub(r'(?:https?://(?:azure\.archive|archive|security)\.ubuntu\.com/ubuntu/?|mirror\+file:/etc/apt/apt-mirrors\.txt)(?=\s|$)', 'https://mirrors.edge.kernel.org/ubuntu', original)
+          if updated == original:
               raise SystemExit('EXPECTED_UBUNTU_APT_SOURCE_MISSING')
+          # Suites, components and Signed-By remain byte-for-byte unchanged.
+          Path(sys.argv[1]).write_text(updated)
+          print('NYRA_CI_APT_SOURCE_SHA256=' + hashlib.sha256(updated.encode()).hexdigest())
           PY
-          sudo apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 -o APT::Update::Error-Mode=any update
-          dpkg --print-architecture
-          sudo apt-cache policy qemu-system-x86 qemu-utils cloud-image-utils acl
-          sudo python3 - <<'PY'
-          from pathlib import Path
-          import json
-          print(json.dumps({'marker': 'NYRA_CI_APT_INDEX_READBACK', 'indexes': [{'name': p.name, 'bytes': p.stat().st_size} for p in Path('/var/lib/apt/lists').iterdir() if p.is_file()]}))
-          print(Path('/etc/apt/sources.list.d/ubuntu.sources').read_text())
-          PY
-          sudo apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils acl
+          ci_apt_options=(-o "Dir::Etc::sourcelist=$ci_apt_sources" -o "Dir::Etc::sourceparts=-" -o Acquire::Retries=2 -o Acquire::https::Timeout=30)
+          sudo apt-get "${ci_apt_options[@]}" -o APT::Update::Error-Mode=any update
+          sudo apt-cache "${ci_apt_options[@]}" policy qemu-system-x86 qemu-utils cloud-image-utils acl
+          sudo apt-get "${ci_apt_options[@]}" install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils acl
       - name: Enable current runner user access to available KVM device
         run: |
           if test -e /dev/kvm; then
