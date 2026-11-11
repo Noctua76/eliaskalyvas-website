@@ -39,8 +39,15 @@ const sentinel='nyra-native-unrelated';cmd('docker',['network','create','--inter
 try{
  // Advance ONLY this disposable guest's clock to test the real installed
  // expiry timer/service. This is accelerated expiry, not 14 elapsed days.
+ assert.equal(before.target.bootstrapId,'nyra-acceptance-native-bootstrap');
+ assert.equal(before.target.resourceId,'615221105');
  cmd('timedatectl',['set-ntp','false']);
- cmd('timedatectl',['set-time',new Date(Date.parse(before.target.expiresAt)+2000).toISOString()]);
+ cmd('systemctl',['stop','systemd-timesyncd.service']);
+ assert.equal(cmd('systemctl',['show','systemd-timesyncd.service','--property=ActiveState','--value']),'inactive');
+ // Avoid timedated's persistent post-reboot D-Bus busy state. Set the REAL
+ // kernel clock only in this exact synthetic guest; no timer is modified.
+ cmd('date',['--set',new Date(Date.parse(before.target.expiresAt)+2000).toISOString()]);
+ assert(Date.now()>=Date.parse(before.target.expiresAt),'Actual disposable guest clock must cross the exact deadline');
  let retired=false;
  for(let i=0;i<60;i++){
   if(cmd('docker',['ps','-aq','--filter','name=^nyra-repository-pg$'])===''){retired=true;break;}

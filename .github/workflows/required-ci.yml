@@ -95,7 +95,26 @@ jobs:
       - name: Install locked dependencies
         run: npm ci && npm ci --ignore-scripts --prefix ops/acceptance-bootstrap/runtime
       - name: Install disposable VM tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils acl
+        run: |
+          # Scope the mirror override to these CI commands. The runner can
+          # restore its global sources; both commands must use the same copy.
+          ci_apt_sources=$(sudo mktemp --suffix=.sources)
+          trap 'sudo rm -f -- "$ci_apt_sources"' EXIT
+          sudo python3 - "$ci_apt_sources" <<'PY'
+          from pathlib import Path
+          import hashlib, re, sys
+          original = Path('/etc/apt/sources.list.d/ubuntu.sources').read_text()
+          updated = re.sub(r'(?:https?://(?:azure\.archive|archive|security)\.ubuntu\.com/ubuntu/?|mirror\+file:/etc/apt/apt-mirrors\.txt)(?=\s|$)', 'https://mirrors.edge.kernel.org/ubuntu', original)
+          if updated == original:
+              raise SystemExit('EXPECTED_UBUNTU_APT_SOURCE_MISSING')
+          # Suites, components and Signed-By remain byte-for-byte unchanged.
+          Path(sys.argv[1]).write_text(updated)
+          print('NYRA_CI_APT_SOURCE_SHA256=' + hashlib.sha256(updated.encode()).hexdigest())
+          PY
+          ci_apt_options=(-o "Dir::Etc::sourcelist=$ci_apt_sources" -o "Dir::Etc::sourceparts=-" -o Acquire::Retries=2 -o Acquire::https::Timeout=30)
+          sudo apt-get "${ci_apt_options[@]}" -o APT::Update::Error-Mode=any update
+          sudo apt-cache "${ci_apt_options[@]}" policy qemu-system-x86 qemu-utils cloud-image-utils acl
+          sudo apt-get "${ci_apt_options[@]}" install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils acl
       - name: Enable current runner user access to available KVM device
         run: |
           if test -e /dev/kvm; then
