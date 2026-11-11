@@ -13,13 +13,13 @@
   },
   "iptables": {
     "version": "1.8.10-3ubuntu2",
-    "url": "https://archive.ubuntu.com/ubuntu/pool/main/i/iptables/iptables_1.8.10-3ubuntu2_amd64.deb",
+    "url": "https://mirrors.edge.kernel.org/ubuntu/pool/main/i/iptables/iptables_1.8.10-3ubuntu2_amd64.deb",
     "file": "iptables_1.8.10-3ubuntu2_amd64.deb",
     "sha256": "d341e8ffc42ca035f5aa0fd9a798c8d2b2edb019225dc11f4dac16edf9c57840"
   },
   "ufw": {
     "version": "0.36.2-6",
-    "url": "https://archive.ubuntu.com/ubuntu/pool/main/u/ufw/ufw_0.36.2-6_all.deb",
+    "url": "https://mirrors.edge.kernel.org/ubuntu/pool/main/u/ufw/ufw_0.36.2-6_all.deb",
     "file": "ufw_0.36.2-6_all.deb",
     "sha256": "096eb403ecaf6740d160bb306970f025222ef71324319cc1cb78d06dfa462ef1"
   }

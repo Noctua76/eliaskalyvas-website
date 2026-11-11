@@ -29,9 +29,10 @@ export async function verifyOffline({vendor,download=false}){
  const lock=JSON.parse(await readFile(new URL('./prerequisites.lock.json',import.meta.url)));
  await mkdir(vendor,{recursive:true,mode:0o700});
  for(const [artifact,x] of Object.entries(lock)){
-  let bytes;try{bytes=await readFile(join(vendor,x.file));}catch(e){if(e.code!=='ENOENT'||!download)throw e;
-   let r;try{r=await fetch(x.url,{signal:AbortSignal.timeout(120000),credentials:'omit'});}catch(error){await diagnosePublicPins(lock,artifact,error);throw error;}if(!r.ok)throw Error('PUBLIC_PREREQUISITE_UNAVAILABLE');bytes=Buffer.from(await r.arrayBuffer());if(sha(bytes)!==x.sha256)throw Error('PREREQUISITE_CHANGED');await writeFile(join(vendor,x.file),bytes,{flag:'wx',mode:0o600});}
+  let bytes,httpStatus=null;try{bytes=await readFile(join(vendor,x.file));}catch(e){if(e.code!=='ENOENT'||!download)throw e;
+   let r;try{r=await fetch(x.url,{signal:AbortSignal.timeout(120000),credentials:'omit'});}catch(error){await diagnosePublicPins(lock,artifact,error);throw error;}httpStatus=r.status;if(!r.ok)throw Error('PUBLIC_PREREQUISITE_UNAVAILABLE');bytes=Buffer.from(await r.arrayBuffer());if(sha(bytes)!==x.sha256)throw Error('PREREQUISITE_CHANGED');await writeFile(join(vendor,x.file),bytes,{flag:'wx',mode:0o600});}
   if(sha(bytes)!==x.sha256)throw Error('PREREQUISITE_CHANGED');
+  console.log(JSON.stringify({marker:'NYRA_PINNED_PREREQUISITE_VERIFIED',artifact,url:x.url,httpStatus,bytes:bytes.length,sha256:x.sha256}));
  }
  const temp=await mkdtemp(join(tmpdir(),'nyra-offline-proof-'));
  try{
