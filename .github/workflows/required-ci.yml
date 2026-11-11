@@ -98,7 +98,7 @@ jobs:
         run: |
           # Scope the mirror override to these CI commands. The runner can
           # restore its global sources; both commands must use the same copy.
-          ci_apt_sources=$(mktemp --suffix=.sources)
+          ci_apt_sources=$(sudo mktemp --suffix=.sources)
           trap 'sudo rm -f -- "$ci_apt_sources"' EXIT
           sudo python3 - "$ci_apt_sources" <<'PY'
           from pathlib import Path
