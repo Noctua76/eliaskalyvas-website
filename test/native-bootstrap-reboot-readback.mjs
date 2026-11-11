@@ -40,7 +40,16 @@ try{
  // Advance ONLY this disposable guest's clock to test the real installed
  // expiry timer/service. This is accelerated expiry, not 14 elapsed days.
  cmd('timedatectl',['set-ntp','false']);
- cmd('timedatectl',['set-time',new Date(Date.parse(before.target.expiresAt)+2000).toISOString()]);
+ // timedated can still be finishing the preceding NTP request after reboot.
+ // Retry ONLY that exact busy response; all other failures remain fatal.
+ for(let attempt=0;;attempt++){
+  try{cmd('timedatectl',['set-time',new Date(Date.parse(before.target.expiresAt)+2000).toISOString()]);break;}
+  catch(e){
+   if(attempt>=39||e.status!==1||String(e.stderr).trim()!=='Failed to set time: Previous request is not finished, refusing.')throw e;
+   await delay(250);
+  }
+ }
+ assert(Date.now()>=Date.parse(before.target.expiresAt),'Actual disposable guest clock must cross the exact deadline');
  let retired=false;
  for(let i=0;i<60;i++){
   if(cmd('docker',['ps','-aq','--filter','name=^nyra-repository-pg$'])===''){retired=true;break;}
