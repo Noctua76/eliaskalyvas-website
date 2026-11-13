@@ -17,6 +17,20 @@ import {validateReplacementTarget} from './replacement-target.mjs';
 import {replacementRenewalWindow,replacementRenewalSQL} from './repository-db.mjs';
 import {hashJSON} from '../../lib/publication/contract.mjs';
 const need=(x,c)=>{if(!x)throw Error('NYRA_DB_RENEWAL_'+c);};
+// Failure-only diagnostics: fixed enums, no error text, stack, payload or secrets.
+const renewalFailureStages=new Set(['ENTRY','LOCK_OPEN','LOCK_CHECK','LOCK_OR_CHILD','PRIVATE_INPUTS','OWNER_KEY','MACHINE_BINDING','OWNER_CONFIGURATION','OWNER_TOKEN_INPUT','OWNER_RENEWAL_REQUEST','OWNER_APPROVAL_VERIFY','TRUST_GATE_SETUP','HOST_BOUNDARY','JOURNAL_HISTORY','RESOURCE_BOUNDARY','PRE_JOURNAL_TRUST','ROLE_IDENTITIES','ROLE_DIRECTORIES','JOURNAL_RESERVATION','CREDENTIAL_STAGING','PRECOMMIT_TRUST','PRECOMMIT_BOUNDARY','DATABASE_ROTATION','CREDENTIAL_INSTALLATION','CREDENTIAL_VERIFICATION','RENEWAL_COMPLETION']);
+const renewalFailureCodes=new Set([
+ ...['DISABLED','ROOT','TARGET_PIN','OWNER_KEY_ID','MACHINE_ID','SEALED_FILE','TOKEN_SIZE','OWNER_AAL2_TOKEN','TRUST_ADAPTER','HOST','ISOLATION','JOURNAL_PATH','STATE','REPLAY','RESOURCE_LABEL','PUBLIC_PORT','PG17','SCRAM_RULES','OWNER_ADMINISTRATION','ROLE_USER','ROLE_PARENT','ROLE_DIRECTORY','STAGED_FILE','ROLE_SCOPE','TRUST_RECHECK','PRECOMMIT_BOUNDARY','COMMAND_DENIED','SERVER_VALIDITY','CREDENTIAL_READBACK','NEW_PASSWORD_REJECTED','OLD_PASSWORD_SURVIVED','CROSS_ROLE_CREDENTIAL','GITHUB_CREDENTIAL','LOCK'].map(x=>'NYRA_DB_RENEWAL_'+x),
+ ...['FIELDS','IDENTITY','WINDOW','KEY_PIN','BINDING','FRESHNESS'].map(x=>'DB_RENEWAL_APPROVAL_'+x),
+ ...['SOURCE_REQUIRED','POLICY_BINDING','RETIRED','OPERATION','ADMINISTRATION_CHANGED','OWNER_SOURCE_UNVERIFIED','OWNER_BINDING','OWNER_AUTHORIZATION','OWNER_FRESHNESS','ADMINISTRATION_STALE','RETIREMENT_UNCONFIRMED'].map(x=>'REPOSITORY_TRUST_'+x),
+ 'PRIVATE_FILE','OWNER_REQUEST_DENIED','ADMIN_CREDENTIAL_REQUIRED','ADMIN_READ_SCOPE','ADMIN_READ_DENIED','ADMIN_READ_INCOMPLETE','ADMIN_READ_SIZE','ADMIN_READ_UNAVAILABLE','ADMIN_READ_STALE','ADMIN_SNAPSHOT_CHANGED','DB_RENEWAL_FIELDS','DB_RENEWAL_IDENTITY','DB_RENEWAL_WINDOW','UNCLASSIFIED']);
+let renewalFailureStage='ENTRY';
+export function sanitizedRenewalFailure(error){
+ let code='',errno='';try{code=typeof error?.message==='string'?error.message:'';errno=error?.code;}catch{}
+ const prefix='NYRA_DB_RENEWAL_FAILED_CLOSED_';if(code.startsWith(prefix))code=code.slice(prefix.length);
+ if(!renewalFailureCodes.has(code))code=['ENOENT','EACCES','EPERM','ELOOP','ENOTDIR','EISDIR'].includes(errno)?'FILESYSTEM_ACCESS_FAILED':'UNCLASSIFIED';
+ return {marker:'NYRA_DB_RENEWAL_DENIED',stage:renewalFailureStages.has(renewalFailureStage)?renewalFailureStage:'ENTRY',code,noAutomaticRetry:true};
+}
 const command=(program,args,input)=>{
  try{return execFileSync(program,args,{encoding:'utf8',input,timeout:30000,
   stdio:[input===undefined?'ignore':'pipe','pipe','pipe']}).trim();}
@@ -87,6 +101,7 @@ export function assertRenewalHostBoundary({target,session,host,timerActive,netwo
  return replacementRenewalWindow(target,session,{now});
 }
 export async function applyAuthorizedRenewal({target,session,assertTrust,paths,now=Date.now}){
+ renewalFailureStage='HOST_BOUNDARY';
  need(typeof assertTrust==='function','TRUST_ADAPTER');
  need(process.getuid?.()===0,'ROOT');
  const lease=assertRenewalHostBoundary({target,session,host:command('hostname',[]),
@@ -95,11 +110,13 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
   roleContainers:docker(['ps','-aq','--filter','name=^nyra-5c-live-']).split('\n').filter(Boolean).length,
   serviceActive:command('systemctl',['show','nyra-repository-runtime.service','--property=ActiveState','--value'])==='active',now});
  need(paths?.journal==='/opt/nyra-5c/private/renewal-state.json','JOURNAL_PATH');
+ renewalFailureStage='JOURNAL_HISTORY';
  const state=await sealed(paths.journal).catch(e=>{
   if(e?.code==='ENOENT')return null;
   throw e;
  });
  const usedSessionIds=renewalHistory(state,target,session);
+ renewalFailureStage='RESOURCE_BOUNDARY';
  const expectedLabel=hashJSON(target);
  need(docker(['inspect','-f','{{index .Config.Labels "com.noctua.nyra.acceptance"}}','nyra-repository-pg'])===expectedLabel&&
   docker(['network','inspect','-f','{{index .Labels "com.noctua.nyra.acceptance"}}','nyra-repository-db'])===expectedLabel,'RESOURCE_LABEL');
@@ -111,9 +128,11 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
  need(Number(rules)>=4,'SCRAM_RULES');
 
  // Fresh trust check precedes credential generation or any mutation.
+ renewalFailureStage='PRE_JOURNAL_TRUST';
  const trust=await assertTrust(lease);
  need(trust&&trust.verified===true&&/^[a-f0-9]{64}$/.test(trust.approvalSHA256)&&
   /^[a-f0-9]{64}$/.test(trust.repositoryTrustSHA256),'OWNER_ADMINISTRATION');
+ renewalFailureStage='ROLE_IDENTITIES';
  const users=Object.fromEntries(['registrar','broker'].map(r=>[r,uid(r)]));
  const secrets={registrar:randomBytes(24).toString('hex'),broker:randomBytes(24).toString('hex')};
  const staged={},oldPasswords={},directories={};
@@ -137,6 +156,7 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
  try{
   // Freeze role directories while root replaces secrets. Their root-owned
   // parent prevents renames; NOFOLLOW handles prevent symlink substitution.
+  renewalFailureStage='ROLE_DIRECTORIES';
   const parent=await lstat('/var/lib/nyra-5c');
   need(parent.isDirectory()&&!parent.isSymbolicLink()&&parent.uid===0&&(parent.mode&0o022)===0,'ROLE_PARENT');
   for(const role of ['registrar','broker']){
@@ -149,8 +169,10 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
   // Record session consumption BEFORE staging. A kill at any later instruction
   // leaves launches blocked. Recovery requires a NEW independently approved
   // session and rotates both DB passwords again, including ambiguous commits.
+  renewalFailureStage='JOURNAL_RESERVATION';
   await durableState(paths.journal,pending);journalStarted=true;
   await audit(state&&state.status!=='complete'?'RECOVERY_NEW_SESSION_RESERVED':'SESSION_RESERVED');
+  renewalFailureStage='CREDENTIAL_STAGING';
   for(const role of ['registrar','broker']){
    for(const name of await readdir(dirname(rolePaths[role]))){
     if(!/^pg\.json\.nyra-[a-f0-9-]{36}$/.test(name))continue;
@@ -169,27 +191,33 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
    oldPasswords[role]=old.password;
    staged[role]=await atomicSealed(rolePaths[role],{host:'db',database:'postgres',port:5432,user:'nyra_accept_'+role,password:secrets[role]},users[role]);
   }
+  renewalFailureStage='PRECOMMIT_TRUST';
   need(hashJSON(await assertTrust(lease))===hashJSON(trust),'TRUST_RECHECK');
   // Revalidate isolation and the clock immediately before SQL mutation.
+  renewalFailureStage='PRECOMMIT_BOUNDARY';
   need(command('systemctl',['show','nyra-repository-runtime.service','--property=ActiveState','--value'])==='inactive'&&
    docker(['ps','-aq','--filter','name=^nyra-5c-live-']).trim()===''&&now()<Date.parse(lease.roleValidUntil),'PRECOMMIT_BOUNDARY');
   const args=['exec','-i','nyra-repository-pg','psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'];
+  renewalFailureStage='DATABASE_ROTATION';
   const response=docker(args,replacementRenewalSQL(lease,secrets));
   dbChanged=true;
   const actual=response.split('\n').map(x=>x.trim()).filter(x=>x.startsWith('nyra_accept_'));
   need(JSON.stringify(actual)===JSON.stringify(['nyra_accept_broker|'+lease.roleValidUntil,'nyra_accept_registrar|'+lease.roleValidUntil]),'SERVER_VALIDITY');
   await durableState(paths.journal,{...pending,status:'db-updated'});
+  renewalFailureStage='CREDENTIAL_INSTALLATION';
   for(const role of ['registrar','broker']){
    await rename(staged[role],rolePaths[role]);delete staged[role];
    await syncDirectory(dirname(rolePaths[role]));
    const check=await sealed(rolePaths[role],users[role].uid);
    need(check.password===secrets[role]&&check.user==='nyra_accept_'+role,'CREDENTIAL_READBACK');
   }
+  renewalFailureStage='CREDENTIAL_VERIFICATION';
   for(const role of ['registrar','broker']){
    need(auth(role,secrets[role]),'NEW_PASSWORD_REJECTED');
    need(!auth(role,oldPasswords[role]),'OLD_PASSWORD_SURVIVED');
   }
   need(!auth('registrar',secrets.broker)&&!auth('broker',secrets.registrar),'CROSS_ROLE_CREDENTIAL');
+  renewalFailureStage='RENEWAL_COMPLETION';
   for(const [role,d] of Object.entries(directories)){
    await d.chown(users[role].uid,users[role].gid);await d.chmod(0o700);await d.sync();
   }
@@ -215,25 +243,33 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
 }
 export async function runHostRenewal(){
  need(process.getuid?.()===0&&process.env.NYRA_DB_RENEWAL==='1'&&process.argv.length===3&&process.argv[2]==='--renew-locked','DISABLED');
+ renewalFailureStage='PRIVATE_INPUTS';
  const config=await privateFile('/opt/nyra-5c/private/launch.json');
  const target=await privateFile('/etc/nyra-acceptance/target.json');
  need(hashJSON(config.target)===hashJSON(target),'TARGET_PIN');
  const session=await privateFile('/opt/nyra-5c/private/renewal-session.json');
+ renewalFailureStage='OWNER_KEY';
  const coordinator=uid('coordinator');
  const ownerKey=await sealed(config.ownerKeyFile,coordinator.uid);
  need(ownerKey.keyId===config.configuration.repositoryTrust.ownerKey.id,'OWNER_KEY_ID');
+ renewalFailureStage='MACHINE_BINDING';
  const machineId=(await readFile('/etc/machine-id','utf8')).trim();
  const binding=renewalBinding(target,session,machineId);
+ renewalFailureStage='OWNER_CONFIGURATION';
  const ownerConfig=await sealed('/var/lib/nyra-5c/owner/source.json',uid('owner').uid);
+ renewalFailureStage='OWNER_TOKEN_INPUT';
  let token='';for await(const chunk of process.stdin){token+=chunk.toString();need(token.length<20000,'TOKEN_SIZE');}
  token=token.trim();need(token.length>30&&!/\s/.test(token),'OWNER_AAL2_TOKEN');
+ renewalFailureStage='OWNER_RENEWAL_REQUEST';
  const envelope=await ownerRequest({socket:ownerConfig.socket,operation:'renew',input:{
   token,ownerDecisionId:config.ownerDecisionId,binding}});
  token='';
  const verify=()=>verifyRenewalApproval({envelope,binding,ownerPublicJWK:ownerKey.publicKey,
   ownerKeyId:ownerKey.keyId,expectedKeySHA256:config.configuration.repositoryTrust.ownerKey.sha256,
   ownerDecisionId:config.ownerDecisionId});
+ renewalFailureStage='OWNER_APPROVAL_VERIFY';
  await verify();
+ renewalFailureStage='TRUST_GATE_SETUP';
  const policies=reviewedAcceptancePolicies(config.configuration);
  const getJSON=administrationReader({tokenSource:async()=>{
   const cred=await sealed(config.githubReadCredential,coordinator.uid);
@@ -255,14 +291,17 @@ export async function runHostRenewal(){
 if(process.argv[1]===new URL(import.meta.url).pathname){
  if(process.argv[2]==='--renew'&&process.argv.length===3&&process.getuid?.()===0&&process.env.NYRA_DB_RENEWAL==='1'){
   try{
+   renewalFailureStage='LOCK_OPEN';
    const lock='/opt/nyra-5c/private/renewal.lock';
    const f=await open(lock,constants.O_RDWR|constants.O_CREAT|constants.O_NOFOLLOW,0o600);
    try{
+    renewalFailureStage='LOCK_CHECK';
     const st=await f.stat();need(st.isFile()&&st.nlink===1&&st.uid===0&&(st.mode&0o077)===0,'LOCK');
+    renewalFailureStage='LOCK_OR_CHILD';
     execFileSync('flock',['--exclusive','--nonblock','/proc/self/fd/3',process.execPath,process.argv[1],'--renew-locked'],
      {stdio:['inherit','inherit','inherit',f.fd]});
    }finally{await f.close();}
-  }catch{console.error('NYRA_DB_RENEWAL_DENIED');process.exitCode=1;}
+  }catch(error){console.error(JSON.stringify(sanitizedRenewalFailure(error)));process.exitCode=1;}
  }else runHostRenewal().then(r=>console.log(JSON.stringify(r)))
-  .catch(()=>{console.error('NYRA_DB_RENEWAL_DENIED');process.exitCode=1;});
+  .catch(error=>{console.error(JSON.stringify(sanitizedRenewalFailure(error)));process.exitCode=1;});
 }
