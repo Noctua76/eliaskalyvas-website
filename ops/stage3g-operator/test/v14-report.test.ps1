@@ -57,3 +57,6 @@ foreach($Case in $Cases) {
     $Results+=@{case=$Case;result='PASS';remoteReportVerified=$R.remoteReportVerified}
 }
 [ordered]@{passed=$Results.Count;failed=0;results=$Results;actualSSH=$false;actualCredentialsIssued=0;actualProtectedOperations=0;testedPowerShell=$PSVersionTable.PSVersion.ToString();nativeWindows51Executed=($PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSEdition -eq 'Desktop')}|ConvertTo-Json -Depth 20
+
+# GitHub Windows shell exits LASTEXITCODE; clear only the synthetic SSH code after every assertion passed.
+$global:LASTEXITCODE=0
