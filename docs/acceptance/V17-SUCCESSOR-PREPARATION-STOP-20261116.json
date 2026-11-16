@@ -741,5 +741,69 @@
     "protectedApprovalsRequested": false,
     "independentSuccessorAcceptance": "NOT_REQUESTED_WITHOUT_CONCRETE_PACKAGE"
   },
-  "privacy": "No signed transfer URL, completion token, operator allowlist, host identifiers, private Library references, raw register, credentials, keys or private screenshot data included."
+  "privacy": "No signed transfer URL, completion token, operator allowlist, host identifiers, private Library references, raw register, credentials, keys or private screenshot data included.",
+  "runtimeRecoveryAttempts": [
+    {
+      "recordedAtUTC": "2026-11-16T22:37:28.409Z",
+      "authorization": "NYRA II autonomous implementation mandate: restore/create a supported execution session without paid infrastructure or unrelated execution system",
+      "status": "EXTERNAL_EXECUTION_DEPENDENCY_NOT_RESOLVED",
+      "operations": [
+        {
+          "capability": "Project command execution",
+          "operation": "read-only pwd",
+          "result": "UNAVAILABLE",
+          "exactError": "No usable execution environment is available. Wait for an environment to become available before using this tool."
+        },
+        {
+          "capability": "Independent filesystem write",
+          "operation": "non-secret reversible scratch-file capability probe",
+          "result": "UNAVAILABLE",
+          "exactError": "No usable execution environment is available. Wait for an environment to become available before using this tool.",
+          "fileCreated": false
+        },
+        {
+          "capability": "Hosted session restoration",
+          "operation": "List sessions with SESSION_STATUS_ALL, including paused",
+          "result": "READ_SUCCEEDED",
+          "sessions": 0,
+          "canResumeAnExistingSession": false
+        },
+        {
+          "capability": "Hosted session creation",
+          "operation": "Inspect create-session schema and list active Agent Configs",
+          "result": "MISSING_REQUIRED_EXISTING_CONFIG",
+          "requiredFields": [
+            "ConfigID",
+            "Name"
+          ],
+          "availableConfigs": 0,
+          "createdSession": false,
+          "createdConfig": false,
+          "reason": "No existing ConfigID; new provider config/resource creation has not been established as a permitted no-additional-charge route"
+        },
+        {
+          "capability": "Other cloud-computer integration",
+          "operation": "Search supported plugins for code execution and Work cloud computer capabilities",
+          "result": "NO_MATCHING_GENERAL_RUNTIME_DISCOVERED",
+          "unrelatedAppsInstalled": false
+        },
+        {
+          "capability": "Existing GitHub Actions",
+          "operation": "Reused prior inspected workflow and tool inventory; no duplicate historical tests",
+          "result": "ORIGINAL_PRIVATE_ARCHIVE_TRANSFER_ROUTE_NOT_AVAILABLE",
+          "publicTransferURLOrCredentialCommitted": false,
+          "newWorkflowCreated": false
+        }
+      ],
+      "acceptedIntegrityReview": "Owner confirms existing archive and 369/369 manifest entries independently accepted. That historical review is preserved and was not repeated.",
+      "sourceVerificationRepetition": 0,
+      "successorGenerationInvocations": 0,
+      "protectedWindowStarted": false,
+      "minimumUnblock": "Make an authorized Project execution environment with filesystem, Python transfer helper and PowerShell available to this conversation. There is no exposed tool to restore the Work runtime. Creating an additional provider environment must first establish its exact configuration and permitted cost.",
+      "ordinaryImplementationDelegatedToOwner": false,
+      "remainingReadiness": "Once runtime exists, complete original archive transfer and transport hash verification, safe extraction, unchanged generator, targeted validation and independent acceptance submission.",
+      "newApprovalRequest": "NONE: no concrete paid-resource proposal or executable successor exists; old approvals remain expired."
+    }
+  ],
+  "latestRuntimeRecoveryAtUTC": "2026-11-16T22:37:28.409Z"
 }
