@@ -1,0 +1,121 @@
+{
+  "schema": "nyra.stage3g.temporary-preparation-runtime-proposal.v1",
+  "preparedAtUTC": "2026-11-16T22:41:49.464Z",
+  "status": "REVIEW_ONLY_OWNER_AUTHORIZATION_REQUIRED_NO_RESOURCES_CREATED",
+  "purpose": "Produce and verify the existing v17 Alignment/TLS successor through the original accepted archive and generator",
+  "creationAuthorizationExpiresAtUTC": "2026-11-17T00:41:49.464Z",
+  "resources": {
+    "provider": "DigitalOcean Harness Runtime",
+    "config": {
+      "Name": "nyra-v17-prep-20261116-01",
+      "Manifest": {
+        "harness": "none",
+        "size": "mars-2vcpu-4gb",
+        "idle_timeout": "5m",
+        "mode": "interactive",
+        "repos": [
+          "Noctua76/eliaskalyvas-website"
+        ],
+        "egress": [
+          "api.github.com",
+          "github.com",
+          "raw.githubusercontent.com",
+          "release-assets.githubusercontent.com",
+          "objects.githubusercontent.com",
+          "sdmntprcentralus.oaiusercontent.com"
+        ],
+        "labels": {
+          "project": "nyra-stage3g",
+          "purpose": "v17-successor-preparation"
+        }
+      },
+      "ManageModelAccessKey": false
+    },
+    "session": {
+      "Name": "nyra-v17-prep-20261116-01",
+      "ConfigID": "USE_ONLY_ID_RETURNED_FROM_THIS_EXACT_CONFIG_CREATION",
+      "ResumeOnTopoff": false
+    },
+    "maximumNewConfigs": 1,
+    "maximumNewSessions": 1,
+    "persistentWorkspace": false,
+    "customTemplate": false,
+    "snapshots": false,
+    "checkpoints": false,
+    "size": "mars-2vcpu-4gb",
+    "vcpus": 2,
+    "memoryGB": 4,
+    "harness": "none",
+    "agentOrInferenceRun": false
+  },
+  "cost": {
+    "currency": "USD",
+    "publishedFullAllocationHourlyComputeAndMemory": 0.126,
+    "maximumOperatorManagedElapsedMinutesFromProviderCreation": 60,
+    "computeAndMemoryEstimateAt60Minutes": 0.126,
+    "storageRateUSDPerGiBMonth": 0.05,
+    "egressRateUSDPerGiB": 0.01,
+    "operatorBudgetCeilingUSD": 0.5,
+    "platformHardSpendLimitAvailable": false,
+    "budgetExplanation": "The $0.50 ceiling is an operator stop rule, not a provider-enforced cap. Stop and destroy at task completion, before 60 minutes, or earlier if projected authorized spend is threatened. Do not purchase a plan, top up any balance or enable auto-resume.",
+    "taxes": "Excluded from published rates",
+    "sourceURL": "https://docs.digitalocean.com/products/managed-agents/agent-harness-runtime/details/pricing/"
+  },
+  "authorizedWorkAfterExactApproval": [
+    "Create only this config and one session, wait for ready, inspect filesystem/Python/PowerShell dependencies",
+    "Use a refreshed authorized Library transfer in memory; expected original ZIP SHA256 f1e5eaa8e129b87fffb8cff66fcb246b132d9d303f8e293a8197f88a38d7fa97",
+    "Preserve the accepted independent 369/369 integrity review; verify transport hash and safe extraction without repeating historical acceptance",
+    "Use original archived New-NyraRelease.ps1 and inputs; fix demonstrated non-protected compatibility errors with exact diffs and targeted verification",
+    "Generate the four-hour successor only after dependencies and review handoff are ready; preserve original TLS hash 12d82a85c36e0c8216b9f6cdca26d9cd730f14954b952a2ecdc2218b337bb8ca",
+    "Export complete private package, manifests, source/dependency diff, environment and test evidence via private file transfer; do not commit original private archive or transfer URLs to the public repository",
+    "Remove this newly created session and its config after verified export or STOP, and independently read back their status; keep original acceptance host untouched"
+  ],
+  "stopConditions": [
+    "Config or session name already exists: reconcile instead of creating duplicates",
+    "Provider denies config/session creation, requires a subscription/top-up/model key, or target size/cost differs",
+    "Python/PowerShell cannot be provided securely within the authorized task/budget",
+    "Original ZIP transport hash, source pins, immutable identities, TLS bytes or existing state differ",
+    "Required transfer cannot be completed or would expose private material",
+    "Actual returned egress policy cannot provide the reviewed preparation route",
+    "Operator-managed 60-minute limit or $0.50 projected budget threshold is reached; no automatic extension"
+  ],
+  "deliveryRoute": {
+    "input": "Supported Library transfer helper via sandbox exec stdin; signed URL never committed or printed",
+    "output": "Supported private workspace download transfer; preserve exact hashes and export before destroying temporary session. Library writeback attempted only through the supported helper when available; failure must be reported without false persistence claim.",
+    "libraryTransferHost": "sdmntprcentralus.oaiusercontent.com",
+    "hostFreshnessRule": "Only the exact host in this manifest may be used; a refreshed Library transfer on another host requires reconciliation and a newly reviewed exact manifest before creation. No wildcard or unrestricted egress.",
+    "ownerWindowsUsed": false
+  },
+  "controls": {
+    "existingAcceptedMain": "4edff2353c55469918f2e3a90190916df9a8924d",
+    "existingAcceptedTree": "8fdac1689db7d0d2172481c4eb446bb20be18962",
+    "hostRetirementUTC": "2026-11-22T19:17:37Z",
+    "acceptanceHostAccess": false,
+    "acceptanceHostMutations": false,
+    "githubProtectedMerge": false,
+    "credentialIssuanceOrRotation": false,
+    "ownerAAL2": false,
+    "protected15MinuteCycle": false,
+    "serviceActivation": false,
+    "OIDCDispatch": false,
+    "publication": false,
+    "immutableChanges": false,
+    "modelAPIKeyProvisioning": false,
+    "providerPaidPlanOrTopup": false,
+    "successorIndependentAcceptanceRequired": true
+  },
+  "validation": {
+    "schemaReview": "Manifest keys, harness none, size and idle_timeout compared to official Environment Spec and create-config/create-session tool input schemas",
+    "statelessPermissionValidator": "NOT_APPLICABLE: harness none has no agent permissions/tools policy",
+    "actualProviderManifestValidation": "PENDING_CREATION_AFTER_APPROVAL; no validation PASS invented",
+    "runtimeDependencies": "PENDING_FIRST_SANDBOX_INSPECTION",
+    "officialSpecURL": "https://docs.digitalocean.com/products/managed-agents/agent-harness-runtime/reference/environment-spec/",
+    "sourceReviewAndHistoricalTestsRepeated": false
+  },
+  "approval": {
+    "requiredFrom": "Owner",
+    "reason": "User mandate section 3 expressly prohibits paid infrastructure without required authorization",
+    "scope": "Only the exact new preparation config/session, authorized offline work and cleanup listed here. It does not authorize inactive host Alignment/TLS or G07-G10.",
+    "approved": false
+  }
+}

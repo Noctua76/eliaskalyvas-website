@@ -1,0 +1,809 @@
+{
+  "schema": "nyra.stage3g.successor-preparation-stop.v1",
+  "recordedAtUTC": "2026-11-16T22:25:48.842Z",
+  "status": "PARTIAL_PREPARATION; STOP_BEFORE_ARCHIVE_VERIFICATION_AND_GENERATION",
+  "repository": "Noctua76/eliaskalyvas-website",
+  "acceptedSource": {
+    "main": "4edff2353c55469918f2e3a90190916df9a8924d",
+    "tree": "8fdac1689db7d0d2172481c4eb446bb20be18962",
+    "parents": [
+      "8b82cc964bdbc1919caf91c2669ca154204c025d",
+      "225b1bc946b5626e9105f24afd644467852a91af"
+    ],
+    "githubSignatureVerified": true
+  },
+  "recovery": {
+    "status": "CLOSED_ACCEPTED_PASS",
+    "normalSSHExit": 0,
+    "unmountExit": 0,
+    "rootFilesystem": "/dev/vda1",
+    "R2UFWWrite": "NOT_EXECUTED_NOT_REQUIRED",
+    "historicalG01toG07": "PRESERVED",
+    "referencePR": 38
+  },
+  "executionCapability": {
+    "primaryRuntime": {
+      "operation": "read-only pwd",
+      "status": "UNAVAILABLE",
+      "exactError": "No usable execution environment is available. Wait for an environment to become available before using this tool."
+    },
+    "hostedSessions": {
+      "status": "READ_SUCCEEDED",
+      "nyraFilteredSessionCount": 0,
+      "allLiveSessionCount": 0,
+      "creationOrResumePerformed": false
+    },
+    "microVMs": {
+      "status": "READ_SUCCEEDED",
+      "total": 0,
+      "creationPerformed": false
+    },
+    "githubActions": {
+      "existingOperatorWorkflowRef": "6fd518eec4d5542a27d5ef1f65cae08fb3ccb463",
+      "path": ".github/workflows/nyra-operator-offline.yml",
+      "trigger": "pull_request on operator paths",
+      "manualDispatchDeclared": false,
+      "originalV17ArchiveAccessibleToRunner": false,
+      "workflowMutationOrRerunPerformed": false,
+      "assessment": "Existing historical test runner is not a completed archive-transfer or successor-generation route"
+    },
+    "codeMode": {
+      "available": "JavaScript orchestration and source hash checks",
+      "powerShellOrFilesystemOrNetworkExecution": "NOT_EXPOSED"
+    },
+    "ownerWindowsUsed": false,
+    "provisionedResources": 0
+  },
+  "archive": {
+    "name": "NYRA-PR36-ALIGNMENT-SUCCESSOR-v17-REVIEW.zip",
+    "expectedSHA256": "f1e5eaa8e129b87fffb8cff66fcb246b132d9d303f8e293a8197f88a38d7fa97",
+    "sizeBytesFromAuthorizedTransferMetadata": 1874893,
+    "transferPreparation": "SUCCEEDED",
+    "bytesDownloaded": false,
+    "actualSHA256": null,
+    "outerManifestVerified": false,
+    "archiveExtracted": false,
+    "executableFromArchiveUsed": false,
+    "signedTransferDetails": "EXCLUDED_FROM_PUBLIC_RECORD",
+    "originalReleaseReceiptRecovered": false,
+    "blockedStep": "Complete the supported Library helper transfer in an authorized runtime, hash and safely extract the original archive before using its generator"
+  },
+  "repositorySourceVerification": {
+    "status": "PASS_FOR_GITHUB_SOURCE_ONLY",
+    "verifiedAtUTC": "2026-11-16T22:24:07.201Z",
+    "runtimeFilesChecked": 64,
+    "runtimeFilesMatchedSHA256": 64,
+    "runtimeFilesMatchedAcceptedTreeBlobs": 64,
+    "inventorySourceRef": "6fd518eec4d5542a27d5ef1f65cae08fb3ccb463",
+    "inventorySourcePath": "ops/stage3g-operator/runtime-inventory.json",
+    "inventoryArchiveEquality": "NOT_VERIFIED",
+    "nativeHostFilesVerified": 0,
+    "verificationEnvironment": "Work Mode JavaScript isolate orchestrating authenticated GitHub reads; UTF-8 SHA-256; no PowerShell or native host execution",
+    "itemsSHA256": "c9f07857a4e4ed96e9fa1103ba3bde8261ea4155a92dbb33b90a3fe713e3ea31",
+    "items": [
+      {
+        "path": "contracts/nyra-publication/v1.1/dataset.schema.json",
+        "expectedSHA256": "79848acf96be5efe3569774c4bb5ddd33f069d99725997bcfb851123e8484378",
+        "actualSHA256": "79848acf96be5efe3569774c4bb5ddd33f069d99725997bcfb851123e8484378",
+        "blobSHA": "fe89f209ca8c69ed9d2d4e5d93602d19e87c946f",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "contracts/nyra-publication/v1.1/event.schema.json",
+        "expectedSHA256": "7ace3743e10232b38019e2d6659534184f421033a8fcb2bf3d0b93eaf9bd11b3",
+        "actualSHA256": "7ace3743e10232b38019e2d6659534184f421033a8fcb2bf3d0b93eaf9bd11b3",
+        "blobSHA": "5c0f81ebfe5a09a978d76e15a3002ec117da62a9",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "contracts/nyra-publication/v1.1/manifest.schema.json",
+        "expectedSHA256": "2aa64cedc76473d55041905bcdee1eedeaeb1a32f8d6f4b117cdc101c197ff50",
+        "actualSHA256": "2aa64cedc76473d55041905bcdee1eedeaeb1a32f8d6f4b117cdc101c197ff50",
+        "blobSHA": "32bead53e93d3d6fd6dd77723bdbd806ef6e8412",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "contracts/nyra-publication/v1.1/receipt.schema.json",
+        "expectedSHA256": "f486a88fc6281f76df60f1efc1ae12c7d56a8f808e6a35be0ee1e971f7e13174",
+        "actualSHA256": "f486a88fc6281f76df60f1efc1ae12c7d56a8f808e6a35be0ee1e971f7e13174",
+        "blobSHA": "2fb7f31094fb72f3377485eb867aebee8cb880e5",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "contracts/nyra-publication/v1.1/release.schema.json",
+        "expectedSHA256": "b7d0314e8b85f7c07922c6b8f85f5270a0592da4bce38305a2779d79d0258c82",
+        "actualSHA256": "b7d0314e8b85f7c07922c6b8f85f5270a0592da4bce38305a2779d79d0258c82",
+        "blobSHA": "ddf7a73606b66ace0186334dcc4234d6c90122e7",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "contracts/nyra-publication/v1.1/shared.schema.json",
+        "expectedSHA256": "69e70b78f4ad009f31416f1ea192ed93a4b869a0ae00bc5aba8427d2fd8e7544",
+        "actualSHA256": "69e70b78f4ad009f31416f1ea192ed93a4b869a0ae00bc5aba8427d2fd8e7544",
+        "blobSHA": "8490a1ae5d784435c0df74b8cfeee00251869e23",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/canonical-json.mjs",
+        "expectedSHA256": "4df268bc8baf09777eb7f814b0271252524a573d1e9a5c5597af7d603deab33f",
+        "actualSHA256": "4df268bc8baf09777eb7f814b0271252524a573d1e9a5c5597af7d603deab33f",
+        "blobSHA": "cd9c9cd4cde2f4110715d6466dcbfd7894e0038c",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/contract.mjs",
+        "expectedSHA256": "28310ccd2fd3838ab5efe7bc9e7974375ee8000223d393a885705ffee6dd654a",
+        "actualSHA256": "28310ccd2fd3838ab5efe7bc9e7974375ee8000223d393a885705ffee6dd654a",
+        "blobSHA": "c0e73680b4561e7a195d5fa76bef946bfc4408a4",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/integration/acceptance-policy.mjs",
+        "expectedSHA256": "49337f9581651bfc02b0544870539587b3334a430d1e40cc954a953ea4221a21",
+        "actualSHA256": "49337f9581651bfc02b0544870539587b3334a430d1e40cc954a953ea4221a21",
+        "blobSHA": "f08a58d9cb666df1c47266765571190c6630779b",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/integration/archive.mjs",
+        "expectedSHA256": "1d7f9ee60034c38bc569ce4fbeda760dfad257803834759aa3e2ce93fd319c1c",
+        "actualSHA256": "1d7f9ee60034c38bc569ce4fbeda760dfad257803834759aa3e2ce93fd319c1c",
+        "blobSHA": "3eb8820524acad2333019eb1a4a88794b812d2e7",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/integration/live-acceptance.mjs",
+        "expectedSHA256": "dabd6f5b1c583d794cac357f8fdf3887dae7395bd3cb2eb631963aa4764a1fe7",
+        "actualSHA256": "dabd6f5b1c583d794cac357f8fdf3887dae7395bd3cb2eb631963aa4764a1fe7",
+        "blobSHA": "f26b39cb85010cc2ee273eee8738c7b2519e798a",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/integration/normal-provenance.mjs",
+        "expectedSHA256": "ba52f565e9811a92acfadc27b4c1d27673352b05770b36bbeb5ade7e3a1b4c69",
+        "actualSHA256": "ba52f565e9811a92acfadc27b4c1d27673352b05770b36bbeb5ade7e3a1b4c69",
+        "blobSHA": "6665a5c1804f626e4251bde2b9e5f0e1553760c0",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/integration/observer.mjs",
+        "expectedSHA256": "5872829d22a6e0b7da138d3f8f5d8575c625ec4961d6d8df1288e5a0a1c05ed8",
+        "actualSHA256": "5872829d22a6e0b7da138d3f8f5d8575c625ec4961d6d8df1288e5a0a1c05ed8",
+        "blobSHA": "e8a7e989b82c027231aed0b520d135685e39d08a",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/integration/policy.mjs",
+        "expectedSHA256": "64575ecf4e8b9c7a248956d9837ec24ce3d2de1cd283f937b574194534906156",
+        "actualSHA256": "64575ecf4e8b9c7a248956d9837ec24ce3d2de1cd283f937b574194534906156",
+        "blobSHA": "b559f69c895f872f7c75e0d4e7f611311f765977",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/integration/protected-composition.mjs",
+        "expectedSHA256": "54bfd7eb25c44d2a447f6743fc19c88a37507c4a78658972058ff2f2f76f020c",
+        "actualSHA256": "54bfd7eb25c44d2a447f6743fc19c88a37507c4a78658972058ff2f2f76f020c",
+        "blobSHA": "c07fe48b5dca62356b5233349d8ed7f06e6db784",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/acceptance-collector.mjs",
+        "expectedSHA256": "a0a592502ad29cb59fa77f8591007c23c5968b491fff87b6412059997bbb3906",
+        "actualSHA256": "a0a592502ad29cb59fa77f8591007c23c5968b491fff87b6412059997bbb3906",
+        "blobSHA": "0dee80cbc154b03c580ab02437554647c5f5d7e8",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/acceptance-evidence.mjs",
+        "expectedSHA256": "ca2f5012d3e89ae5fec5cfd4078de46e817e0a6d886855638fd2bb8d988a0464",
+        "actualSHA256": "ca2f5012d3e89ae5fec5cfd4078de46e817e0a6d886855638fd2bb8d988a0464",
+        "blobSHA": "150ef9b0e004dee36672b34879a0967193539d5b",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/acceptance-ipc.mjs",
+        "expectedSHA256": "3690ef87ab1b5895b36e50fff2f6558b4e00f0ecc5d6383303e693b4d58097ac",
+        "actualSHA256": "3690ef87ab1b5895b36e50fff2f6558b4e00f0ecc5d6383303e693b4d58097ac",
+        "blobSHA": "07789cd5725a61400ac51c2db3acd0b8b8dda2b9",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/administration-evidence.mjs",
+        "expectedSHA256": "73774decd91b42005049686f5f39b62e9ba009edab0a5cf0394b490ccd1c24e4",
+        "actualSHA256": "73774decd91b42005049686f5f39b62e9ba009edab0a5cf0394b490ccd1c24e4",
+        "blobSHA": "85c4f092653a822e65150597306efe1d60c7bb54",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/application-inventory.mjs",
+        "expectedSHA256": "211ea33c29a7ea8f4a398c9c59082b0fa16cfe94d89099e6683346238ff6b1b2",
+        "actualSHA256": "211ea33c29a7ea8f4a398c9c59082b0fa16cfe94d89099e6683346238ff6b1b2",
+        "blobSHA": "9e44c63dc5738ae6c472bd8f4df9973be2b5fac3",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/artifact.mjs",
+        "expectedSHA256": "981be73829a75880b755bf78dbe574bb303dbcbfc8b1ddead8c9af43ebf11ad1",
+        "actualSHA256": "981be73829a75880b755bf78dbe574bb303dbcbfc8b1ddead8c9af43ebf11ad1",
+        "blobSHA": "7b98082c5787a8c7581d8166812a5e887c75e15a",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/db-renewal-approval.mjs",
+        "expectedSHA256": "b5a4f7fffcd23ff73f7b56531a366bd6cc10791f79262584c7adb66fe40e79d8",
+        "actualSHA256": "b5a4f7fffcd23ff73f7b56531a366bd6cc10791f79262584c7adb66fe40e79d8",
+        "blobSHA": "c91e8b8a7d1bc62bd332140af8919f2bf476f9de",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/delivery-policy.mjs",
+        "expectedSHA256": "5685a53f81a183282669b41726172eaf65c763cfd81feb03c0e45af0159d9dbc",
+        "actualSHA256": "5685a53f81a183282669b41726172eaf65c763cfd81feb03c0e45af0159d9dbc",
+        "blobSHA": "720b7359f1d04cb8688641fbff1bcb19a0776cbb",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/governance.mjs",
+        "expectedSHA256": "a6e6db0f22fc4463557abd43890e75509504fbfb87f610ee619dcbabfacb0fc6",
+        "actualSHA256": "a6e6db0f22fc4463557abd43890e75509504fbfb87f610ee619dcbabfacb0fc6",
+        "blobSHA": "a6c1cdfca1b3bed3a21c766ac5b26e84697d4c99",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/job-registrar.mjs",
+        "expectedSHA256": "3e0e1ee2680a34f0fa880dcb3f2d50ac37a84e4b749fd01e1effaab66409667b",
+        "actualSHA256": "3e0e1ee2680a34f0fa880dcb3f2d50ac37a84e4b749fd01e1effaab66409667b",
+        "blobSHA": "ce436b8e2b2ecda5a3aa9da68e52bca5c5238804",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/materialize.mjs",
+        "expectedSHA256": "5b41f0edb1dbbc2fdbfab18177c1e2f90ec2ca286cda5dfa514d08bde8664787",
+        "actualSHA256": "5b41f0edb1dbbc2fdbfab18177c1e2f90ec2ca286cda5dfa514d08bde8664787",
+        "blobSHA": "262e3a373325206c6f43ca635f5ed8892448206a",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/oidc-observation.mjs",
+        "expectedSHA256": "a6c860f571f9f81162a5edba035f093f3c85f77014d5a26a4634f2118bbaa167",
+        "actualSHA256": "a6c860f571f9f81162a5edba035f093f3c85f77014d5a26a4634f2118bbaa167",
+        "blobSHA": "741b3cdb9ba780ece1d6e117cfa3c4fb07e66efc",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/oidc.mjs",
+        "expectedSHA256": "2ce2abfea7ed756dab2f5aa024ebd13596dccc4f55d8ca348ed45ba4b0fe8b83",
+        "actualSHA256": "2ce2abfea7ed756dab2f5aa024ebd13596dccc4f55d8ca348ed45ba4b0fe8b83",
+        "blobSHA": "597549d9e948f209d9d350aeaf6719c74c0c001c",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/owner-risk-source.mjs",
+        "expectedSHA256": "7bd8672c15988e5dfadb271ca949480a84a8889ec049d08a7f2772ce3c76f11a",
+        "actualSHA256": "7bd8672c15988e5dfadb271ca949480a84a8889ec049d08a7f2772ce3c76f11a",
+        "blobSHA": "627c2d12f1624f6d995fa7ad35e5853a5e069ba3",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/protected-identity.mjs",
+        "expectedSHA256": "a4dcc7fd2963c4ea4e3f1fab586ddad5dc0baddcc20b55bc0888329cc3151054",
+        "actualSHA256": "a4dcc7fd2963c4ea4e3f1fab586ddad5dc0baddcc20b55bc0888329cc3151054",
+        "blobSHA": "46a497e55a101de1864917e58ddc436246455e55",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/repository-policy.mjs",
+        "expectedSHA256": "5ac41eb9d6a1fdb8385d7f44d0dc815b7842727d49ae3cb48ff159a7d6652c50",
+        "actualSHA256": "5ac41eb9d6a1fdb8385d7f44d0dc815b7842727d49ae3cb48ff159a7d6652c50",
+        "blobSHA": "42b4956149ba4c7dcddcf64473ca692f8dd11256",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/publication/runtime/repository-trust.mjs",
+        "expectedSHA256": "972f8aa7afb4ae1489de8060f8f8dc00e5dceb5317bdfe289a112cf0136135dd",
+        "actualSHA256": "972f8aa7afb4ae1489de8060f8f8dc00e5dceb5317bdfe289a112cf0136135dd",
+        "blobSHA": "a2a4ccd263b5cea8d4dd423f882ebd88ce0a991c",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "lib/signals/seo.mjs",
+        "expectedSHA256": "1d5e232a84a15b858c487e2c45978d87765831df6c1bfa34718c97c5e026e61c",
+        "actualSHA256": "1d5e232a84a15b858c487e2c45978d87765831df6c1bfa34718c97c5e026e61c",
+        "blobSHA": "489c3add11aa329fdc4408d9de9e9552500a6e70",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/canonical-expiry.mjs",
+        "expectedSHA256": "4ff77947eb083d269f707541ed4c3d427321d38297acdfe58bb76568bfe70135",
+        "actualSHA256": "4ff77947eb083d269f707541ed4c3d427321d38297acdfe58bb76568bfe70135",
+        "blobSHA": "dbb08712cd8d4c4a0044c71c07f1f3898e376d31",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/cleanup.mjs",
+        "expectedSHA256": "1d979fa25265c6894e9b2887bc0e305f11442f579e5d62e1fa406f0f202e0963",
+        "actualSHA256": "1d979fa25265c6894e9b2887bc0e305f11442f579e5d62e1fa406f0f202e0963",
+        "blobSHA": "fe41c65e2bb717440f66db280c153702b14597f9",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/compose-trust.mjs",
+        "expectedSHA256": "c03e64af1403d668817b9094ad67792f9f93d96634c798406762484fe534bd98",
+        "actualSHA256": "c03e64af1403d668817b9094ad67792f9f93d96634c798406762484fe534bd98",
+        "blobSHA": "42a24215af03981045d8c1f58e4a5bfc3607df04",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/continuation-extension-authority.mjs",
+        "expectedSHA256": "7ac794ba398c4d822cacf0896e738978c5ab565a891a24683e3951b059872064",
+        "actualSHA256": "7ac794ba398c4d822cacf0896e738978c5ab565a891a24683e3951b059872064",
+        "blobSHA": "5ce05711cc4256e757303dcd9e2bb31a47a82d19",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/db-stage.mjs",
+        "expectedSHA256": "2021672ba0d76d0eb0bc71ed627a6e8fc1e4c1e3a3b0de647fc2f6b812ad4255",
+        "actualSHA256": "2021672ba0d76d0eb0bc71ed627a6e8fc1e4c1e3a3b0de647fc2f6b812ad4255",
+        "blobSHA": "d5a5ba7fc17d2ba164c0247f2cffa5559f7e3461",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/extension-effective.mjs",
+        "expectedSHA256": "3edb44d16bafd0e3d5338123e41d64734a32c7ab58ff1ff66dc85660a4328f33",
+        "actualSHA256": "3edb44d16bafd0e3d5338123e41d64734a32c7ab58ff1ff66dc85660a4328f33",
+        "blobSHA": "eb32c384d2673251f358a13577dad51fa6235e24",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/extension-host.mjs",
+        "expectedSHA256": "c6fd3103f8940e0e696e31af979716a7642df018186f5ae1633d08dfdb62c955",
+        "actualSHA256": "c6fd3103f8940e0e696e31af979716a7642df018186f5ae1633d08dfdb62c955",
+        "blobSHA": "64b5058a990a483b8823936b96bbd5d8d8887b2f",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/extension-migration.mjs",
+        "expectedSHA256": "5820b35b676f9c02999b693c416a649a98af59e9fa78b5637133c3d72bbeb685",
+        "actualSHA256": "5820b35b676f9c02999b693c416a649a98af59e9fa78b5637133c3d72bbeb685",
+        "blobSHA": "d6108cfffedcb4f1204ae0bef9d16309673e85ce",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/fra1-launch.mjs",
+        "expectedSHA256": "2c1f4068adc22787940096e826bcacd99700fdc1ceac1c816606c72877e21624",
+        "actualSHA256": "2c1f4068adc22787940096e826bcacd99700fdc1ceac1c816606c72877e21624",
+        "blobSHA": "d4a937cffbe493edc7c09bc922bd55ae863dd035",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/fra1-runtime.mjs",
+        "expectedSHA256": "fe0cd3b1da7477758027b335eaafdd12d2d65a79205b2aa515e22a547420c728",
+        "actualSHA256": "fe0cd3b1da7477758027b335eaafdd12d2d65a79205b2aa515e22a547420c728",
+        "blobSHA": "6a40c4a143c1de14100267e2ac33897f4751a075",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/host-preflight.mjs",
+        "expectedSHA256": "541c8088e9a19490e19db266d3c0f31a9b38e9a8eb34d0ce71e46b96cdf3cf56",
+        "actualSHA256": "541c8088e9a19490e19db266d3c0f31a9b38e9a8eb34d0ce71e46b96cdf3cf56",
+        "blobSHA": "18829f59773f6f63230b2c49f59aa98477ec71b1",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/live-ingress.mjs",
+        "expectedSHA256": "e36baffdd1f86402566ec71d7cfb2a73578470700f437f8fed28372bd1ea7fc0",
+        "actualSHA256": "e36baffdd1f86402566ec71d7cfb2a73578470700f437f8fed28372bd1ea7fc0",
+        "blobSHA": "5b0198cea446275b836753a9c28a7dcb3acc90d0",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/live-role-service.mjs",
+        "expectedSHA256": "dfe43e438ca6c44aa88888ae780f3910c073e71737fec133e529ed5cb8220663",
+        "actualSHA256": "dfe43e438ca6c44aa88888ae780f3910c073e71737fec133e529ed5cb8220663",
+        "blobSHA": "0db2764c85001b35b7350e71ea1ef346ab14a6bb",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/live-role-worker.mjs",
+        "expectedSHA256": "f9df0429465da063a62704a441c24eb3062ac8f805f41c7958e7b2d7d3adaea8",
+        "actualSHA256": "f9df0429465da063a62704a441c24eb3062ac8f805f41c7958e7b2d7d3adaea8",
+        "blobSHA": "9576cf4eb84e9a0d2e100ad2c162976a663e8fe0",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/live-watcher.mjs",
+        "expectedSHA256": "cb9adb5dd1eb76560c0e3d4ed7de9933122e89d6ffadbe95a9f61310992507db",
+        "actualSHA256": "cb9adb5dd1eb76560c0e3d4ed7de9933122e89d6ffadbe95a9f61310992507db",
+        "blobSHA": "24983a8e9db7f19aaa530e8522ba9efda104148c",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/owner-request.mjs",
+        "expectedSHA256": "5d8b2189e5d229e44aa47fb6337ab36ad537c258b2f7ae022cc78aac75aa63f2",
+        "actualSHA256": "5d8b2189e5d229e44aa47fb6337ab36ad537c258b2f7ae022cc78aac75aa63f2",
+        "blobSHA": "faaaf6d8dfde5e227bbc4925659b30f3ed48cea8",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/owner-source.mjs",
+        "expectedSHA256": "92fc183960b28ab2cb0e6495815302afdd11e54a96a179e46235eb6c39897b9b",
+        "actualSHA256": "92fc183960b28ab2cb0e6495815302afdd11e54a96a179e46235eb6c39897b9b",
+        "blobSHA": "93cb21d8219a5c2797ae8f1a44a34e839bdf1d33",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/plan.mjs",
+        "expectedSHA256": "e2ecec68b33d843a0fb7c20260a422d785cd860fb5b392d549f283f2309b39e7",
+        "actualSHA256": "e2ecec68b33d843a0fb7c20260a422d785cd860fb5b392d549f283f2309b39e7",
+        "blobSHA": "5a8ca73e73695971022bdde1339db9b97bac3239",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/private-port.mjs",
+        "expectedSHA256": "6ec40fb1c7429d000df8e22a2af5f2d314de5ada1b7a56e2a92f794b48229942",
+        "actualSHA256": "6ec40fb1c7429d000df8e22a2af5f2d314de5ada1b7a56e2a92f794b48229942",
+        "blobSHA": "2c9ad3b3822454231bb4ba45f92573c5f62392d1",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/replacement-target.mjs",
+        "expectedSHA256": "0f0eb0fc84f8089d646a77ebb165993429436bba90608d33312e625ec51672a4",
+        "actualSHA256": "0f0eb0fc84f8089d646a77ebb165993429436bba90608d33312e625ec51672a4",
+        "blobSHA": "ca60040ce6d653bf515c99357593039f233b2333",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/repository-db-renewal.mjs",
+        "expectedSHA256": "376edf2bab73491141fce4be7e3c254250bd90891b169115b7c760723ff8d961",
+        "actualSHA256": "376edf2bab73491141fce4be7e3c254250bd90891b169115b7c760723ff8d961",
+        "blobSHA": "d94f189d4ad8eacb7fbb5e8b931f86f40ae5537f",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/repository-db.mjs",
+        "expectedSHA256": "3def588f9fc5bf09591e1f088dd16d7d20873f57e30fc55e449fcbf4add991e3",
+        "actualSHA256": "3def588f9fc5bf09591e1f088dd16d7d20873f57e30fc55e449fcbf4add991e3",
+        "blobSHA": "22b904e06c68cac3164f6bc89e2b3dca7b90e541",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/repository-launch.mjs",
+        "expectedSHA256": "8cc50ce6c70be521fe8f218e53e0c146dd68358de1876343fdc96638c28a34f8",
+        "actualSHA256": "8cc50ce6c70be521fe8f218e53e0c146dd68358de1876343fdc96638c28a34f8",
+        "blobSHA": "b56868c47b4623d7f5068eef69e46137d3bb19d4",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/repository-runtime.mjs",
+        "expectedSHA256": "b117ba426d2ade651659e69e19e7e3c6a35abbdd4526aa1afc779485a9d5b384",
+        "actualSHA256": "b117ba426d2ade651659e69e19e7e3c6a35abbdd4526aa1afc779485a9d5b384",
+        "blobSHA": "69af54e6ab783d5ca59cc83044f76bd096abb85f",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/acceptance-bootstrap/retire-policy-state.mjs",
+        "expectedSHA256": "20a2ea0c990110159fae2ca5cabafb5822d87577297a28f1ac6bf803b1398fb6",
+        "actualSHA256": "20a2ea0c990110159fae2ca5cabafb5822d87577297a28f1ac6bf803b1398fb6",
+        "blobSHA": "1f24332ad9b37fa22616faf8f6987b453a002877",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "ops/protected-delivery/schema.sql",
+        "expectedSHA256": "e3d6aa38c0ce68dce5f3b28c2e3f746dd4898dcf790abee14c27c313b4de583f",
+        "actualSHA256": "e3d6aa38c0ce68dce5f3b28c2e3f746dd4898dcf790abee14c27c313b4de583f",
+        "blobSHA": "e2bd0781af1093e66abd07fa7fee0fc8430dcf2f",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "runtime/nyra-edge/repository-binding.mjs",
+        "expectedSHA256": "7ad6898b4e897b7ceeeddd58669bf45bb338037e5d57a129757439cdb7dd8ca9",
+        "actualSHA256": "7ad6898b4e897b7ceeeddd58669bf45bb338037e5d57a129757439cdb7dd8ca9",
+        "blobSHA": "008d3b62494680cd56074d9911125398947454ff",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "src/signals/data.mjs",
+        "expectedSHA256": "3d4465bbed081de639827632f11974ffa1d478943ac59478387840216570bebd",
+        "actualSHA256": "3d4465bbed081de639827632f11974ffa1d478943ac59478387840216570bebd",
+        "blobSHA": "578319d63761eeaf09eb83cfce3e07cdb4f40454",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "src/signals/entries.mjs",
+        "expectedSHA256": "170e3c70411d8907662384bf5edcef360212fdfd27ec08113b44b14174cff9c7",
+        "actualSHA256": "170e3c70411d8907662384bf5edcef360212fdfd27ec08113b44b14174cff9c7",
+        "blobSHA": "57a7aac63b3b3f635053239b8b53cafc6720b555",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "src/signals/model.mjs",
+        "expectedSHA256": "7759eabd2c49d5e784a3d878b2ca0097af7dc18a3a81558c85378c27825ddf2c",
+        "actualSHA256": "7759eabd2c49d5e784a3d878b2ca0097af7dc18a3a81558c85378c27825ddf2c",
+        "blobSHA": "13385be2e96b80ca1515887650919b66fbce9e30",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      },
+      {
+        "path": "src/signals/public-view.mjs",
+        "expectedSHA256": "57c88c047663f2375d83dc3c836b2319c79cf7f4f457f216300e8c5707e2960a",
+        "actualSHA256": "57c88c047663f2375d83dc3c836b2319c79cf7f4f457f216300e8c5707e2960a",
+        "blobSHA": "8ec2627c75a535ecc96d81e18f504a196d799d51",
+        "treeBlobMatched": true,
+        "status": "PASS"
+      }
+    ]
+  },
+  "operatorRepositoryProvenance": {
+    "ref": "6fd518eec4d5542a27d5ef1f65cae08fb3ccb463",
+    "PR": 37,
+    "PRState": "DRAFT_UNMERGED_AUDIT_BRANCH; DO_NOT_MERGE_DURING_ACCEPTED_SOURCE_CYCLE",
+    "repositoryCopiesRead": [
+      {
+        "path": "New-NyraRelease.ps1",
+        "blobSHA": "3628767c1f57f1b0ec1b340bc58b68019804c41a",
+        "sha256": "9390b98db93e66afc7e53e5dc3cfc182a65c7bec0c62d8f9e1193d86194ea82e",
+        "archiveEquality": "NOT_VERIFIED_ARCHIVE_BYTES_UNAVAILABLE"
+      },
+      {
+        "path": "NyraOperator.psm1",
+        "blobSHA": "a4890b13ec490f7e6c4848806ebca39c098de7a2",
+        "sha256": "e81e526b146d3d63e11ee15ba36433bb013c9dcd9b7223edc8166970fc2309df",
+        "archiveEquality": "NOT_VERIFIED_ARCHIVE_BYTES_UNAVAILABLE"
+      },
+      {
+        "path": "Start-NyraAcceptance.ps1",
+        "blobSHA": "9701e2f931363f9b8c5b6850733bff1fa06e9e67",
+        "sha256": "01bd95b02fda2269a97696f7ffaf2106446e6312a717fc30d423a0d57f7e7084",
+        "archiveEquality": "NOT_VERIFIED_ARCHIVE_BYTES_UNAVAILABLE"
+      },
+      {
+        "path": "runtime-inventory.json",
+        "blobSHA": "26cf77d8798f9fbdcf01c2b71ff3c88ee1e523e9",
+        "sha256": "13074b7957e783cee3d2237ba4c1e9805202b73864d822ecf75096d483ee4464",
+        "archiveEquality": "NOT_VERIFIED_ARCHIVE_BYTES_UNAVAILABLE"
+      },
+      {
+        "path": "baseline-manifest.sha256",
+        "blobSHA": "395f64f410c103599905c8b7fec9971eea465f7a",
+        "sha256": "f225f1d83133c233ad4c195be519a7ed6a21d1a061e267efde83fdae01862e3c",
+        "archiveEquality": "NOT_VERIFIED_ARCHIVE_BYTES_UNAVAILABLE"
+      },
+      {
+        "path": "pr36-inactive-align.py",
+        "blobSHA": "bc74e9f3ef02e63a83d22ff300ef130df5d7f6a8",
+        "sha256": "3315f4f6521674e9c0ff885914e8727d0dea4a3dd5d11c677ec780fafde493ad",
+        "archiveEquality": "NOT_VERIFIED_ARCHIVE_BYTES_UNAVAILABLE"
+      },
+      {
+        "path": "pr36-tls-carry.mjs",
+        "blobSHA": "198313a8eb19c61f0262c7b948e9579a35003ea6",
+        "sha256": "920f656a9f4892f562cf96dfef5f2d1d5a92f6ce7cf9e04fda53af91bf5c66cf",
+        "archiveEquality": "NOT_VERIFIED_ARCHIVE_BYTES_UNAVAILABLE"
+      }
+    ],
+    "generatorContract": {
+      "requiredParameters": [
+        "BaselinePackage",
+        "ReleaseReceipt",
+        "OutputDirectory"
+      ],
+      "acceptedBaselineRunnerSHA256": "c49fdb3e576d68810303e4662c4f261c7f260052d55d486f284813288a9af25f",
+      "acceptedBaselineManifestSHA256": "c84bb361e257be6a223ef16084fe372d4f79d1e31ba14c4e51d7aa2484d43e93",
+      "receiptFields": [
+        "merged=true",
+        "sourceSHA",
+        "treeSHA",
+        "ordered parents"
+      ],
+      "outputDirectoryMustNotExist": true,
+      "clockAndWindow": "Generator captures actual UTC and sets a four-hour window; no StartAt/EndAt parameter; do not hand-edit dates or scope hashes",
+      "hostRetirementCheck": "UtcNow + 4h must be before 2026-11-22T19:17:37Z",
+      "resultScopeFiles": [
+        "ALIGNMENT-SCOPE.json",
+        "operator-package/OWNER-RENEWAL-RECOVERY-SCOPE.json"
+      ],
+      "dependentReports": [
+        "BOUND-RELEASE.json",
+        "BINDING-REPORT.json",
+        "operator-package/SHA256SUMS"
+      ],
+      "sourceReadOnlyInspection": "No generation or syntax execution performed"
+    }
+  },
+  "historicalCompatibilityEvidence": {
+    "runId": 43848279365,
+    "sourceRef": "6fd518eec4d5542a27d5ef1f65cae08fb3ccb463",
+    "jobs": [
+      {
+        "id": 133233946533,
+        "name": "nyra-powershell7-offline",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 133233947103,
+        "name": "nyra-native-windows-powershell51",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ],
+    "classification": "EXISTING_RESULTS_READ_ONLY; NOT_NEW_SUCCESSOR_TESTS",
+    "testsRerun": 0
+  },
+  "successor": {
+    "status": "NOT_PRODUCED",
+    "archiveSHA256": null,
+    "alignmentScopeSHA256": null,
+    "preparationScopeSHA256": null,
+    "TLSCarryForwardExpectedSHA256": "12d82a85c36e0c8216b9f6cdca26d9cd730f14954b952a2ecdc2218b337bb8ca",
+    "TLSBytesVerifiedThisTurn": false,
+    "freshTLSApprovalRequired": "Separate exact authorization bound to the actual new Alignment scope/window",
+    "window": null,
+    "newProtected15MinuteCycleStarted": false,
+    "minimalDiff": "NOT_COMPUTABLE_UNTIL_ORIGINAL_V17_BYTES_AND_GENERATOR_OUTPUT_EXIST",
+    "syntaxAndChangedBindingAndNegativeTests": "PENDING_BLOCKED_BY_RUNTIME",
+    "testedSuccessorEntrypoint": "NOT_AVAILABLE; repository Prepare/Continue entrypoint only read and historical tests inspected",
+    "previousV16V17Approvals": "EXPIRED_NO_REUSE"
+  },
+  "nextExecutableAction": {
+    "ownerInterventionNeededNow": false,
+    "prerequisite": "Available authorized Project runtime with filesystem, Python transfer helper and PowerShell; no private credentials requested",
+    "sequence": [
+      "Transfer and verify exact original ZIP hash and complete manifest; safe extract",
+      "Compare repository provenance against actual archived generator/module bytes; use archive originals",
+      "Recover actual-bound-release receipt; compare to current accepted source; inspect reservations read-only before staging",
+      "Use unchanged generator and exact three parameters with original baseline and a nonexistent output directory when review/execution margins are viable",
+      "Verify all dependent hashes including unchanged TLS bytes; produce exact v17 diff and targeted changed-binding/negative/syntax results",
+      "Submit actual complete ZIP/scopes/hashes/window to Independent External Auditor and exact Owner approvals",
+      "Only after approvals execute inactive Alignment/TLS; retain 64 native host checks and signed evidence",
+      "Stop at PREPARATION approval before bearer input, credential refresh or G07/G08/G09"
+    ]
+  },
+  "privateRegister": {
+    "lastReadVersion": 15,
+    "recoverySTOPIsSuperseded": true,
+    "updated": false,
+    "reason": "Local file/helper writeback cannot run; public checkpoint is a separate durable fallback, not a central-register replacement"
+  },
+  "boundaries": {
+    "mainChanges": 0,
+    "PR38Merge": false,
+    "PR37Merge": false,
+    "hostCommands": 0,
+    "hostWrites": 0,
+    "credentialOperations": 0,
+    "serviceActivations": 0,
+    "OIDCDispatches": 0,
+    "publication": 0,
+    "providerMutations": 0,
+    "protectedApprovalsRequested": false,
+    "independentSuccessorAcceptance": "NOT_REQUESTED_WITHOUT_CONCRETE_PACKAGE"
+  },
+  "privacy": "No signed transfer URL, completion token, operator allowlist, host identifiers, private Library references, raw register, credentials, keys or private screenshot data included.",
+  "runtimeRecoveryAttempts": [
+    {
+      "recordedAtUTC": "2026-11-16T22:37:28.409Z",
+      "authorization": "NYRA II autonomous implementation mandate: restore/create a supported execution session without paid infrastructure or unrelated execution system",
+      "status": "EXTERNAL_EXECUTION_DEPENDENCY_NOT_RESOLVED",
+      "operations": [
+        {
+          "capability": "Project command execution",
+          "operation": "read-only pwd",
+          "result": "UNAVAILABLE",
+          "exactError": "No usable execution environment is available. Wait for an environment to become available before using this tool."
+        },
+        {
+          "capability": "Independent filesystem write",
+          "operation": "non-secret reversible scratch-file capability probe",
+          "result": "UNAVAILABLE",
+          "exactError": "No usable execution environment is available. Wait for an environment to become available before using this tool.",
+          "fileCreated": false
+        },
+        {
+          "capability": "Hosted session restoration",
+          "operation": "List sessions with SESSION_STATUS_ALL, including paused",
+          "result": "READ_SUCCEEDED",
+          "sessions": 0,
+          "canResumeAnExistingSession": false
+        },
+        {
+          "capability": "Hosted session creation",
+          "operation": "Inspect create-session schema and list active Agent Configs",
+          "result": "MISSING_REQUIRED_EXISTING_CONFIG",
+          "requiredFields": [
+            "ConfigID",
+            "Name"
+          ],
+          "availableConfigs": 0,
+          "createdSession": false,
+          "createdConfig": false,
+          "reason": "No existing ConfigID; new provider config/resource creation has not been established as a permitted no-additional-charge route"
+        },
+        {
+          "capability": "Other cloud-computer integration",
+          "operation": "Search supported plugins for code execution and Work cloud computer capabilities",
+          "result": "NO_MATCHING_GENERAL_RUNTIME_DISCOVERED",
+          "unrelatedAppsInstalled": false
+        },
+        {
+          "capability": "Existing GitHub Actions",
+          "operation": "Reused prior inspected workflow and tool inventory; no duplicate historical tests",
+          "result": "ORIGINAL_PRIVATE_ARCHIVE_TRANSFER_ROUTE_NOT_AVAILABLE",
+          "publicTransferURLOrCredentialCommitted": false,
+          "newWorkflowCreated": false
+        }
+      ],
+      "acceptedIntegrityReview": "Owner confirms existing archive and 369/369 manifest entries independently accepted. That historical review is preserved and was not repeated.",
+      "sourceVerificationRepetition": 0,
+      "successorGenerationInvocations": 0,
+      "protectedWindowStarted": false,
+      "minimumUnblock": "Make an authorized Project execution environment with filesystem, Python transfer helper and PowerShell available to this conversation. There is no exposed tool to restore the Work runtime. Creating an additional provider environment must first establish its exact configuration and permitted cost.",
+      "ordinaryImplementationDelegatedToOwner": false,
+      "remainingReadiness": "Once runtime exists, complete original archive transfer and transport hash verification, safe extraction, unchanged generator, targeted validation and independent acceptance submission.",
+      "newApprovalRequest": "NONE: no concrete paid-resource proposal or executable successor exists; old approvals remain expired."
+    }
+  ],
+  "latestRuntimeRecoveryAtUTC": "2026-11-16T22:37:28.409Z"
+}
