@@ -1,6 +1,6 @@
 {
   "schema": "nyra.stage3g.windows-synthetic-transfer-readiness.v1",
-  "recordedAtUTC": "2026-11-16T23:42:18.042Z",
+  "recordedAtUTC": "2026-11-16T23:47:16.334Z",
   "status": "SYNTHETIC_WINDOWS_READINESS_PASS; REAL_PRIVATE_TRANSFER_AND_SUCCESSOR_GENERATION_STOP",
   "repository": "Noctua76/eliaskalyvas-website",
   "publicRepository": true,
@@ -11,45 +11,51 @@
   },
   "implementation": {
     "branch": "test/nyra-v17-windows-secure-transfer",
-    "testedCodeCommit": "b6c2c36843c44eca7523937a70d33f7788b3b963",
+    "testedCodeCommit": "f500c9ee89edfb08ba15e4078dc5fc4372280450",
     "originalPR37Head": "6fd518eec4d5542a27d5ef1f65cae08fb3ccb463",
     "originalGeneratorChanged": false,
     "codePins": [
       {
+        "path": "ops/stage3g-secure-prep/Test-Synthetic.ps1",
+        "sha256": "2d799cca3d8d56dac2d3aae2556352bd403385e70fb6f80ef8866541d8f67897",
+        "blobSHA": "123baf93ec916ae8be4b0af14360097e5f0397f8"
+      },
+      {
         "path": "ops/stage3g-secure-prep/envelope.mjs",
-        "blobSHA": "2b34b2b5123ccd7d3a1d362e079f5308653d221b",
-        "sha256": "7d502f55d6f78e5c1d5057ab404efd507e21c1cb08ad9b047b796bd81eb6cf47"
+        "sha256": "7d502f55d6f78e5c1d5057ab404efd507e21c1cb08ad9b047b796bd81eb6cf47",
+        "blobSHA": "2b34b2b5123ccd7d3a1d362e079f5308653d221b"
       },
       {
         "path": "ops/stage3g-secure-prep/README.md",
-        "blobSHA": "2be49c7822d26d0a027cc8eb1881b2a5c63754f9",
-        "sha256": "e8886205a3bcaf6652facc709fd3744722513940e1dd88d16704caccf21284f3"
+        "sha256": "e8886205a3bcaf6652facc709fd3744722513940e1dd88d16704caccf21284f3",
+        "blobSHA": "2be49c7822d26d0a027cc8eb1881b2a5c63754f9"
       },
       {
         "path": ".github/workflows/nyra-windows-secure-transfer.yml",
-        "blobSHA": "b2b795eaa9a630b9099389dcd44769f5b7e53221",
-        "sha256": "c0e03c7def499216839d4552228f602fc4fca2cab269a4d38fd3815e9467a590"
+        "sha256": "c0e03c7def499216839d4552228f602fc4fca2cab269a4d38fd3815e9467a590",
+        "blobSHA": "b2b795eaa9a630b9099389dcd44769f5b7e53221"
+      },
+      {
+        "path": "ops/stage3g-secure-prep/Read-HostFeasibility.py",
+        "sha256": "5f739e847ec8c6a11e11ed5cc70ea7658f46156652d7f36edecb9db34ab8dc81",
+        "blobSHA": "3484003fa079dc53e92ebdd8bc641544c0197417"
       },
       {
         "path": "ops/stage3g-secure-prep/test-transfer.mjs",
-        "blobSHA": "725da25cfaf824bae41436577f25c0319cc5d36d",
-        "sha256": "2dfb574b904f7cbb6375f04238e7f3ccda17ff71e4d4ae0ba5219fa692b1ef22"
-      },
-      {
-        "path": "ops/stage3g-secure-prep/Test-Synthetic.ps1",
-        "blobSHA": "85c1fc0fbf256846198274d1c01c28be5813a436",
-        "sha256": "1152297b03519576ed7b835e8dfe8404821d6d42df07d819db8f830b9714fb43"
+        "sha256": "2dfb574b904f7cbb6375f04238e7f3ccda17ff71e4d4ae0ba5219fa692b1ef22",
+        "blobSHA": "725da25cfaf824bae41436577f25c0319cc5d36d"
       }
-    ]
+    ],
+    "reviewPR": 39
   },
   "workflow": {
-    "runId": 43980834073,
-    "jobId": 133696545454,
+    "runId": 43981924552,
+    "jobId": 133700290120,
     "event": "push",
     "runner": "windows-2022",
-    "nativePowerShell": "Desktop 5.1, enforced by executed wrapper",
+    "nativePowerShell": "5.1.20348.5773 Desktop",
     "node": "22.23.4",
-    "python": "Python 3 dependency command succeeded; exact patch version retained in synthetic proof artifact",
+    "python": "3.12.10",
     "tokenPermissions": [
       "contents:read",
       "metadata:read"
@@ -71,26 +77,36 @@
     "weakRSARejection": "PASS",
     "plaintextFixtureCleanup": "PASS",
     "exportWorkspaceCleanup": "PASS",
-    "historicalCompatibilityOrNativeCIRepeated": false,
     "crypto": "Node crypto RSA-3072 OAEP-SHA256 plus AES-256-GCM; authenticated schema/algorithm/recipient/wrapped key metadata; random per-envelope AES key and 96-bit nonce; 128-bit tag",
-    "keyHandling": "Synthetic private KeyObject stayed in the runner process; no private key export, log or uploaded private key. No externally held production recipient was established."
+    "keyHandling": "Synthetic private KeyObject stayed in the runner process; no private key export, log or uploaded private key. No externally held production recipient was established.",
+    "readOnlyHandoffPythonAST": "PASS_ON_WINDOWS; NOT_EXECUTED_ON_ACCEPTANCE_HOST",
+    "acceptedPR37CompatibilityTestsRerun": false,
+    "automaticRepositoryChecks": {
+      "trigger": "Automatic pull_request checks after additional scoped code change on Draft PR39; no manual historical rerun requested",
+      "requiredRunId": 43981929806,
+      "requiredStatusAtLastRead": "in_progress",
+      "integrationRunId": 43981929882,
+      "integrationConclusion": "failure",
+      "confirmedFailure": "Public iptables/ufw mirror DNS resolves but direct TLS/curl/Node download times out (ETIMEDOUT / ENETUNREACH); unrelated accepted bootstrap source unchanged; no pinned URL or test weakened",
+      "mergeApproval": false
+    }
   },
   "artifact": {
     "classification": "ENCRYPTED_SYNTHETIC_FIXTURE_ONLY_NOT_SUCCESSOR",
-    "id": 14283202723,
-    "name": "nyra-synthetic-transfer-43980834073-1",
+    "id": 14282439120,
+    "name": "nyra-synthetic-transfer-43981924552-1",
     "files": [
       "synthetic.enc.json",
       "proof.json"
     ],
     "sizeBytes": 1678,
-    "outerSHA256": "85a88a31fa93dfb67251d8334277cb7e8689b1c1bec84c7ffb16b3386553e715",
-    "encryptedEnvelopeSHA256": "c2330b2546c3698e12970569d23faca4956fac911d251f606a3fb7f65952d3c5",
+    "outerSHA256": "87739b8869b17d26a406b8eec425f400f95ec3975dd5bb432af7ead1ac33dab9",
+    "encryptedEnvelopeSHA256": "2ce83eae82f960a3f7b173cda3b2650d491dd04e136bd6724b366584dcc06b03",
     "digestEvidence": "Upload log digest matches authenticated artifact metadata; download tool returned a reusable file reference",
     "downloadedReferenceAvailable": true,
     "downloadedBytesIndependentlyHashed": false,
     "retentionDays": 1,
-    "expiresAtUTC": "2026-11-17T23:37:30Z",
+    "expiresAtUTC": "2026-11-17T23:45:15Z",
     "plaintextSuccessorUploaded": false,
     "realV17ArchiveTransferred": false
   },
@@ -125,7 +141,16 @@
     "existingDropletCommandChannel": "NOT_EXPOSED_BY_DISCOVERED_TOOLS",
     "guestDependencyOrDiskReadback": "NOT_EXECUTED",
     "newInfrastructureCreated": false,
-    "guestWrites": 0
+    "guestWrites": 0,
+    "preparedHandoff": {
+      "path": "ops/stage3g-secure-prep/Read-HostFeasibility.py",
+      "sourceCommit": "e3206e848ce91adf1a8127d9ad97d6b2224fcfba",
+      "sha256": "5f739e847ec8c6a11e11ed5cc70ea7658f46156652d7f36edecb9db34ab8dc81",
+      "instructions": "docs/acceptance/HOST-READONLY-FEASIBILITY-HANDOFF.md",
+      "hostInvoked": false,
+      "scope": "Only executable availability, Python/Node versions and free disk in /opt and /tmp; no private files, Docker, services, writes or runtime preparation",
+      "minimumOwnerAction": "One hash-pinned RAM-only invocation from an already authenticated normal Ubuntu SSH/Console session because no Project host-execution channel is exposed."
+    }
   },
   "nextExecutableBoundary": {
     "windows": "Establish an approved trusted context plus a supported private input credential/transfer channel and an externally held encryption recipient. Only then transfer original archive and invoke original generator.",
@@ -148,5 +173,29 @@
     "newFourHourWindow": false,
     "protected15MinuteWindow": false
   },
-  "privacy": "Public source and synthetic evidence only; no signed transfer URL, tokens, private archive, actual successor or private key in this report."
+  "privacy": "Public source and synthetic evidence only; no signed transfer URL, tokens, private archive, actual successor or private key in this report.",
+  "priorSyntheticRun": {
+    "runId": 43980834073,
+    "testedCodeCommit": "b6c2c36843c44eca7523937a70d33f7788b3b963",
+    "artifact": {
+      "classification": "ENCRYPTED_SYNTHETIC_FIXTURE_ONLY_NOT_SUCCESSOR",
+      "id": 14283202723,
+      "name": "nyra-synthetic-transfer-43980834073-1",
+      "files": [
+        "synthetic.enc.json",
+        "proof.json"
+      ],
+      "sizeBytes": 1678,
+      "outerSHA256": "85a88a31fa93dfb67251d8334277cb7e8689b1c1bec84c7ffb16b3386553e715",
+      "encryptedEnvelopeSHA256": "c2330b2546c3698e12970569d23faca4956fac911d251f606a3fb7f65952d3c5",
+      "digestEvidence": "Upload log digest matches authenticated artifact metadata; download tool returned a reusable file reference",
+      "downloadedReferenceAvailable": true,
+      "downloadedBytesIndependentlyHashed": false,
+      "retentionDays": 1,
+      "expiresAtUTC": "2026-11-17T23:37:30Z",
+      "plaintextSuccessorUploaded": false,
+      "realV17ArchiveTransferred": false
+    },
+    "conclusion": "success"
+  }
 }
