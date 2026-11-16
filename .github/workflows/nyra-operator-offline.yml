@@ -1,0 +1,34 @@
+name: Nyra offline operator compatibility
+on:
+  pull_request:
+    paths:
+      - 'ops/stage3g-operator/**'
+      - '.github/workflows/nyra-operator-offline.yml'
+permissions:
+  contents: read
+jobs:
+  windows51:
+    name: nyra-native-windows-powershell51
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Native Windows PowerShell 5.1 offline sequence and negative tests
+        shell: powershell
+        run: .\ops\stage3g-operator\test\operator.test.ps1 -RequireDesktop
+      - name: Accepted v14 reporting regressions on native Windows 5.1
+        shell: powershell
+        run: .\ops\stage3g-operator\test\v14-report.test.ps1 -StepPath "$pwd\ops\stage3g-operator\test\fixtures\discovery-step.v14.ps1" -OutputDirectory "$env:RUNNER_TEMP\nyra-v14-negative"
+  powershell7:
+    name: nyra-powershell7-offline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: PowerShell 7 offline sequence and negative tests
+        shell: pwsh
+        run: ./ops/stage3g-operator/test/operator.test.ps1
