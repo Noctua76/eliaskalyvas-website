@@ -16,6 +16,7 @@ import {ownerRequest} from './owner-request.mjs';
 import {validateReplacementTarget} from './replacement-target.mjs';
 import {replacementRenewalWindow,replacementRenewalSQL} from './repository-db.mjs';
 import {hashJSON} from '../../lib/publication/contract.mjs';
+import {signedDecisionJournal} from '../../lib/publication/runtime/owner-risk-source.mjs';
 const need=(x,c)=>{if(!x)throw Error('NYRA_DB_RENEWAL_'+c);};
 // Failure-only diagnostics: fixed enums, no error text, stack, payload or secrets.
 const renewalFailureStages=new Set(['ENTRY','LOCK_OPEN','LOCK_CHECK','LOCK_OR_CHILD','PRIVATE_INPUTS','OWNER_KEY','MACHINE_BINDING','OWNER_CONFIGURATION','OWNER_TOKEN_INPUT','OWNER_RENEWAL_REQUEST','OWNER_APPROVAL_VERIFY','TRUST_GATE_SETUP','HOST_BOUNDARY','JOURNAL_HISTORY','RESOURCE_BOUNDARY','PRE_JOURNAL_TRUST','ROLE_IDENTITIES','ROLE_DIRECTORIES','JOURNAL_RESERVATION','CREDENTIAL_STAGING','PRECOMMIT_TRUST','PRECOMMIT_BOUNDARY','DATABASE_ROTATION','CREDENTIAL_INSTALLATION','CREDENTIAL_VERIFICATION','RENEWAL_COMPLETION']);
@@ -25,8 +26,31 @@ const renewalFailureCodes=new Set([
  ...['SOURCE_REQUIRED','POLICY_BINDING','RETIRED','OPERATION','ADMINISTRATION_CHANGED','OWNER_SOURCE_UNVERIFIED','OWNER_BINDING','OWNER_AUTHORIZATION','OWNER_FRESHNESS','ADMINISTRATION_STALE','RETIREMENT_UNCONFIRMED'].map(x=>'REPOSITORY_TRUST_'+x),
  'PRIVATE_FILE','OWNER_REQUEST_DENIED','ADMIN_CREDENTIAL_REQUIRED','ADMIN_READ_SCOPE','ADMIN_READ_DENIED','ADMIN_READ_INCOMPLETE','ADMIN_READ_SIZE','ADMIN_READ_UNAVAILABLE','ADMIN_READ_STALE','ADMIN_SNAPSHOT_CHANGED','DB_RENEWAL_FIELDS','DB_RENEWAL_IDENTITY','DB_RENEWAL_WINDOW','UNCLASSIFIED']);
 let renewalFailureStage='ENTRY';
+for(const code of ['OWNER_DECISION_MARGIN','OWNER_DECISION_BINDING','OWNER_JOURNAL_VERIFICATION'])renewalFailureCodes.add('NYRA_DB_RENEWAL_'+code);
+for(const code of ['OWNER_CHANNEL_ABSENT','OWNER_CHANNEL_REFUSED','OWNER_CHANNEL_ACCESS_DENIED','OWNER_CHANNEL_UNAVAILABLE','OWNER_CHANNEL_TIMEOUT','OWNER_HTTP_DENIED','OWNER_RESPONSE_TOO_LARGE','OWNER_RESPONSE_INVALID'])renewalFailureCodes.add(code);
+export function assertOwnerDecisionCommitMargin(expiresAt,{now=Date.now()}={}){
+ need(typeof expiresAt==='string'&&Number.isFinite(Date.parse(expiresAt))&&new Date(Date.parse(expiresAt)).toISOString()===expiresAt&&Number.isFinite(now)&&Date.parse(expiresAt)>now+600000,'OWNER_DECISION_MARGIN');
+ return expiresAt;
+}
+export function ownerBoundRenewalSQL(lease,passwords,expiresAt,{now=Date.now()}={}){
+ assertOwnerDecisionCommitMargin(expiresAt,{now});
+ // Check the DB clock both before ALTER ROLE and immediately before COMMIT.
+ // The timestamp is canonical UTC, obtained from the verified Owner journal.
+ const guard="DO $nyra_owner_clock$ BEGIN IF clock_timestamp() >= TIMESTAMPTZ '"+expiresAt+"' - INTERVAL '10 minutes' THEN RAISE EXCEPTION USING MESSAGE = 'NYRA_DB_RENEWAL_OWNER_DECISION_MARGIN'; END IF; END $nyra_owner_clock$;";
+ return replacementRenewalSQL(lease,passwords).replace('BEGIN;\n','BEGIN;\n'+guard+'\n').replace('\nCOMMIT;\n','\n'+guard+'\nCOMMIT;\n');
+}
+async function currentOwnerDecision(config,ownerConfig,ownerKey){
+ need(ownerConfig.journal==='/var/lib/nyra-5c/owner/decisions.jsonl','OWNER_DECISION_BINDING');
+ const f=await open(ownerConfig.journal,constants.O_RDONLY|constants.O_NOFOLLOW);let rows;
+ try{const s=await f.stat();need(s.isFile()&&s.nlink===1&&s.uid===uid('owner').uid&&(s.mode&0o077)===0&&s.size<8000000,'OWNER_JOURNAL_VERIFICATION');rows=(await f.readFile('utf8')).trim().split('\n').filter(Boolean).map(JSON.parse);}finally{await f.close();}
+ const key=await crypto.subtle.importKey('jwk',ownerKey.publicKey,'Ed25519',false,['verify']);
+ let decision;try{decision=await signedDecisionJournal({records:{read:async()=>rows,append:async()=>{need(false,'OWNER_JOURNAL_VERIFICATION');}},signRecord:async()=>{need(false,'OWNER_JOURNAL_VERIFICATION');},publicKey:key,keyId:ownerKey.keyId}).current();}catch{need(false,'OWNER_JOURNAL_VERIFICATION');}
+ need(decision?.decisionId===config.ownerDecisionId&&decision.state==='active'&&decision.supersededBy===null&&decision.repositoryTrustSHA256===hashJSON(config.configuration.repositoryTrust),'OWNER_DECISION_BINDING');
+ assertOwnerDecisionCommitMargin(decision.expiresAt);
+ return decision;
+}
 export function sanitizedRenewalFailure(error){
- let code='',errno='';try{code=typeof error?.message==='string'?error.message:'';errno=error?.code;}catch{}
+ let code='',errno='';try{code=typeof error?.nyraCode==='string'?error.nyraCode:typeof error?.message==='string'?error.message:'';errno=error?.code;}catch{}
  const prefix='NYRA_DB_RENEWAL_FAILED_CLOSED_';if(code.startsWith(prefix))code=code.slice(prefix.length);
  if(!renewalFailureCodes.has(code))code=['ENOENT','EACCES','EPERM','ELOOP','ENOTDIR','EISDIR'].includes(errno)?'FILESYSTEM_ACCESS_FAILED':'UNCLASSIFIED';
  return {marker:'NYRA_DB_RENEWAL_DENIED',stage:renewalFailureStages.has(renewalFailureStage)?renewalFailureStage:'ENTRY',code,noAutomaticRetry:true};
@@ -34,7 +58,10 @@ export function sanitizedRenewalFailure(error){
 const command=(program,args,input)=>{
  try{return execFileSync(program,args,{encoding:'utf8',input,timeout:30000,
   stdio:[input===undefined?'ignore':'pipe','pipe','pipe']}).trim();}
- catch(e){throw Error('NYRA_DB_RENEWAL_COMMAND_DENIED');}
+ catch(e){
+  if(typeof e?.stderr==='string'&&e.stderr.length<65536&&/(?:^|\n)(?:psql:[^\r\n]{0,120}: )?ERROR:\s+NYRA_DB_RENEWAL_OWNER_DECISION_MARGIN\s*(?:\n|$)/.test(e.stderr))throw Error('NYRA_DB_RENEWAL_OWNER_DECISION_MARGIN');
+  throw Error('NYRA_DB_RENEWAL_COMMAND_DENIED');
+ }
 };
 const docker=(args,input)=>command('docker',args,input);
 const uid=role=>{const v=command('getent',['passwd','nyra-'+role]).split(':');need(v.length>=4&&Number(v[2])>0,'ROLE_USER');return {uid:Number(v[2]),gid:Number(v[3])};};
@@ -132,6 +159,7 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
  const trust=await assertTrust(lease);
  need(trust&&trust.verified===true&&/^[a-f0-9]{64}$/.test(trust.approvalSHA256)&&
   /^[a-f0-9]{64}$/.test(trust.repositoryTrustSHA256),'OWNER_ADMINISTRATION');
+ assertOwnerDecisionCommitMargin(trust.ownerDecisionExpiresAt,{now:now()});
  renewalFailureStage='ROLE_IDENTITIES';
  const users=Object.fromEntries(['registrar','broker'].map(r=>[r,uid(r)]));
  const secrets={registrar:randomBytes(24).toString('hex'),broker:randomBytes(24).toString('hex')};
@@ -199,7 +227,7 @@ export async function applyAuthorizedRenewal({target,session,assertTrust,paths,n
    docker(['ps','-aq','--filter','name=^nyra-5c-live-']).trim()===''&&now()<Date.parse(lease.roleValidUntil),'PRECOMMIT_BOUNDARY');
   const args=['exec','-i','nyra-repository-pg','psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-t','-A'];
   renewalFailureStage='DATABASE_ROTATION';
-  const response=docker(args,replacementRenewalSQL(lease,secrets));
+  const response=docker(args,ownerBoundRenewalSQL(lease,secrets,trust.ownerDecisionExpiresAt,{now:now()}));
   dbChanged=true;
   const actual=response.split('\n').map(x=>x.trim()).filter(x=>x.startsWith('nyra_accept_'));
   need(JSON.stringify(actual)===JSON.stringify(['nyra_accept_broker|'+lease.roleValidUntil,'nyra_accept_registrar|'+lease.roleValidUntil]),'SERVER_VALIDITY');
@@ -285,7 +313,8 @@ export async function runHostRenewal(){
  return applyAuthorizedRenewal({target,session,assertTrust:async()=>{
   await gate.assert(policies.build,'db-renewal');
   await verify();
-  return {verified:true,approvalSHA256:hashJSON(envelope),repositoryTrustSHA256:gate.repositoryTrustSHA256,ownerApproval:envelope};
+  const decision=await currentOwnerDecision(config,ownerConfig,ownerKey);
+  return {verified:true,approvalSHA256:hashJSON(envelope),repositoryTrustSHA256:gate.repositoryTrustSHA256,ownerApproval:envelope,ownerDecisionExpiresAt:decision.expiresAt};
  },paths:{journal:'/opt/nyra-5c/private/renewal-state.json'}});
 }
 if(process.argv[1]===new URL(import.meta.url).pathname){
