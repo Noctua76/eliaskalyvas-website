@@ -1,0 +1,120 @@
+{
+  "schema": "nyra.stage3g.recovery-closure-review.v1",
+  "recordedAtUTC": "2026-11-16T22:03:56.432Z",
+  "repository": "Noctua76/eliaskalyvas-website",
+  "governance": "SINGLE_OWNER",
+  "acceptedSource": {
+    "main": "4edff2353c55469918f2e3a90190916df9a8924d",
+    "tree": "8fdac1689db7d0d2172481c4eb446bb20be18962",
+    "parents": [
+      "8b82cc964bdbc1919caf91c2669ca154204c025d",
+      "225b1bc946b5626e9105f24afd644467852a91af"
+    ],
+    "pr36": "MERGED"
+  },
+  "recovery": {
+    "incident": "CLOSED_PASS",
+    "basis": "Actual Owner-provided native evidence and explicit continuation instruction; not an agent-executed host command",
+    "agentRestoredAndExistingED25519Loaded": "OWNER_CONFIRMED",
+    "recoveryAuthentication": "PASS",
+    "unmountMarker": "NYRA_RECOVERY_UNMOUNT_PASS",
+    "unmountExit": 0,
+    "bootFromHardDrive": "OWNER_CONFIRMED_COMPLETE",
+    "normalUbuntuAuthentication": "PASS",
+    "rootFilesystem": "/dev/vda1",
+    "finalSSHExit": 0,
+    "r2UFWWrite": "NOT_EXECUTED_NOT_REQUIRED",
+    "nativeExecutionUTC": "NOT_PROVIDED; screenshot filenames/metadata are evidence references, not invented execution timestamps"
+  },
+  "providerReadback": {
+    "dropletStatus": "active",
+    "expectedTargetIdentity": "MATCHED_PRIVATE_BASELINE",
+    "cloudFirewall": "succeeded",
+    "sshSource": "MATCHED_OWNER_CONFIRMED_BASELINE",
+    "pendingChanges": 0,
+    "mutations": 0
+  },
+  "liveGates": {
+    "historicalG01toG07": "PRESERVED",
+    "currentG03G04": "RECOVERY_CLOSURE_PASS",
+    "inactiveAlignment": "STOP_PENDING_FRESH_BOUND_SUCCESSOR_AND_NATIVE_RECEIPTS",
+    "tlsCarryForward": "PENDING_RENEWED_EXPLICIT_BINDING",
+    "G08": "STOP",
+    "G09": "PENDING",
+    "G10": "PENDING",
+    "G11": "PENDING",
+    "G12": "PENDING",
+    "newProtected15MinuteWindow": "NOT_STARTED"
+  },
+  "expiryAssessment": [
+    {
+      "item": "v16 alignment",
+      "hash": "3e40eb86c97f36c019c346bdf07c6f21ee8e84b313e7860ccedb9cde86947fcf",
+      "endUTC": "2026-11-16T14:59:56Z",
+      "state": "EXPIRED"
+    },
+    {
+      "item": "v17 alignment",
+      "hash": "e064a675f22b14001e6dce8af606d2a57fa4a3cb634b574cc9eeaca162c4c235",
+      "endUTC": "2026-11-16T19:04:19Z",
+      "state": "EXPIRED"
+    },
+    {
+      "item": "TLS carry-forward",
+      "hash": "12d82a85c36e0c8216b9f6cdca26d9cd730f14954b952a2ecdc2218b337bb8ca",
+      "state": "NON_TEMPORAL_BYTES_PRESERVED; EXPIRED_APPROVAL_NOT_REACTIVATED; REQUIRE_FRESH_BINDING_TO_NEW_ALIGNMENT_WINDOW"
+    },
+    {
+      "item": "last Owner decision",
+      "endUTC": "2026-11-16T09:08:15Z",
+      "state": "EXPIRED"
+    },
+    {
+      "item": "last observed session",
+      "endUTC": "2026-11-16T09:40:48Z",
+      "state": "EXPIRED"
+    },
+    {
+      "item": "unused R2 successor",
+      "state": "RETIRED_UNUSED_AFTER_INCIDENT_CLOSURE; HISTORY_ONLY; NOT_AUTHORIZATION_FOR_ALIGNMENT"
+    },
+    {
+      "item": "Administration and PostgreSQL role credentials",
+      "state": "CURRENT_NATIVE_EXPIRIES_NOT_READ; DO_NOT_ASSUME_VALID_OR_ROTATE_BLINDLY"
+    }
+  ],
+  "preparation": {
+    "status": "REVIEW_CHECKPOINT_READY; EXECUTABLE_SUCCESSOR_PACKAGE_BLOCKED",
+    "reason": "Project execution environment unavailable; no existing-droplet command tool or Owner SSH channel exposed",
+    "v17Archive": "RETAINED_UNMODIFIED_IN_PRIVATE_ACCEPTANCE_EVIDENCE",
+    "v17RecordedArchiveSHA256": "f1e5eaa8e129b87fffb8cff66fcb246b132d9d303f8e293a8197f88a38d7fa97",
+    "archiveHashVerifiedThisTurn": false,
+    "newScopeGenerated": false,
+    "newApprovalRequested": false,
+    "nativeCompatibilityTestedThisTurn": false,
+    "historicalCIRerunRequested": false
+  },
+  "ownerIntervention": {
+    "now": "NONE_FOR_FURTHER_ORDINARY_PREPARATION; PROJECT_RUNTIME_MUST_BECOME_AVAILABLE",
+    "later": "Exact new scope approval after actual package audit; Owner/MFA and protected UI where required; local execution only if no authorized Project route exists"
+  },
+  "boundaries": {
+    "hostCalls": 0,
+    "hostWrites": 0,
+    "serviceActivations": 0,
+    "credentialOperations": 0,
+    "OIDCDispatches": 0,
+    "providerMutations": 0,
+    "mainChanges": 0,
+    "normalCIRepetition": 0
+  },
+  "privacy": "Sanitized public review metadata only; raw screenshots, operator allowlist, private Library references, tokens, keys and local paths remain outside this repository",
+  "centralPrivateRegister": {
+    "lastConfirmedVersion": 15,
+    "status": "STALE_RECOVERY_STOP_MUST_BE_SUPERSEDED; PRIVATE_WRITEBACK_BLOCKED_BY_UNAVAILABLE_RUNTIME; NOT_CLAIMED_SAVED"
+  },
+  "audit": {
+    "status": "REQUESTED_FOR_CLOSURE_AND_CONTINUATION_BOUNDARY_ONLY",
+    "executableSuccessorAcceptance": "NOT_REQUESTED_UNTIL_EXACT_PACKAGE_EXISTS"
+  }
+}
