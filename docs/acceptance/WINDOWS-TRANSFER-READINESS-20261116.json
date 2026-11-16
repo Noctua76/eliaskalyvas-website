@@ -1,0 +1,152 @@
+{
+  "schema": "nyra.stage3g.windows-synthetic-transfer-readiness.v1",
+  "recordedAtUTC": "2026-11-16T23:42:18.042Z",
+  "status": "SYNTHETIC_WINDOWS_READINESS_PASS; REAL_PRIVATE_TRANSFER_AND_SUCCESSOR_GENERATION_STOP",
+  "repository": "Noctua76/eliaskalyvas-website",
+  "publicRepository": true,
+  "acceptedSource": {
+    "main": "4edff2353c55469918f2e3a90190916df9a8924d",
+    "tree": "8fdac1689db7d0d2172481c4eb446bb20be18962",
+    "changed": false
+  },
+  "implementation": {
+    "branch": "test/nyra-v17-windows-secure-transfer",
+    "testedCodeCommit": "b6c2c36843c44eca7523937a70d33f7788b3b963",
+    "originalPR37Head": "6fd518eec4d5542a27d5ef1f65cae08fb3ccb463",
+    "originalGeneratorChanged": false,
+    "codePins": [
+      {
+        "path": "ops/stage3g-secure-prep/envelope.mjs",
+        "blobSHA": "2b34b2b5123ccd7d3a1d362e079f5308653d221b",
+        "sha256": "7d502f55d6f78e5c1d5057ab404efd507e21c1cb08ad9b047b796bd81eb6cf47"
+      },
+      {
+        "path": "ops/stage3g-secure-prep/README.md",
+        "blobSHA": "2be49c7822d26d0a027cc8eb1881b2a5c63754f9",
+        "sha256": "e8886205a3bcaf6652facc709fd3744722513940e1dd88d16704caccf21284f3"
+      },
+      {
+        "path": ".github/workflows/nyra-windows-secure-transfer.yml",
+        "blobSHA": "b2b795eaa9a630b9099389dcd44769f5b7e53221",
+        "sha256": "c0e03c7def499216839d4552228f602fc4fca2cab269a4d38fd3815e9467a590"
+      },
+      {
+        "path": "ops/stage3g-secure-prep/test-transfer.mjs",
+        "blobSHA": "725da25cfaf824bae41436577f25c0319cc5d36d",
+        "sha256": "2dfb574b904f7cbb6375f04238e7f3ccda17ff71e4d4ae0ba5219fa692b1ef22"
+      },
+      {
+        "path": "ops/stage3g-secure-prep/Test-Synthetic.ps1",
+        "blobSHA": "85c1fc0fbf256846198274d1c01c28be5813a436",
+        "sha256": "1152297b03519576ed7b835e8dfe8404821d6d42df07d819db8f830b9714fb43"
+      }
+    ]
+  },
+  "workflow": {
+    "runId": 43980834073,
+    "jobId": 133696545454,
+    "event": "push",
+    "runner": "windows-2022",
+    "nativePowerShell": "Desktop 5.1, enforced by executed wrapper",
+    "node": "22.23.4",
+    "python": "Python 3 dependency command succeeded; exact patch version retained in synthetic proof artifact",
+    "tokenPermissions": [
+      "contents:read",
+      "metadata:read"
+    ],
+    "secretsReferences": 0,
+    "repositoryAndExactBranchGuard": true,
+    "persistCheckoutCredentials": false,
+    "timeoutMinutes": 10
+  },
+  "verification": {
+    "runConclusion": "success",
+    "jobConclusion": "success",
+    "tests": 19,
+    "PowerShellParser": "PASS",
+    "NodeSyntax": "PASS",
+    "realSyntheticZIPRoundtrip": "PASS",
+    "tamperAndWrongKeyRejections": "PASS",
+    "inputSHA256AndMismatchChecks": "PASS",
+    "weakRSARejection": "PASS",
+    "plaintextFixtureCleanup": "PASS",
+    "exportWorkspaceCleanup": "PASS",
+    "historicalCompatibilityOrNativeCIRepeated": false,
+    "crypto": "Node crypto RSA-3072 OAEP-SHA256 plus AES-256-GCM; authenticated schema/algorithm/recipient/wrapped key metadata; random per-envelope AES key and 96-bit nonce; 128-bit tag",
+    "keyHandling": "Synthetic private KeyObject stayed in the runner process; no private key export, log or uploaded private key. No externally held production recipient was established."
+  },
+  "artifact": {
+    "classification": "ENCRYPTED_SYNTHETIC_FIXTURE_ONLY_NOT_SUCCESSOR",
+    "id": 14283202723,
+    "name": "nyra-synthetic-transfer-43980834073-1",
+    "files": [
+      "synthetic.enc.json",
+      "proof.json"
+    ],
+    "sizeBytes": 1678,
+    "outerSHA256": "85a88a31fa93dfb67251d8334277cb7e8689b1c1bec84c7ffb16b3386553e715",
+    "encryptedEnvelopeSHA256": "c2330b2546c3698e12970569d23faca4956fac911d251f606a3fb7f65952d3c5",
+    "digestEvidence": "Upload log digest matches authenticated artifact metadata; download tool returned a reusable file reference",
+    "downloadedReferenceAvailable": true,
+    "downloadedBytesIndependentlyHashed": false,
+    "retentionDays": 1,
+    "expiresAtUTC": "2026-11-17T23:37:30Z",
+    "plaintextSuccessorUploaded": false,
+    "realV17ArchiveTransferred": false
+  },
+  "phaseBSecurityGate": {
+    "status": "STOP_BEFORE_ANY_PRIVATE_FILE_TRANSFER",
+    "missingCapabilities": [
+      "Connected GitHub tools expose no Actions secret creation/update mechanism",
+      "No reviewed private input URL/credential route is established for the Windows job",
+      "No externally controlled production decryption-key route is established"
+    ],
+    "available": [
+      "Branch-scoped workflow file writes and push execution",
+      "Read-only token",
+      "Encrypted synthetic artifact upload and connector download"
+    ],
+    "mustNotDo": [
+      "Place a signed Library URL in commit, PR, log or plain workflow input",
+      "Use pull_request_target with untrusted code and secrets",
+      "Upload plaintext successor",
+      "Weaken main protections or merge PR37/PR38",
+      "Treat in-memory synthetic private key as an externally recoverable production key"
+    ],
+    "permissionApprovalRequested": false,
+    "reason": "Do not request abstract permission when no supported secret-write route or exact production recipient exists; no protected-main change is prepared or authorized."
+  },
+  "fallbackExistingDropletReadOnlyFeasibility": {
+    "attempted": true,
+    "providerGET": "HTTP403",
+    "providerRequestId": "260f8c60-51a1-4f0d-a48a-7e16c00ebc65",
+    "message": "You are not authorized to perform this operation",
+    "currentOAuthOwnerReported": "Harness session create/read/manage/operate; no fresh Droplet-read authorization demonstrated",
+    "existingDropletCommandChannel": "NOT_EXPOSED_BY_DISCOVERED_TOOLS",
+    "guestDependencyOrDiskReadback": "NOT_EXECUTED",
+    "newInfrastructureCreated": false,
+    "guestWrites": 0
+  },
+  "nextExecutableBoundary": {
+    "windows": "Establish an approved trusted context plus a supported private input credential/transfer channel and an externally held encryption recipient. Only then transfer original archive and invoke original generator.",
+    "existingDroplet": "Provide an authenticated, authorized read-only host execution channel to inspect only Python/Node/PowerShell availability and safe isolated-preparation capacity. Provider metadata read is also currently denied. No host write scope can be responsibly executed from these unverified prerequisites.",
+    "ownerApprovalOnlyForActualProtectedAction": true,
+    "sourceContext": "Full successor production, fresh four-hour binding, exact ZIP hash and independent acceptance remain unfulfilled."
+  },
+  "boundaries": {
+    "newDigitalOceanRuntimeAttempts": 0,
+    "existingHostCommands": 0,
+    "existingHostWrites": 0,
+    "credentialsIssuedOrRotated": 0,
+    "protectedMerges": 0,
+    "serviceActivation": 0,
+    "ownerAAL2": 0,
+    "G08": 0,
+    "G09": 0,
+    "OIDC": 0,
+    "publication": 0,
+    "newFourHourWindow": false,
+    "protected15MinuteWindow": false
+  },
+  "privacy": "Public source and synthetic evidence only; no signed transfer URL, tokens, private archive, actual successor or private key in this report."
+}
