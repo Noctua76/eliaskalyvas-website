@@ -1,81 +1,194 @@
 {
-  "schema": "nyra.stage3g.temporary-runtime-execution-receipt.v1",
-  "recordedAtUTC": "2026-11-16T22:53:12.385Z",
-  "status": "STOP_PROVIDER_AUTHORIZATION_DENIED_BEFORE_RESOURCE_CREATION",
-  "approval": {
-    "ownerExplicitAuthorization": true,
-    "sourceCommit": "5532b65a9a2f103d35e3d225a7bd146e8fe3af76",
-    "manifestSHA256": "ad709b09a0049248c8b6419974702be7155ea1154111322c09493ae43a4a8e20",
-    "authorizationCheckedAtUTC": "2026-11-16T22:51:15.119Z",
-    "creationAuthorizationExpiresAtUTC": "2026-11-17T00:41:49.464Z",
-    "validAtAttempt": true
+  "schema": "nyra.stage3g.temporary-runtime-execution-receipt.v2",
+  "recordedAtUTC": "2026-11-16T23:14:28.548Z",
+  "status": "STOP_PROVIDER_SESSION_PROVISIONING_FAILED; NO_EXECUTION_PACKAGE_PRODUCED",
+  "prior403Receipt": {
+    "schema": "nyra.stage3g.temporary-runtime-execution-receipt.v1",
+    "recordedAtUTC": "2026-11-16T22:53:12.385Z",
+    "status": "STOP_PROVIDER_AUTHORIZATION_DENIED_BEFORE_RESOURCE_CREATION",
+    "approval": {
+      "ownerExplicitAuthorization": true,
+      "sourceCommit": "5532b65a9a2f103d35e3d225a7bd146e8fe3af76",
+      "manifestSHA256": "ad709b09a0049248c8b6419974702be7155ea1154111322c09493ae43a4a8e20",
+      "authorizationCheckedAtUTC": "2026-11-16T22:51:15.119Z",
+      "creationAuthorizationExpiresAtUTC": "2026-11-17T00:41:49.464Z",
+      "validAtAttempt": true
+    },
+    "preconditions": {
+      "manifestExactSHA256Verified": true,
+      "nameCollisionConfigCount": 0,
+      "nameCollisionSessionCount": 0,
+      "refreshedArchiveTransferHostMatchedExactApprovedAllowlist": true,
+      "accepted369EntryIntegrityReview": "PRESERVED_NOT_REPEATED",
+      "sourceChecksRepeated": 0
+    },
+    "attempt": {
+      "operation": "harness-runtime/harness-runtime-create-agent-config",
+      "resourceName": "nyra-v17-prep-20261116-01",
+      "HTTPMethod": "POST",
+      "endpoint": "https://api.digitalocean.com/v2/harness-runtime/configs",
+      "HTTPStatus": 403,
+      "providerRequestId": "d1fc5654-cf93-4cf0-a845-03e5b0132126",
+      "providerMessage": "You are not authorized to perform this operation",
+      "connectorEnvelopeErrorCode": "INVALID_ARGUMENT",
+      "classification": "PROVIDER_PERMISSION_DENIED; HTTP403 is the actual operation failure, not a manifest-validation finding or ChatGPT approval rejection",
+      "retryCount": 0,
+      "createSessionInvocations": 0
+    },
+    "diagnosis": {
+      "confirmedBoundary": "Authenticated read calls succeed; exact approved config-creation request is denied by provider authorization",
+      "unconfirmedDetail": "Response does not identify whether the permission denial comes from credential scope, team role or service entitlement; do not invent the exact missing scope",
+      "authorizedRecoveryChecked": [
+        "Scoped config/session readbacks",
+        "Connected-tool catalog for token-scope/account-access diagnostics: no relevant scope-edit capability exposed",
+        "Available DigitalOcean alternative-plugin lookup: none returned"
+      ],
+      "permissionSettingsModified": false,
+      "credentialsIssuedOrRotated": false,
+      "alternateResourcesProvisioned": false
+    },
+    "cleanup": {
+      "status": "PASS_NO_RESIDUAL_APPROVED_NAME_RESOURCES",
+      "configListAfterAttemptCount": 0,
+      "sessionListAfterAttemptCount": 0,
+      "sessionQueryIncludedAllStatuses": true,
+      "configIDCreated": null,
+      "sessionIDCreated": null,
+      "deleteInvocations": 0,
+      "reason": "No matching config or session exists in authoritative post-attempt lists. No resource ID was returned to delete; no unrelated resource may be targeted.",
+      "sixtyMinuteRuntimeClockStarted": false
+    },
+    "deliverable": {
+      "successorZIPProduced": false,
+      "newScopeOrWindowGenerated": false,
+      "newProtected15MinuteCycleStarted": false,
+      "archiveBytesDownloaded": false,
+      "generatorInvoked": false
+    },
+    "nextAction": {
+      "minimumExternalDependency": "Restore provider-side DigitalOcean NYRA authorization for the exact approved Harness Runtime config creation and subsequent session lifecycle operations, or provide an already authorized Project execution environment.",
+      "ownerControlledStepRequired": true,
+      "noAdditionalChatApprovalNeededWithinCurrentExactScopeAndWindow": true,
+      "beforeAnyFutureAttempt": "Verify provider authorization change is evidenced, recheck existing residual state and exact approval time; do not retry the unchanged denied request blindly. If scope/window expires or changes, prepare new exact approval.",
+      "continuation": "Create only approved runtime, finish original successor generation/targeted verification, export and clean up; no acceptance-host operations."
+    },
+    "boundaries": {
+      "acceptanceHostAccess": 0,
+      "acceptanceHostWrites": 0,
+      "protectedMerges": 0,
+      "serviceActivations": 0,
+      "credentialOperations": 0,
+      "OIDCDispatches": 0,
+      "additionalPaidResources": 0,
+      "acceptedSourceChanges": 0
+    }
   },
-  "preconditions": {
-    "manifestExactSHA256Verified": true,
-    "nameCollisionConfigCount": 0,
-    "nameCollisionSessionCount": 0,
-    "refreshedArchiveTransferHostMatchedExactApprovedAllowlist": true,
-    "accepted369EntryIntegrityReview": "PRESERVED_NOT_REPEATED",
-    "sourceChecksRepeated": 0
-  },
-  "attempt": {
-    "operation": "harness-runtime/harness-runtime-create-agent-config",
-    "resourceName": "nyra-v17-prep-20261116-01",
-    "HTTPMethod": "POST",
-    "endpoint": "https://api.digitalocean.com/v2/harness-runtime/configs",
-    "HTTPStatus": 403,
-    "providerRequestId": "d1fc5654-cf93-4cf0-a845-03e5b0132126",
-    "providerMessage": "You are not authorized to perform this operation",
-    "connectorEnvelopeErrorCode": "INVALID_ARGUMENT",
-    "classification": "PROVIDER_PERMISSION_DENIED; HTTP403 is the actual operation failure, not a manifest-validation finding or ChatGPT approval rejection",
-    "retryCount": 0,
-    "createSessionInvocations": 0
-  },
-  "diagnosis": {
-    "confirmedBoundary": "Authenticated read calls succeed; exact approved config-creation request is denied by provider authorization",
-    "unconfirmedDetail": "Response does not identify whether the permission denial comes from credential scope, team role or service entitlement; do not invent the exact missing scope",
-    "authorizedRecoveryChecked": [
-      "Scoped config/session readbacks",
-      "Connected-tool catalog for token-scope/account-access diagnostics: no relevant scope-edit capability exposed",
-      "Available DigitalOcean alternative-plugin lookup: none returned"
+  "oauthRecovery": {
+    "ownerReportedScopes": [
+      "agent_harness_session:create",
+      "agent_harness_session:read",
+      "agent_harness_session:manage",
+      "agent_harness_session:operate"
     ],
-    "permissionSettingsModified": false,
-    "credentialsIssuedOrRotated": false,
-    "alternateResourcesProvisioned": false
+    "shareEnabled": false,
+    "reportBasis": "Owner update; no token exposed",
+    "configCreationAfterReconnect": "PASS"
+  },
+  "authorization": {
+    "manifestSourceCommit": "5532b65a9a2f103d35e3d225a7bd146e8fe3af76",
+    "manifestSHA256": "ad709b09a0049248c8b6419974702be7155ea1154111322c09493ae43a4a8e20",
+    "checkedAtUTC": "2026-11-16T23:10:05.706Z",
+    "expiresAtUTC": "2026-11-17T00:41:49.464Z",
+    "validAtCreation": true,
+    "maximumConfigs": 1,
+    "maximumSessions": 1,
+    "budgetUSD": 0.5,
+    "maximumElapsedMinutes": 60
+  },
+  "configuration": {
+    "id": "01a1e6a0-373e-723f-bc9a-e3716b4d85c5",
+    "name": "nyra-v17-prep-20261116-01",
+    "createdAtUTC": "2026-11-16T23:10:22.014145Z",
+    "providerContentHash": "2641d9e50412531b76ee4cfa5e9f4ac421e0ec3e50ebca46d273779853bb6187",
+    "manifestSemanticallyMatchesApproved": true,
+    "providerNormalization": "harness:none represented as legacy agent:none; official spec accepts these aliases; all remaining approved fields matched",
+    "harness": "none",
+    "size": "mars-2vcpu-4gb",
+    "idleTimeoutSeconds": 300,
+    "providerManifestReadbackBeforeCleanup": "PASS",
+    "noCredentialsProvisioned": true
+  },
+  "session": {
+    "id": "01a1e6a0-901c-73be-806b-9f10c4c0b0ce",
+    "name": "nyra-v17-prep-20261116-01",
+    "configId": "01a1e6a0-373e-723f-bc9a-e3716b4d85c5",
+    "createdAtUTC": "2026-11-16T23:10:44.764248Z",
+    "creationInvocationsThisResume": 1,
+    "creationCallResult": "backend MCP server https://harness-runtime.mcp.digitalocean.com/mcp: call tool harness-runtime-create-session: context deadline exceeded",
+    "immediateNameReadbackCount": 0,
+    "reconciliation": "Delayed all-status readback found the single matching Session FAILED; no blind creation retry",
+    "verifiedStatus": "SESSION_STATUS_FAILED",
+    "sandboxIdReturned": false,
+    "readyObserved": false,
+    "failureBoundary": "Provider-side session provisioning failed. The create-call timeout and FAILED status are observed; their precise causal relationship and deeper provisioning reason are not exposed.",
+    "underlyingCause": "UNCONFIRMED; no unsupported claim about balance, quota, image, host region, manifest or OAuth"
   },
   "cleanup": {
-    "status": "PASS_NO_RESIDUAL_APPROVED_NAME_RESOURCES",
-    "configListAfterAttemptCount": 0,
-    "sessionListAfterAttemptCount": 0,
-    "sessionQueryIncludedAllStatuses": true,
-    "configIDCreated": null,
-    "sessionIDCreated": null,
-    "deleteInvocations": 0,
-    "reason": "No matching config or session exists in authoritative post-attempt lists. No resource ID was returned to delete; no unrelated resource may be targeted.",
-    "sixtyMinuteRuntimeClockStarted": false
+    "verifiedAtUTC": "2026-11-16T23:13:35.840Z",
+    "sessionDestroy": {
+      "invoked": true,
+      "HTTPStatus": 404,
+      "providerRequestId": "3650cfb0-89fb-4bc1-8152-6d2b377a7ab7",
+      "providerMessage": "session not found: provisioning failed"
+    },
+    "sessionPostCleanupStatus": "FAILED_HISTORY_RETAINED",
+    "activeSessionListCount": 0,
+    "failedHistoryPurged": false,
+    "activeSandbox": "NONE_OBSERVED; destroy endpoint reports provisioning failed/not found",
+    "configDelete": {
+      "invoked": true,
+      "result": "SUCCESS",
+      "getByIdHTTPStatus": 404,
+      "getRequestId": "6b32be69-da77-4b89-82d6-0960b6594e51",
+      "configListCount": 0
+    },
+    "classification": "CONFIG_DELETION_VERIFIED; ZERO_ACTIVE_SESSIONS; FAILED_AUDIT_RECORD_REMAINS; DO_NOT_CLAIM_HISTORY_PURGED",
+    "safeSixtyMinuteDeadlineUTC": "2026-11-17T00:10:22.014Z",
+    "billingLedgerRead": false,
+    "actualChargeUSD": null,
+    "costStatement": "No ready compute session or command execution observed. Do not fabricate a final billed amount; no extra resources, inference, subscription or top-up authorized or performed."
   },
-  "deliverable": {
-    "successorZIPProduced": false,
-    "newScopeOrWindowGenerated": false,
-    "newProtected15MinuteCycleStarted": false,
+  "preparation": {
+    "acceptedArchive369EntryReview": "PRESERVED_NOT_REPEATED",
+    "freshArchiveTransferPrepared": true,
+    "approvedInputHostMatched": true,
     "archiveBytesDownloaded": false,
-    "generatorInvoked": false
+    "originalGeneratorInvoked": false,
+    "dependencyExecutionTests": 0,
+    "changedBindingSyntaxNegativeTests": 0,
+    "successorZIPProduced": false,
+    "newAlignmentScopeSHA256": null,
+    "newPreparationScopeSHA256": null,
+    "newFourHourWindow": null,
+    "protected15MinuteCycleStarted": false
   },
   "nextAction": {
-    "minimumExternalDependency": "Restore provider-side DigitalOcean NYRA authorization for the exact approved Harness Runtime config creation and subsequent session lifecycle operations, or provide an already authorized Project execution environment.",
-    "ownerControlledStepRequired": true,
-    "noAdditionalChatApprovalNeededWithinCurrentExactScopeAndWindow": true,
-    "beforeAnyFutureAttempt": "Verify provider authorization change is evidenced, recheck existing residual state and exact approval time; do not retry the unchanged denied request blindly. If scope/window expires or changes, prepare new exact approval.",
-    "continuation": "Create only approved runtime, finish original successor generation/targeted verification, export and clean up; no acceptance-host operations."
+    "externalDependency": "Provider must explain or restore Harness Runtime session provisioning; reference this exact failed session ID and creation UTC.",
+    "safeContinuation": "No retry of failed Session and no second config/session under this consumed one-resource authorization. Preserve receipt; review provider resolution and prepare the next exact authorization if a new resource is required.",
+    "independentAuditorDelivery": "This is execution/failure/cleanup evidence only. The complete successor package does not exist and is not submitted as execution-ready."
   },
   "boundaries": {
     "acceptanceHostAccess": 0,
     "acceptanceHostWrites": 0,
     "protectedMerges": 0,
-    "serviceActivations": 0,
     "credentialOperations": 0,
+    "ownerAAL2": 0,
+    "liveAlignmentTLS": 0,
+    "G08": 0,
+    "G09": 0,
     "OIDCDispatches": 0,
-    "additionalPaidResources": 0,
-    "acceptedSourceChanges": 0
-  }
+    "servicesActivated": 0,
+    "additionalResources": 0
+  },
+  "privacy": "No bearer tokens, keys, tenant creator identity, signed Library transfer URL or private archive payload included."
 }
