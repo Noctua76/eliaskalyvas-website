@@ -1,0 +1,45 @@
+name: Nyra Windows synthetic secure transfer
+on:
+  push:
+    branches: ['test/nyra-v17-windows-secure-transfer']
+    paths:
+      - '.github/workflows/nyra-windows-secure-transfer.yml'
+      - 'ops/stage3g-secure-prep/**'
+permissions:
+  contents: read
+concurrency:
+  group: nyra-windows-secure-transfer
+  cancel-in-progress: false
+jobs:
+  synthetic:
+    if: github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/test/nyra-v17-windows-secure-transfer' && github.event_name == 'push'
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Native PowerShell 5.1 dependencies and synthetic encrypted roundtrip
+        shell: powershell
+        run: .\ops\stage3g-secure-prep\Test-Synthetic.ps1 -OutputDirectory (Join-Path $env:RUNNER_TEMP 'nyra-transfer-proof')
+      - name: Export encrypted synthetic fixture and sanitized proof only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nyra-synthetic-transfer-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/nyra-transfer-proof/synthetic.enc.json
+            ${{ runner.temp }}/nyra-transfer-proof/proof.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Remove temporary synthetic export files
+        if: always()
+        shell: powershell
+        run: |
+          $Output = Join-Path $env:RUNNER_TEMP 'nyra-transfer-proof'
+          if (Test-Path -LiteralPath $Output) { Remove-Item -LiteralPath $Output -Recurse -Force }
+          if (Test-Path -LiteralPath $Output) { throw 'EXPORT_CLEANUP_FAILED' }
+          Write-Host 'NYRA_SYNTHETIC_EXPORT_WORKSPACE_CLEANUP_PASS'
