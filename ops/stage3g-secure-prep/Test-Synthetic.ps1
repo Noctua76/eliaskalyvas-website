@@ -15,6 +15,9 @@ foreach($Name in @('envelope.mjs','test-transfer.mjs')) {
     & node --check (Join-Path $PSScriptRoot $Name)
     if($LASTEXITCODE -ne 0){throw 'NODE_SYNTAX_FAILED'}
 }
+& python -c "import ast,sys; ast.parse(open(sys.argv[1], encoding='utf-8').read())" (Join-Path $PSScriptRoot 'Read-HostFeasibility.py')
+if($LASTEXITCODE -ne 0){throw 'READONLY_HANDOFF_PYTHON_PARSE_FAILED'}
+Write-Host ('NYRA_DEPENDENCIES PowerShell='+$PSVersionTable.PSVersion.ToString()+'; Edition='+$PSVersionTable.PSEdition+'; Python='+$PythonVersion+'; Node='+$NodeVersion)
 if(Test-Path -LiteralPath $OutputDirectory){throw 'OUTPUT_DIRECTORY_EXISTS_NO_OVERWRITE'}
 $PrivateDirectory=Join-Path $env:RUNNER_TEMP ('nyra-synthetic-private-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $PrivateDirectory
