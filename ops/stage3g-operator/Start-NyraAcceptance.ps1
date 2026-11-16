@@ -47,6 +47,8 @@ function Stage-Files([string[]]$Paths){
     Assert-Nyra ($LASTEXITCODE -eq 0) 'REMOTE_HELPER_HASH_STOP'
     return $Remote
 }
+$Stage=${function:Stage-Files}.GetNewClosure()
+$SaveState=${function:Persist}.GetNewClosure()
 $Resume=Join-Path $WorkDirectory 'native-evidence';$null=New-Item -ItemType Directory -Path $Resume -Force
 $OwnerBearer=$null
 function Run-Checkpoint([string]$Checkpoint,[string]$Approval='') {
@@ -70,41 +72,46 @@ function Get-Scope([string]$Kind){
     Assert-Nyra ($Context.reviewSHA256 -ceq $State.reviewSHA256) 'LOCAL_REVIEW_BINDING'
     $Hash=$Context.scopeHashes.$Kind;Assert-Nyra ($Hash -cmatch '^[a-f0-9]{64}$') 'LOCAL_SCOPE_HASH'
     $Paths=@(Get-ChildItem -LiteralPath $Resume -File -Recurse|Where-Object {$_.Name -ceq ($Kind+'-'+$Hash+'.json')})
-    Assert-Nyra ($Paths.Count -eq 1) 'UNIQUE_LOCAL_SCOPE_REQUIRED'
+    Assert-Nyra ($Paths.Count -ge 1) 'LOCAL_SCOPE_REQUIRED'
+    foreach($Path in $Paths){Assert-Nyra ((Get-NyraHash $Path.FullName) -ceq $Hash) 'LOCAL_SCOPE_EXPORT_HASH'}
     return @{path=$Paths[0].FullName;sha256=$Hash}
 }
+$Runner=${function:Run-Checkpoint}.GetNewClosure()
+$ScopeReader=${function:Get-Scope}.GetNewClosure()
 try {
     if($State.phase -ceq 'NEW'){
         $Scope=@{path=(Join-Path $Bound 'ALIGNMENT-SCOPE.json');sha256=$BindingReport.alignmentScopeSHA256}
         $AlignmentApproval=Confirm-NyraScope $Scope 'INACTIVE_ALIGNMENT' $WorkDirectory
         $CarryApproval=Confirm-NyraScope @{path=(Join-Path $Active 'PR36-TLS-CARRY.json');sha256=$BindingReport.carryForwardSHA256} 'TLS_CARRY_FORWARD' $WorkDirectory
-        $Aligned=Invoke-NyraOnce $State 'ALIGNMENT' ${function:Persist} {
+        $Aligned=Invoke-NyraOnce $State 'ALIGNMENT' $SaveState ({
             $A=Get-Content -LiteralPath $Scope.path -Raw|ConvertFrom-Json
             $Paths=@($Scope.path)+@($A.helpers.PSObject.Properties.Name|ForEach-Object {$Q=Join-Path $Bound $_;if(Test-Path -LiteralPath $Q){$Q}else{Join-Path $Active $_}})
-            $Remote=Stage-Files $Paths
+            $Remote=& $Stage $Paths
             $Lines=& ssh -T @Options root@142.93.97.141 "python3 '$Remote/pr36-inactive-align.py' '$Remote/ALIGNMENT-SCOPE.json' '$AlignmentApproval' '$CarryApproval'" 2>$null
             Assert-Nyra ($LASTEXITCODE -eq 0) 'INACTIVE_ALIGNMENT_STOP_NO_RETRY'
             $R=($Lines -join "`n")|ConvertFrom-Json
             Assert-Nyra ($R.marker -ceq 'NYRA_PR36_INACTIVE_SOURCE_ALIGNMENT_PASS' -and $R.sourceSHA -ceq $Binding.sourceSHA -and $R.stagedFilesVerified -eq 64 -and $R.privateStateUnchanged -eq $true -and $R.configurationInstalled -eq $false -and $R.servicesActivated -eq $false) 'ALIGNMENT_RECEIPT_BINDING'
             Write-NyraJson (Join-Path $WorkDirectory 'inactive-alignment.json') $R
             return $R
-        }
+        }.GetNewClosure())
         $State.phase='ALIGNED';Persist $State
     }
-    Assert-Nyra ($State.phase -in @('ALIGNED','PREPARED')) 'READ_ONLY_RECONCILIATION_REQUIRED'
+    Assert-Nyra ($State.phase -in @('ALIGNED','PREPARED','OWNER_AUTHORIZED','G08_PASS','RUNTIME_READY','DISPATCH_RESERVED')) 'READ_ONLY_RECONCILIATION_REQUIRED'
     if($State.phase -ceq 'ALIGNED'){
         # Inspect existing state first; the native preparer issues at most once and only if expired.
-        $Before=Run-Checkpoint 'Inspect'
+        $Before=& $Runner 'Inspect'
         $A=$Before.prerequisitesBefore.administration
         Assert-Nyra ($A.expired -eq $true -or [DateTimeOffset]::Parse($A.expiresAt) -gt [DateTimeOffset]::UtcNow.AddMinutes(35)) 'ADMINISTRATION_UNDER_35_MINUTES_NO_UNAPPROVED_REPLACEMENT'
         $PrepApproval=Confirm-NyraScope @{path=(Join-Path $Active 'OWNER-RENEWAL-RECOVERY-SCOPE.json');sha256=$Binding.preparationScopeSHA256} 'PREPARATION' $WorkDirectory
         Write-Host 'Κάνε τώρα Ctrl + R στη σελίδα Owner και πάρε νέο AAL2 bearer.'
         $OwnerBearer=Read-Host 'Owner AAL2 bearer HERE ONLY; hidden, memory only' -AsSecureString
-        $Prepared=Invoke-NyraOnce $State 'PREPARATION' ${function:Persist} {Run-Checkpoint 'PrepareRenewalRecovery'}
+        $Runner=${function:Run-Checkpoint}.GetNewClosure()
+        $Prepared=Invoke-NyraOnce $State 'PREPARATION' $SaveState ({& $Runner 'PrepareRenewalRecovery'}.GetNewClosure())
         Assert-Nyra ($Prepared.marker -ceq 'NYRA_DISCOVERY_INSTALLATION_SCOPE_PREPARED') 'PREPARATION_SCOPE_REQUIRED'
         $State.reviewSHA256=$Prepared.reviewSHA256;$State.phase='PREPARED';Persist $State
     }
-    if($null -eq $OwnerBearer){Write-Host 'Κάνε τώρα Ctrl + R στη σελίδα Owner και πάρε νέο AAL2 bearer.';$OwnerBearer=Read-Host 'Owner AAL2 bearer HERE ONLY; hidden, memory only' -AsSecureString}
+    if($null -eq $OwnerBearer -and $State.phase -in @('PREPARED','OWNER_AUTHORIZED')){Write-Host 'Κάνε τώρα Ctrl + R στη σελίδα Owner και πάρε νέο AAL2 bearer.';$OwnerBearer=Read-Host 'Owner AAL2 bearer HERE ONLY; hidden, memory only' -AsSecureString}
+    $Runner=${function:Run-Checkpoint}.GetNewClosure()
     $Collectors=@('safe-loader.cjs','discovery-operation.mjs','DISCOVERY-EXECUTION-POLICY.json','tls-checkpoint.mjs','APPROVAL-TLS-ONLY.json','tls-carry-forward.mjs','TLS-CARRY-FORWARD.json','pr36-tls-carry.mjs','PR36-TLS-CARRY.json','verify-phase-evidence.mjs','owner-renewal-diagnostic.mjs','owner-preflight.mjs','dns-wire.mjs')
     $ReadyRemote=Stage-Files @($Collectors|ForEach-Object {Join-Path $Active $_})
     function Readiness {
@@ -115,28 +122,40 @@ try {
             if(Get-Command Set-Clipboard -ErrorAction SilentlyContinue){Set-Clipboard -Value ' '}
             $Payload=@{token=$Token}|ConvertTo-Json -Compress
             $Command="NYRA_DISCOVERY_ACTION='renewal-readiness' NYRA_READINESS_OWNER_CHECK='1' NYRA_DISCOVERY_REVIEW_SHA256='$($State.reviewSHA256)' /usr/bin/flock --exclusive --nonblock --conflict-exit-code 75 /opt/nyra-5c/private/discovery-operator.lock /usr/local/bin/node '$ReadyRemote/safe-loader.cjs' '$ReadyRemote/discovery-operation.mjs'"
-            $Lines=$Payload|& ssh -T @Options root@142.93.97.141 $Command 2>$null
-            Assert-Nyra ($LASTEXITCODE -eq 0) 'READINESS_NATIVE_STOP_NO_ACTIVATION'
+            $Lines=@();$ExitCode=255
+            try{$Lines=$Payload|& ssh -T @Options root@142.93.97.141 $Command 2>$null;$ExitCode=$LASTEXITCODE}catch{}
+            if($ExitCode -ne 0){
+                $Tokens=$null;$Errors=$null
+                $Ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $Active 'discovery-step.ps1'),[ref]$Tokens,[ref]$Errors)
+                Assert-Nyra ($Errors.Count -eq 0) 'FAILURE_VALIDATOR_PARSE'
+                foreach($Name in @('New-NyraUnverifiedFailure','ConvertTo-NyraFailureReport')){
+                    $Def=$Ast.FindAll({param($N)$N -is [Management.Automation.Language.FunctionDefinitionAst]},$true)|Where-Object {$_.Name -ceq $Name}
+                    . ([scriptblock]::Create($Def.Extent.Text))
+                }
+                try{$Failure=ConvertTo-NyraFailureReport ($Lines -join "`n") 'renewal-readiness'}catch{$Failure=New-NyraUnverifiedFailure $ExitCode 'renewal-readiness'}
+                Write-NyraJson (Join-Path $WorkDirectory 'readiness-failure.json') $Failure
+                throw 'READINESS_NATIVE_STOP_NO_ACTIVATION'
+            }
             $R=($Lines -join "`n")|ConvertFrom-Json
             Assert-Nyra ($R.marker -ceq 'NYRA_G08_PRE_ACTIVATION_READINESS' -and $R.sourceSHA -ceq $Binding.sourceSHA -and $R.reviewSHA256 -ceq $State.reviewSHA256 -and $R.readOnly -eq $true -and $R.credentialsIssued -eq 0 -and $R.protectedOperationsPerformed -eq $false) 'READINESS_BINDING'
             Write-NyraJson (Join-Path $WorkDirectory 'readiness.json') $R;return $R
         }finally{$Payload=$null;$Token=$null;if($Pointer -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Pointer)}}
     }
     $Adapters=@{
-        Readiness=${function:Readiness};Scope=${function:Get-Scope};Persist=${function:Persist};Run=${function:Run-Checkpoint}
-        Approve={param($S,$Kind) Confirm-NyraScope $S $Kind $WorkDirectory}
+        Status={& $Runner 'DiscoveryStatus'}.GetNewClosure();Readiness=${function:Readiness}.GetNewClosure();Scope=$ScopeReader;Persist=$SaveState;Run=$Runner
+        Approve={param($S,$Kind) Confirm-NyraScope $S $Kind $WorkDirectory}.GetNewClosure()
         Warn={Write-Host 'ΠΡΟΣΟΧΗ — ΕΝΕΡΓΟΠΟΙΗΣΗ ΠΡΟΣΤΑΤΕΥΜΕΝΟΥ 15ΛΕΠΤΟΥ'}
         OwnerDispatch={param($R) Assert-Nyra ($R.ownerActionURL -ceq 'https://github.com/Noctua76/eliaskalyvas-website/actions/workflows/nyra-live-trust-acceptance.yml') 'DISPATCH_URL_BINDING';Write-Host $R.ownerActionURL;Write-Host 'Owner Noctua76: select main, Run workflow ONCE. Approve required GitHub environments if prompted. Do not dispatch again.';Read-Host 'Enter after the single GitHub UI dispatch; verification continues automatically'|Out-Null}
         Verify={param($Reserved)
             do{
                 Assert-Nyra ([DateTimeOffset]::UtcNow -lt [DateTimeOffset]::Parse($Reserved.stopDeadline)) 'G09_FIXED_WINDOW_ENDED'
-                $R=Run-Checkpoint 'VerifyDiscovery'
+                $R=& $Runner 'VerifyDiscovery'
                 if($R.marker -ceq 'NYRA_DISCOVERY_SIGNED_EVIDENCE_VERIFIED'){return $R}
                 Assert-Nyra ($R.marker -ceq 'NYRA_DISCOVERY_EVIDENCE_INCOMPLETE') 'G09_VERIFICATION_STOP'
                 # Polling is read-only; no dispatch, renewal or authorization is retried.
                 Start-Sleep -Seconds 5
             }while($true)
-        }
+        }.GetNewClosure()
     }
     $Result=Invoke-NyraProtectedSequence $State $Binding $Adapters
     Write-NyraJson (Join-Path $WorkDirectory 'G08-G09-ACCEPTANCE.json') $Result

@@ -87,6 +87,8 @@ def main(scope_path,approval,carry_approval):
         need(all(sha(replacements[n])==h for n,h in NATIVES.items()),'NATIVE_BYTES')
         expected=json.loads(secure_file(scope_path.parent/'runtime-inventory.json'))
         need(set(expected)==set(files) and all(sha(raw('git','-C',R,'show',NEW+':'+n))==expected[n] for n in files),'EXACT_64_FILE_INVENTORY')
+        historical=json.loads(raw('/usr/local/bin/node',str(scope_path.parent/'tls-carry-forward.mjs'),'--historical','1cba3ff58a7a0d3fb588f3c23f0cde0b14aecc9c13ff18457b00f21c7f05e364'))
+        need(historical['status']=='PASS' and historical['historicalSourceSHA']=='2779edc75c13b66246957b9ca0aa996d764901bc','HISTORICAL_TLS_CHECKPOINT')
         validate_scope(secure_file(scope_path),approval,carry_approval)
         inactive(); need(snapshot()==before,'PRIVATE_STATE_DRIFT')
         if current!=NEW:

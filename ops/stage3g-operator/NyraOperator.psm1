@@ -82,7 +82,13 @@ function Assert-NyraG09($Result,$Binding,[string]$Review) {
 }
 function Invoke-NyraProtectedSequence($State,$Binding,$Adapters) {
     # Adapter injection is for independently testable functions, never a CLI bypass.
-    Assert-Nyra (@($State.attempts.PSObject.Properties).Count -eq 0 -or $State.phase -ceq 'PREPARED') 'RESUME_REQUIRES_READ_ONLY_RECONCILIATION'
+    Assert-Nyra ($State.phase -in @('PREPARED','OWNER_AUTHORIZED','G08_PASS','RUNTIME_READY','DISPATCH_RESERVED')) 'RESUME_REQUIRES_READ_ONLY_RECONCILIATION'
+    if($State.phase -cne 'PREPARED') {
+        $Native=& $Adapters.Status
+        $Expected=@{OWNER_AUTHORIZED='OWNER_AUTHORIZED';G08_PASS='LEASE_READY';RUNTIME_READY='RUNTIME_READY';DISPATCH_RESERVED='DISPATCH_RESERVED'}[$State.phase]
+        Assert-Nyra ($Native.marker -ceq 'NYRA_DISCOVERY_STATUS' -and $Native.phase -ceq $Expected -and $Native.sourceSHA -ceq $Binding.sourceSHA -and $Native.reviewSHA256 -ceq $State.reviewSHA256) 'NATIVE_RESUME_RECONCILIATION_FAILED'
+    }
+    if($State.phase -ceq 'PREPARED') {
     $Ready=& $Adapters.Readiness
     Assert-Nyra ($Ready.readyForSeparateG07Review -eq $true -and $Ready.ownerAAL2 -ceq 'BACKEND_READ_ONLY_VERIFIED' -and $Ready.checks.Count -gt 0 -and @($Ready.checks|Where-Object {$_.status -cne 'PASS'}).Count -eq 0) 'PRE_ACTIVATION_READINESS_STOP'
     $G07Scope=& $Adapters.Scope 'installation'
@@ -95,6 +101,10 @@ function Invoke-NyraProtectedSequence($State,$Binding,$Adapters) {
     & $Adapters.Warn
     $G07=Invoke-NyraOnce $State 'G07' $Adapters.Persist {& $Adapters.Run 'InstallDiscoveryOwner' $G07Approval}
     Assert-Nyra ($G07.marker -ceq 'NYRA_DISCOVERY_OWNER_AND_CONFIGURATION_INSTALLED' -and $G07.phase -ceq 'OWNER_AUTHORIZED' -and $G07.sourceSHA -ceq $Binding.sourceSHA -and $G07.reviewSHA256 -ceq $State.reviewSHA256) 'G07_NATIVE_BINDING'
+        $State|Add-Member -NotePropertyName verifiedG07 -NotePropertyValue $G07 -Force
+        $State.phase='OWNER_AUTHORIZED'; & $Adapters.Persist $State
+    } else {$G07=$State.verifiedG07}
+    if($State.phase -ceq 'OWNER_AUTHORIZED') {
     $G08Scope=& $Adapters.Scope 'renewal';$S=Assert-NyraScope $G08Scope $Binding 'renewal' $State.reviewSHA256
     Assert-Nyra ($S.ownerDecisionId -ceq $G07.ownerDecision.decisionId -and $S.ownerDecisionExpiresAt -ceq $G07.ownerDecision.expiresAt) 'G08_OWNER_DECISION_BINDING'
     $G08Approval=& $Adapters.Approve $G08Scope 'G08'
@@ -102,18 +112,34 @@ function Invoke-NyraProtectedSequence($State,$Binding,$Adapters) {
     Assert-Nyra ([DateTimeOffset]::Parse($S.ownerDecisionExpiresAt) -gt [DateTimeOffset]::UtcNow.AddSeconds(600)) 'OWNER_DECISION_MARGIN_UNDER_600_SECONDS'
     $G08=Invoke-NyraOnce $State 'G08' $Adapters.Persist {& $Adapters.Run 'RenewDiscovery' $G08Approval}
     Assert-NyraG08 $G08 $Binding $State.reviewSHA256
-    $State.phase='G08_PASS'; & $Adapters.Persist $State
+        $State|Add-Member -NotePropertyName verifiedG08 -NotePropertyValue $G08 -Force
+        $State.phase='G08_PASS'; & $Adapters.Persist $State
+    } else {
+        $G08=$State.verifiedG08;Assert-NyraG08 $G08 $Binding $State.reviewSHA256
+        if($State.phase -cne 'DISPATCH_RESERVED'){Assert-Nyra ($Native.nextScope.scope.leaseStateSHA256 -ceq $G08.nextScope.scope.leaseStateSHA256) 'NATIVE_RESUME_LEASE_CHANGED'}
+    }
     $A=& $Adapters.Scope 'activation';$null=Assert-NyraScope $A $Binding 'activation' $State.reviewSHA256
+    if($State.phase -ceq 'G08_PASS') {
     $Approval=& $Adapters.Approve $A 'G09_ACTIVATION'
     Assert-Nyra ($Approval -ceq $A.sha256) 'ACTIVATION_APPROVAL_REQUIRED'
     $Activated=Invoke-NyraOnce $State 'G09_ACTIVATION' $Adapters.Persist {& $Adapters.Run 'ActivateDiscovery' $Approval}
     Assert-Nyra ($Activated.marker -ceq 'NYRA_DISCOVERY_RUNTIME_READY') 'G09_RUNTIME_NOT_READY'
+    $State.phase='RUNTIME_READY'; & $Adapters.Persist $State
+    }
     $D=& $Adapters.Scope 'dispatch';$null=Assert-NyraScope $D $Binding 'dispatch' $State.reviewSHA256
+    if($State.phase -ceq 'RUNTIME_READY'){
     $Approval=& $Adapters.Approve $D 'G09_DISPATCH_RESERVATION'
     Assert-Nyra ($Approval -ceq $D.sha256) 'DISPATCH_APPROVAL_REQUIRED'
     $Reserved=Invoke-NyraOnce $State 'G09_DISPATCH_RESERVATION' $Adapters.Persist {& $Adapters.Run 'ReserveDiscoveryDispatch' $Approval}
     Assert-Nyra ($Reserved.marker -ceq 'NYRA_DISCOVERY_ONE_OWNER_DISPATCH_RESERVED' -and $Reserved.dispatchPerformed -eq $false) 'G09_RESERVATION_BINDING'
-    & $Adapters.OwnerDispatch $Reserved
+    $State|Add-Member -NotePropertyName verifiedReservation -NotePropertyValue $Reserved -Force
+    $State.phase='DISPATCH_RESERVED'; & $Adapters.Persist $State
+    } else {$Reserved=$State.verifiedReservation}
+    if(!$State.PSObject.Properties['ownerHandoffShown']) {
+        $State|Add-Member -NotePropertyName ownerHandoffShown -NotePropertyValue $true
+        & $Adapters.Persist $State
+        & $Adapters.OwnerDispatch $Reserved
+    }
     $Result=& $Adapters.Verify $Reserved
     Assert-NyraG09 $Result $Binding $State.reviewSHA256
     $State.phase='G09_PASS'; & $Adapters.Persist $State
