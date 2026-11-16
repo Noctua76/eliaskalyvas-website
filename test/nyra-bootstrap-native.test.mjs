@@ -71,7 +71,7 @@ test('Ubuntu 24.04 pinned installer, isolated PG renewal and interruption recove
   const session=()=>({schema:'nyra.acceptance.pg-session.v1',bootstrapId:created.bootstrapId,
    providerResourceId:created.resourceId,sessionId:randomUUID(),startsAt:utc(Date.now()-1000),
    endsAt:new Date(Date.now()+3600000).toISOString(),authorization:false});
-  const trust={verified:true,approvalSHA256:'a'.repeat(64),repositoryTrustSHA256:'b'.repeat(64)};
+  const trust={verified:true,approvalSHA256:'a'.repeat(64),repositoryTrustSHA256:'b'.repeat(64),ownerDecisionExpiresAt:new Date(Date.now()+900000).toISOString()};
   const journal='/opt/nyra-5c/private/renewal-state.json';
   const a=session(),args={target:created,session:a,assertTrust:async()=>trust,paths:{journal}};
   const first=await applyAuthorizedRenewal(args);
