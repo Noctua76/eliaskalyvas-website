@@ -9,7 +9,7 @@ $StatePath=Join-Path $WorkDirectory 'orchestrator-state.json'
 $Release=Get-NyraRelease
 if (!$Release.merged) {
     $MergeScope=Join-Path $WorkDirectory 'PR36-MERGE-SCOPE.json'
-    Write-NyraJson $MergeScope ([ordered]@{schema='nyra.pr36.controlled-merge-scope.v1';repository='Noctua76/eliaskalyvas-website';PR=36;approvedBase=$Release.approvedBase;approvedHead=$Release.approvedHead;expectedTree='8fdac1689db7d0d2172481c4eb446bb20be18962';method='merge';approvedReviewZIP='b05c425aad407fcfcd3396848ae44d8f9b433294dc9b8c112117bfeacb3f7fcf';PagesWorkflow='pages.yml';disableIfEnabledBeforeMerge=$true;restoreOriginalStateAfterMerge=$true;manualDispatch=$false;executionAuthorized=$false})
+    [IO.File]::WriteAllText($MergeScope,(([ordered]@{schema='nyra.pr36.controlled-merge-scope.v1';repository='Noctua76/eliaskalyvas-website';PR=36;approvedBase=$Release.approvedBase;approvedHead=$Release.approvedHead;expectedTree='8fdac1689db7d0d2172481c4eb446bb20be18962';method='merge';approvedReviewZIP='b05c425aad407fcfcd3396848ae44d8f9b433294dc9b8c112117bfeacb3f7fcf';PagesWorkflow='pages.yml';disableIfEnabledBeforeMerge=$true;restoreOriginalStateAfterMerge=$true;manualDispatch=$false;executionAuthorized=$false}|ConvertTo-Json -Depth 20 -Compress)+"`n"),(New-Object Text.UTF8Encoding($false)))
     Write-Host ('NEXT_GATE=SEPARATE_OWNER_MERGE_APPROVAL; SCOPE_SHA256='+(Get-NyraHash $MergeScope))
     Write-Host 'PR36 remains unmerged. Use the reviewed release procedure; this command never merges.'
     return

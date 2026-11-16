@@ -62,6 +62,11 @@ foreach($Name in @('discovery-step.ps1','renewal-recovery-step.ps1')) {
 $Admin=Read 'APPROVAL-ADMINISTRATION-AND-DRAFTS.json'|ConvertFrom-Json;$Admin.sourceSHA=$R.sourceSHA;$Admin.treeSHA=$T
 Write-NyraJson (Join-Path $P 'APPROVAL-ADMINISTRATION-AND-DRAFTS.json') $Admin
 $AdminHash=Get-NyraHash (Join-Path $P 'APPROVAL-ADMINISTRATION-AND-DRAFTS.json')
+$Policy.existingAdminPreparationScopeSHA256=$AdminHash
+Write-NyraJson (Join-Path $P 'DISCOVERY-EXECUTION-POLICY.json') $Policy
+$FinalPolicyHash=Get-NyraHash (Join-Path $P 'DISCOVERY-EXECUTION-POLICY.json')
+Change 'discovery-operation.mjs' $PolicyHash $FinalPolicyHash
+$PolicyHash=$FinalPolicyHash
 $Prep=Read 'OWNER-RENEWAL-RECOVERY-SCOPE.json'|ConvertFrom-Json
 $OldPrep=Get-NyraHash (Join-Path $P 'OWNER-RENEWAL-RECOVERY-SCOPE.json')
 $Prep.sourceSHA=$R.sourceSHA;$Prep.treeSHA=$T;$Prep.parents=@($B,$H);$Prep.nativeRenewalSHA256=$Natives['ops/acceptance-bootstrap/repository-db-renewal.mjs'];$Prep.administrationPreparationScopeSHA256=$AdminHash;$Prep.notBefore=$Now.ToString('yyyy-MM-ddTHH:mm:ssZ');$Prep.approvalNotAfter=$End.ToString('yyyy-MM-ddTHH:mm:ssZ')

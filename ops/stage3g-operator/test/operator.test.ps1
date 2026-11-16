@@ -41,6 +41,7 @@ Check 'one-command Prepare stops at exact merge gate without SSH' {
  try{
   & (Join-Path $Root 'Start-NyraAcceptance.ps1') -Mode Prepare -PackageRoot $Root -WorkDirectory $Work
   Assert-Nyra (Test-Path -LiteralPath (Join-Path $Work 'PR36-MERGE-SCOPE.json')) 'MERGE_GATE_NOT_EMITTED'
+  Assert-Nyra ((Get-NyraHash (Join-Path $Work 'PR36-MERGE-SCOPE.json')) -ceq '53b93828124b1c31316bb9ea91b5ffb822d037f0df55993278ae3a7bbdb1d443') 'CROSS_RUNTIME_MERGE_SCOPE_HASH'
  }finally{Remove-Item Function:\global:Invoke-RestMethod;Remove-Item Function:\global:ssh}
 }
 Check 'reservation survives uncertain result and never retries' {
