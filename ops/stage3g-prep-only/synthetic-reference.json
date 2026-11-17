@@ -1,0 +1,16 @@
+{
+  "name": "synthetic",
+  "source": "source-fixture",
+  "target": "target-fixture",
+  "signer": "signer-fixture",
+  "nested": {
+    "z": 1,
+    "a": false
+  },
+  "paths": [
+    "public/a",
+    "public/b"
+  ],
+  "text": "quote\"slash\\",
+  "count": 0
+}

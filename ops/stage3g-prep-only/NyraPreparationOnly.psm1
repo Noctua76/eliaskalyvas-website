@@ -66,7 +66,7 @@ function Expand-NyraPreparationArchive([string]$ArchivePath,[string]$Destination
         [pscustomobject]@{entries=$Zip.Entries.Count;expandedBytes=$Total;directory=$Root;archiveSHA256=$ExpectedSHA256}
     } finally {$Zip.Dispose()}
 }
-function Test-NyraPreparationInputs([string]$Root) {
+function Test-NyraPreparationInputs([string]$Root,[string]$ArchivePath) {
     $Pins=[ordered]@{
         'New-NyraRelease.ps1'='9390b98db93e66afc7e53e5dc3cfc182a65c7bec0c62d8f9e1193d86194ea82e'
         'NyraOperator.psm1'='e81e526b146d3d63e11ee15ba36433bb013c9dcd9b7223edc8166970fc2309df'
@@ -78,11 +78,8 @@ function Test-NyraPreparationInputs([string]$Root) {
     foreach($Name in $Pins.Keys){Assert-NyraPreparation ((Get-NyraPreparationHash (Join-Path $Root $Name)) -ceq $Pins[$Name]) 'CRITICAL_INPUT_PIN_MISMATCH'}
     $Release=Get-Content -LiteralPath (Join-Path $Root 'actual-release.json') -Raw|ConvertFrom-Json
     Assert-NyraPreparation ($Release.merged -eq $true -and $Release.sourceSHA -ceq '4edff2353c55469918f2e3a90190916df9a8924d' -and $Release.treeSHA -ceq '8fdac1689db7d0d2172481c4eb446bb20be18962' -and ($Release.parents -join ' ') -ceq '8b82cc964bdbc1919caf91c2669ca154204c025d 225b1bc946b5626e9105f24afd644467852a91af') 'RELEASE_RECEIPT_BINDING'
-    # Re-serialization probe only: no generator call, new scope or TLS file write.
-    $TLS=Get-Content -LiteralPath (Join-Path $Root 'actual-bound-release/operator-package/PR36-TLS-CARRY.json') -Raw|ConvertFrom-Json
-    $Text=($TLS|ConvertTo-Json -Depth 100)+[char]10
-    $Hasher=[Security.Cryptography.SHA256]::Create()
-    try{$SerializedHash=([BitConverter]::ToString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text)))).Replace('-','').ToLowerInvariant()}finally{$Hasher.Dispose()}
-    [pscustomobject]@{pins=$Pins;sourceSHA=$Release.sourceSHA;treeSHA=$Release.treeSHA;parents=$Release.parents;serializerReproducesOriginalTLS=($SerializedHash -ceq $Pins['actual-bound-release/operator-package/PR36-TLS-CARRY.json']);serializerProbeSHA256=$SerializedHash}
+    Import-Module (Join-Path $PSScriptRoot 'NyraTlsCompatibility.psm1') -Force -DisableNameChecking
+    $Probe=Test-NyraTlsWriterReference -OriginalRoot $Root -ArchivePath $ArchivePath -Writer Original
+    [pscustomobject]@{pins=$Pins;sourceSHA=$Release.sourceSHA;treeSHA=$Release.treeSHA;parents=$Release.parents;serializerReproducesOriginalTLS=$Probe.compatible;serializerProbeSHA256=$Probe.selectedWriter.writer.sha256}
 }
 Export-ModuleMember -Function Assert-NyraPreparation,Get-NyraPreparationHash,Assert-NyraNoReparseAncestors,Expand-NyraPreparationArchive,Test-NyraPreparationInputs
