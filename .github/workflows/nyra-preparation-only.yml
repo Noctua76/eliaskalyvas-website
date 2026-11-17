@@ -27,8 +27,22 @@ jobs:
         shell: powershell
         run: |
           .\ops\stage3g-prep-only\Test-NyraTlsSerializerSynthetic.ps1 -OriginalModule .\accepted-public-operator\ops\stage3g-operator\NyraOperator.psm1 -OriginalGenerator .\accepted-public-operator\ops\stage3g-operator\New-NyraRelease.ps1
-      - name: PowerShell 7 writer-equivalence tests
+      - name: Pinned native PowerShell 7.7.0 writer-equivalence tests
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
-          .\ops\stage3g-prep-only\Test-NyraTlsSerializerSynthetic.ps1 -OriginalModule .\accepted-public-operator\ops\stage3g-operator\NyraOperator.psm1 -OriginalGenerator .\accepted-public-operator\ops\stage3g-operator\New-NyraRelease.ps1
+          $Stage = Join-Path $env:RUNNER_TEMP ('nyra-pwsh770-' + [guid]::NewGuid().ToString('N'))
+          $Zip = $Stage + '.zip'
+          if ((Test-Path -LiteralPath $Stage) -or (Test-Path -LiteralPath $Zip)) { throw 'RUNTIME_STAGE_EXISTS' }
+          try {
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PowerShell/PowerShell/releases/download/v7.7.0/PowerShell-7.7.0-win-x64.zip' -OutFile $Zip
+            if ((Get-FileHash -LiteralPath $Zip -Algorithm SHA256).Hash.ToLowerInvariant() -cne '7c74e03b20a75b59715847439d046a6214b1863ee79b187872980f139bb4a05f') { throw 'OFFICIAL_RUNTIME_HASH_MISMATCH' }
+            Expand-Archive -LiteralPath $Zip -DestinationPath $Stage
+            & (Join-Path $Stage 'pwsh.exe') -NoLogo -NoProfile -NonInteractive -File .\ops\stage3g-prep-only\Test-NyraTlsSerializerSynthetic.ps1 -OriginalModule .\accepted-public-operator\ops\stage3g-operator\NyraOperator.psm1 -OriginalGenerator .\accepted-public-operator\ops\stage3g-operator\New-NyraRelease.ps1
+            if ($LASTEXITCODE -ne 0) { throw 'CORE770_SYNTHETIC_FAILED' }
+          } finally {
+            if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
+            if (Test-Path -LiteralPath $Zip) { Remove-Item -LiteralPath $Zip -Force }
+          }
+          if ((Test-Path -LiteralPath $Stage) -or (Test-Path -LiteralPath $Zip)) { throw 'PUBLIC_RUNTIME_CLEANUP_FAILED' }
+          Write-Host 'PUBLIC_RUNTIME_CLEANUP_PASS'

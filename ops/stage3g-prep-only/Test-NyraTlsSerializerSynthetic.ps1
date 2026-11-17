@@ -83,3 +83,6 @@ try{
 }finally{if(Test-Path -LiteralPath $Temp){Remove-Item -LiteralPath $Temp -Recurse -Force}}
 Assert-NyraTls (!(Test-Path -LiteralPath $Temp)) 'SYNTHETIC_CLEANUP_FAILED'
 Write-Host 'NYRA_TLS_SYNTHETIC_CLEANUP_PASS'
+
+# The negative child process intentionally returned nonzero. All assertions above passed.
+$global:LASTEXITCODE=0
