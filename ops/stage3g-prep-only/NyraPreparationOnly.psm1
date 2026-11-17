@@ -24,6 +24,7 @@ function Expand-NyraPreparationArchive([string]$ArchivePath,[string]$Destination
     $Root=[IO.Path]::GetFullPath($Destination)
     Assert-NyraPreparation (!(Test-Path -LiteralPath $Root)) 'EXTRACTION_DIRECTORY_EXISTS_NO_OVERWRITE'
     Assert-NyraNoReparseAncestors $Root
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $Zip=[IO.Compression.ZipFile]::OpenRead([IO.Path]::GetFullPath($ArchivePath))
     try {
