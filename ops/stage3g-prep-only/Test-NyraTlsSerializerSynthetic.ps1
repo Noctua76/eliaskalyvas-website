@@ -61,6 +61,24 @@ try{
  $Output=& $Shell -NoLogo -NoProfile -NonInteractive -File (Join-Path $PSScriptRoot 'Test-NyraTlsCompatibility.ps1') -WorkDirectory $Temp -StatePath $MissingState 2>&1
  $Code=$LASTEXITCODE
  Check 'entrypoint-fail-closed-no-ready' {Assert-NyraTls ($Code -ne 0 -and ($Output -join "`n") -match 'SERIALIZER_COMPATIBILITY_STOP' -and ($Output -join "`n") -notmatch 'SERIALIZER_COMPATIBILITY_PASS') 'ENTRYPOINT_FAIL_OPEN'}
+ # Exercise the exact entrypoint with an incompatible synthetic adapter in a
+ # disposable copied module. No test adapter is shipped in the production module.
+ $AdapterRoot=Join-Path $Temp 'incompatible-adapter';$null=New-Item -ItemType Directory -Path $AdapterRoot
+ $EntryCopy=Join-Path $AdapterRoot 'Test-NyraTlsCompatibility.ps1'
+ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Test-NyraTlsCompatibility.ps1') -Destination $EntryCopy
+ $AdapterText=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'NyraTlsCompatibility.psm1'))+"`n"+'function Test-NyraTlsWriterReference {param($OriginalRoot,$ArchivePath,$Writer) [ordered]@{compatible=$false;syntheticAdapter=$true}}'
+ [IO.File]::WriteAllText((Join-Path $AdapterRoot 'NyraTlsCompatibility.psm1'),$AdapterText)
+ $Work=Join-Path $AdapterRoot 'work';$Root=Join-Path $Work 'original-v17';$null=New-Item -ItemType Directory -Path $Root
+ foreach($N in @('New-NyraRelease.ps1','NyraOperator.psm1','actual-bound-release/operator-package/PR36-TLS-CARRY.json')){$P=Join-Path $Root $N;$null=[IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($P));[IO.File]::WriteAllText($P,'PUBLIC_SYNTHETIC_ADAPTER_INPUT')}
+ $Planned=Join-Path $Work ('successor-after-explicit-resume-'+('0'*32))
+ $StatePath=Join-Path $Work 'PREPARATION-STATE.json'
+ $State=[ordered]@{schema='nyra.v17.preparation-only.v1';generatorInvoked=$false;fourHourWindowGenerated=$false;protectedSessionStarted=$false;ownerResumeRequired=$true;archiveSHA256='f1e5eaa8e129b87fffb8cff66fcb246b132d9d303f8e293a8197f88a38d7fa97';sourceSHA='4edff2353c55469918f2e3a90190916df9a8924d';treeSHA='8fdac1689db7d0d2172481c4eb446bb20be18962';parents=@('8b82cc964bdbc1919caf91c2669ca154204c025d','225b1bc946b5626e9105f24afd644467852a91af');extractedDirectory=$Root;plannedOutputDirectory=$Planned;archivePath='synthetic-adapter-only'}
+ [IO.File]::WriteAllText($StatePath,($State|ConvertTo-Json -Depth 10),(New-Object Text.UTF8Encoding($false)))
+ $StateBefore=Get-NyraTlsBytesHash ([IO.File]::ReadAllBytes($StatePath))
+ $Output=& $Shell -NoLogo -NoProfile -NonInteractive -File $EntryCopy -WorkDirectory $Work -ReportDirectory (Join-Path $AdapterRoot 'evidence') 2>&1
+ $Code=$LASTEXITCODE
+ Check 'incompatible-writer-nonzero-no-ready' {Assert-NyraTls ($Code -ne 0 -and ($Output -join "`n") -match 'SERIALIZER_COMPATIBILITY_STOP' -and ($Output -join "`n") -notmatch 'SERIALIZER_COMPATIBILITY_PASS') 'MISMATCH_FAIL_OPEN'}
+ Check 'existing-state-and-planned-output-preserved' {Assert-NyraTls ((Get-NyraTlsBytesHash ([IO.File]::ReadAllBytes($StatePath))) -ceq $StateBefore -and !(Test-Path -LiteralPath $Planned)) 'STATE_CHANGED'}
  Write-Host ('NYRA_TLS_SYNTHETIC_PASS; CHECKS='+$script:Checks+'; POWERSHELL='+$PSVersionTable.PSVersion.ToString()+'; EDITION='+$PSVersionTable.PSEdition+'; GENERATOR_INVOCATIONS=0; NEW_SCOPES=0')
 }finally{if(Test-Path -LiteralPath $Temp){Remove-Item -LiteralPath $Temp -Recurse -Force}}
 Assert-NyraTls (!(Test-Path -LiteralPath $Temp)) 'SYNTHETIC_CLEANUP_FAILED'

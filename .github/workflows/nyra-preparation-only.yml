@@ -12,10 +12,6 @@ jobs:
     if: github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/prep/nyra-v17-controlled-20261117' && github.event_name == 'push'
     runs-on: windows-2022
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        shell: [powershell, pwsh]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -27,7 +23,12 @@ jobs:
           ref: 6fd518eec4d5542a27d5ef1f65cae08fb3ccb463
           path: accepted-public-operator
           sparse-checkout: ops/stage3g-operator
-      - name: Synthetic writer-equivalence and fail-closed tests only
-        shell: ${{ matrix.shell }}
+      - name: Windows PowerShell 5.1 fail-closed tests
+        shell: powershell
+        run: |
+          .\ops\stage3g-prep-only\Test-NyraTlsSerializerSynthetic.ps1 -OriginalModule .\accepted-public-operator\ops\stage3g-operator\NyraOperator.psm1 -OriginalGenerator .\accepted-public-operator\ops\stage3g-operator\New-NyraRelease.ps1
+      - name: PowerShell 7 writer-equivalence tests
+        if: always()
+        shell: pwsh
         run: |
           .\ops\stage3g-prep-only\Test-NyraTlsSerializerSynthetic.ps1 -OriginalModule .\accepted-public-operator\ops\stage3g-operator\NyraOperator.psm1 -OriginalGenerator .\accepted-public-operator\ops\stage3g-operator\New-NyraRelease.ps1

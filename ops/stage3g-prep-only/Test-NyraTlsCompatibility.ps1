@@ -17,6 +17,7 @@ try{
  $StateBytes=[IO.File]::ReadAllBytes($StatePath);$StateHash=Get-NyraTlsBytesHash $StateBytes
  $State=[Text.Encoding]::UTF8.GetString($StateBytes)|ConvertFrom-Json
  Assert-NyraTls ($State.schema -ceq 'nyra.v17.preparation-only.v1' -and $State.generatorInvoked -eq $false -and $State.fourHourWindowGenerated -eq $false -and $State.protectedSessionStarted -eq $false -and $State.ownerResumeRequired -eq $true) 'PREPARATION_STATE_BINDING'
+ Assert-NyraTls ($State.archiveSHA256 -ceq 'f1e5eaa8e129b87fffb8cff66fcb246b132d9d303f8e293a8197f88a38d7fa97' -and $State.sourceSHA -ceq '4edff2353c55469918f2e3a90190916df9a8924d' -and $State.treeSHA -ceq '8fdac1689db7d0d2172481c4eb446bb20be18962' -and ($State.parents -join ' ') -ceq '8b82cc964bdbc1919caf91c2669ca154204c025d 225b1bc946b5626e9105f24afd644467852a91af') 'EXISTING_STATE_SOURCE_BINDING'
  Assert-NyraTls ([IO.Path]::GetFullPath($State.extractedDirectory) -ceq $OriginalRoot) 'PREPARATION_ROOT_BINDING'
  $Planned=[IO.Path]::GetFullPath($State.plannedOutputDirectory)
  Assert-NyraTls ((Split-Path $Planned -Parent) -ceq [IO.Path]::GetFullPath($WorkDirectory) -and (Split-Path $Planned -Leaf) -cmatch '^successor-after-explicit-resume-[a-f0-9]{32}$') 'PREPARATION_OUTPUT_BINDING'
