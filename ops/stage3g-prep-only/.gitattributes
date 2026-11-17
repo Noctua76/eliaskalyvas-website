@@ -1,0 +1,3 @@
+*.ps1 -text
+*.psm1 -text
+*.json -text
