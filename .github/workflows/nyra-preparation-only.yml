@@ -1,0 +1,27 @@
+name: Nyra controlled preparation only
+on:
+  push:
+    branches: ['prep/nyra-v17-controlled-20261117']
+    paths:
+      - 'ops/stage3g-prep-only/**'
+      - '.github/workflows/nyra-preparation-only.yml'
+permissions:
+  contents: read
+jobs:
+  safety:
+    if: github.repository == 'Noctua76/eliaskalyvas-website' && github.ref == 'refs/heads/prep/nyra-v17-controlled-20261117' && github.event_name == 'push'
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Syntax only for future offline verifier
+        shell: powershell
+        run: |
+          python -c "import ast,sys; ast.parse(open(sys.argv[1], encoding='utf-8').read())" .\ops\stage3g-prep-only\verify_after_explicit_resume.py
+          if ($LASTEXITCODE -ne 0) { throw 'FUTURE_VERIFIER_SYNTAX_FAILED' }
+      - name: Preparation-only extraction and no-activation guards
+        shell: powershell
+        run: .\ops\stage3g-prep-only\Test-PreparationOnly.ps1
