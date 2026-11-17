@@ -5,7 +5,8 @@ Set-StrictMode -Version 2
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSEdition -cne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5){throw 'WINDOWS51_REQUIRED'}
 Import-Module (Join-Path $Root 'NyraPreparationOnly.psm1') -Force -DisableNameChecking
-Add-Type -AssemblyName System.IO.Compression.FileSystem
+Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
 $Temp=Join-Path $env:RUNNER_TEMP ('nyra-preparation-only-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $Temp
 $script:Checks=0
