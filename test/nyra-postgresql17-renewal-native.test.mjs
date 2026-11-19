@@ -25,29 +25,18 @@ test('native PG17 renewal invalidates old/wrong credentials, enforces expiry and
   docker(['network','create','--internal',net]);network=true;
   docker(['run','-d','--name',name,'--network',net,'--restart','no',
    '--security-opt','no-new-privileges:true','-e','POSTGRES_PASSWORD='+secret(),
-   '-e','POSTGRES_DB=postgres',IMAGE]);container=true;
+   '-e','POSTGRES_DB=postgres',IMAGE,'postgres','-c','listen_addresses=127.0.0.1']);container=true;
   let ready=false;
   for(let i=0;i<100;i++){
-   try{docker(['exec',name,'pg_isready','-U','postgres','-d','postgres']);ready=true;break;}
+   try{docker(['exec',name,'pg_isready','-h','127.0.0.1','-p','5432','-U','postgres','-d','postgres']);ready=true;break;}
    catch{await delay(500);}
   }
   assert(ready,'PostgreSQL 17 did not initialize in disposable container');
   const version=Number(admin('show server_version_num;'));
   assert(version>=170000&&version<180000,'Expected PostgreSQL 17');
-  // This pinned Supabase image can start socket-only. The postgres role is
-  // not necessarily its superuser; use the image's bootstrap supabase_admin
-  // solely to configure this disposable test's container-local TCP listener.
-  // No Docker host ports are published and the Docker network is internal.
-  if(admin('show listen_addresses;')!=='127.0.0.1'){
-   docker(['exec','-i',name,'psql','-X','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1'], "ALTER SYSTEM SET listen_addresses = '127.0.0.1';");
-   docker(['restart',name]);
-   let socketReady=false;
-   for(let i=0;i<100;i++){
-    try{docker(['exec',name,'pg_isready','-U','postgres','-d','postgres']);socketReady=true;break;}
-    catch{await delay(500);}
-   }
-   assert(socketReady,'PostgreSQL socket did not return after disposable restart');
-  }
+  // The image's temporary init server is socket-only. Wait for the final
+  // postmaster's explicitly configured container-loopback TCP listener.
+  // No host ports are published; the Docker network remains internal.
   assert.equal(admin('show listen_addresses;'),'127.0.0.1');
   assert.equal(admin('show port;'),'5432');
   let tcpReady=false;
